@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+    <ItemGroup>
+        <ProjectReference Include="..\Archivist.Gateway.Application\Archivist.Gateway.Application.csproj"/>
+    </ItemGroup>
+
+</Project>

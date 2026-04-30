@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="Archivist.Gateway.Api/Archivist.Gateway.Api.csproj" />
+  <Project Path="Archivist.Gateway.Application/Archivist.Gateway.Application.csproj" />
+  <Project Path="Archivist.Gateway.Tests/Archivist.Gateway.Tests.csproj" />
+</Solution>
