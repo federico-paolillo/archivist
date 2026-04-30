@@ -1,6 +1,6 @@
-# CONVENTIONS.md
+# GENERAL.md
 
-Defines coding, testing, naming, configuration, error handling, logging, security, and repository conventions.
+Defines cross-module coding, testing, naming, configuration, error handling, logging, security, and repository conventions.
 
 Agents must treat conventions as binding unless a task explicitly changes them.
 
@@ -15,17 +15,17 @@ The accepted v0 architecture uses:
 - Preact with Vite for the web UI;
 - SQLite for metadata and queue state.
 
-Exact language versions, package managers, linters, and formatters are not yet specified. Feature planning or implementation tasks that introduce project structure must update this document with concrete toolchain commands before marking the task done.
+Exact language versions, package managers, linters, and formatters are specified in the relevant module convention files. Feature planning or implementation tasks that introduce project structure must update the appropriate convention file with concrete toolchain commands before marking the task done.
 
 ## Project Layout
 
-Production source layout is not yet specified.
+Production source layout is module-specific and documented in the relevant file under `docs/conventions/`.
 
 Canonical rebuild artifacts remain under `docs/` and `docs/specs/` according to `docs/REBUILD.md`. Feature planning tasks must create feature folders under `docs/specs/<feature-slug>/` and update `docs/specs/INDEX.md`.
 
 ## Naming
 
-No language-specific naming conventions are defined yet.
+Language-specific naming conventions are defined in module convention files when needed.
 
 Configuration keys use uppercase snake case, for example `DATA_DIR` and `TELEGRAM_BOT_TOKEN`.
 
@@ -52,7 +52,7 @@ A dedicated observability stack is out of scope for v0.
 
 ## Testing
 
-Concrete test framework, naming, and command conventions are not yet specified.
+Module-specific test framework, naming, and command conventions are defined in the relevant module convention files.
 
 Before any task is marked done, run the validation required by that task or its ExecPlan. If validation cannot be run, record the reason in the task and the relevant feature diary.
 
@@ -75,7 +75,7 @@ LLM_MODEL
 JINA_ENABLED
 ```
 
-Feature specs or tasks that add configuration keys must update this document and any affected architecture or design decisions.
+Feature specs or tasks that add configuration keys must update this file or the relevant module convention file, plus any affected architecture or design decisions.
 
 ## Security
 
@@ -95,4 +95,4 @@ Artifact writes under `/data` must be atomic: write to a temporary path, then re
 
 ## Identifiers
 
-Whenever an identifier is needed use an ULID. Do not use GUIDs and do not delegate identifier generation to the database.
+Whenever an identifier is needed, use a ULID. Do not use GUIDs and do not delegate identifier generation to the database.

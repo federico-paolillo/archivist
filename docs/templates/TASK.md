@@ -54,6 +54,19 @@ Expected outputs, files, behavior, or interfaces:
 TODO: list likely files, packages, executables, schemas, configs, or docs
 ```
 
+## Required Context
+
+Read before execution:
+
+- `../SPEC.md`
+- `../PLAN.md`
+- `docs/conventions/GENERAL.md`
+- TODO: relevant `docs/conventions/<MODULE>.md`
+- TODO: task-specific architecture or design docs, only if needed
+- TODO: related feature specs, only if needed
+
+Do not load unrelated feature folders unless listed here or required by dependencies.
+
 ## Acceptance Criteria
 
 ```gherkin

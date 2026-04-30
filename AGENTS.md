@@ -18,27 +18,36 @@ Historical logs may inform implementation, but they do not define required behav
 
 ---
 
-## Required Reading Order
+## Context Loading Policy
 
-Before planning or implementing, read:
+Start each request by reading only the orientation bundle:
 
-1. `docs/BOOKKEEPING.md`
+1. `AGENTS.md`
 2. `docs/REBUILD.md`
-3. `docs/ARCHITECTURE.md`
-4. `docs/CONVENTIONS.md`
-5. `docs/DESIGN.md`
-6. `docs/specs/INDEX.md`
+3. `docs/specs/INDEX.md`
 
-Before working on a feature, also read:
+Then classify the request before loading more context:
 
-1. `docs/specs/<feature>/SPEC.md`
-2. `docs/specs/<feature>/PLAN.md`
-3. related feature specs listed in `SPEC.md` or `PLAN.md`
+- planning
+- implementation
+- rebuild
+- standards change
+- review
+- question-answering
 
-Before implementing a task, also read:
+Identify the affected feature, module or modules, and durable surfaces before loading more files. Durable surfaces include architecture, design decisions, conventions, schema, API contracts, storage, authentication, deployment, and ALM process rules.
 
-1. `docs/specs/<feature>/tasks/<task>.md`
-2. the linked ExecPlan, if `exec_plan` is not null
+Load additional context by trigger:
+
+- `docs/BOOKKEEPING.md`: creating or updating specs, plans, tasks, ExecPlans, or diaries; changing task status; resolving dependency or concurrency questions; applying diary or ExecPlan rules.
+- `docs/ARCHITECTURE.md`: changing or depending on executables, service boundaries, storage, runtime topology, integrations, authentication boundaries, or deployment assumptions.
+- `docs/DESIGN.md`: relying on or changing durable cross-task decisions, decision rationale, or rebuild-relevant tradeoffs.
+- `docs/conventions/GENERAL.md`: implementation, validation, or standards changes.
+- `docs/conventions/<MODULE>.md`: work that touches or plans for that module.
+- Feature `SPEC.md`, `PLAN.md`, task files, and ExecPlans: work on that feature or task.
+- Related feature specs: only when listed in `docs/specs/INDEX.md`, the feature `SPEC.md`, the feature `PLAN.md`, task dependencies, or task required context.
+
+Do not load unrelated feature folders or the full `docs/` tree unless the request is explicitly a rebuild, audit, or cross-cutting standards change.
 
 ---
 
@@ -111,7 +120,7 @@ When implementing a task, update all relevant bookkeeping artifacts:
 1. task frontmatter status;
 2. task status row in `PLAN.md`;
 3. `DIARY.md` with an append-only entry;
-4. `SPEC.md`, `PLAN.md`, `CONVENTIONS.md`, `ARCHITECTURE.md`, or `DESIGN.md` if durable decisions changed;
+4. `SPEC.md`, `PLAN.md`, relevant `docs/conventions/*.md`, `ARCHITECTURE.md`, or `DESIGN.md` if durable decisions changed;
 5. `docs/specs/INDEX.md` if feature status or dependencies changed.
 
 ---

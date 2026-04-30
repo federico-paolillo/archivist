@@ -19,7 +19,7 @@ The planner agent produces or updates:
 - `docs/specs/<feature-slug>/PLAN.md`
 - optional `docs/specs/<feature-slug>/plans/*.execplan.md`
 - optional updates to `docs/specs/INDEX.md`
-- optional updates to `docs/ARCHITECTURE.md`, `docs/CONVENTIONS.md`, or `docs/DESIGN.md`
+- optional updates to `docs/ARCHITECTURE.md`, `docs/conventions/*.md`, or `docs/DESIGN.md`
 
 The planner does not implement code unless explicitly instructed.
 
@@ -40,19 +40,25 @@ Use this skill when the user asks to:
 
 ---
 
-## Required Context
+## Context Loading Policy
 
-Before planning, read:
+Start planning with the orientation bundle:
 
 ```text
 AGENTS.md
-docs/BOOKKEEPING.md
 docs/REBUILD.md
-docs/ARCHITECTURE.md
-docs/CONVENTIONS.md
-docs/DESIGN.md
 docs/specs/INDEX.md
 ```
+
+Then classify the planning request by affected feature, module or modules, and durable surfaces.
+
+Load additional context by trigger:
+
+- `docs/BOOKKEEPING.md`: creating or updating ALM artifacts, task dependencies, task status, ExecPlans, or diaries.
+- `docs/ARCHITECTURE.md`: planning executables, service boundaries, storage, runtime topology, integrations, authentication boundaries, or deployment assumptions.
+- `docs/DESIGN.md`: planning durable cross-task decisions, decision changes, or rebuild-relevant rationale.
+- `docs/conventions/GENERAL.md`: planning implementation, validation, or standards changes.
+- `docs/conventions/<MODULE>.md`: planning work for that module.
 
 If planning an existing feature, also read:
 
@@ -150,10 +156,11 @@ Use Gherkin-like scenarios for observable behavior.
 
 Before creating tasks, extract anything that should not be local to the feature.
 
-Promote these to global docs when needed:
+Promote these to canonical docs when needed:
 
 - architectural constraints → `docs/ARCHITECTURE.md`
-- coding or testing conventions → `docs/CONVENTIONS.md`
+- cross-module coding or testing conventions → `docs/conventions/GENERAL.md`
+- module-specific coding or testing conventions → relevant `docs/conventions/<MODULE>.md`
 - durable decisions → `docs/DESIGN.md`
 
 Do not bury standards inside tasks.

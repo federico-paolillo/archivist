@@ -17,7 +17,7 @@ AGENTS.md
 docs/BOOKKEEPING.md
 docs/REBUILD.md
 docs/ARCHITECTURE.md
-docs/CONVENTIONS.md
+docs/conventions/*.md
 docs/DESIGN.md
 docs/specs/INDEX.md
 docs/specs/*/SPEC.md
@@ -63,13 +63,16 @@ Read documents in this order:
 2. `docs/BOOKKEEPING.md`
 3. `docs/REBUILD.md`
 4. `docs/ARCHITECTURE.md`
-5. `docs/CONVENTIONS.md`
-6. `docs/DESIGN.md`
-7. `docs/specs/INDEX.md`
-8. feature `SPEC.md` files in dependency order
-9. feature `PLAN.md` files in dependency order
-10. task files in executable order
-11. linked ExecPlans when present
+5. `docs/conventions/GENERAL.md`
+6. relevant module convention files under `docs/conventions/`
+7. `docs/DESIGN.md`
+8. `docs/specs/INDEX.md`
+9. feature `SPEC.md` files in dependency order
+10. feature `PLAN.md` files in dependency order
+11. task files in executable order
+12. linked ExecPlans when present
+
+Always read `docs/conventions/GENERAL.md`. Read only the relevant module convention files unless the rebuild step spans modules.
 
 ---
 

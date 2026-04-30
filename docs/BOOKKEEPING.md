@@ -30,8 +30,12 @@ Implementation may discover missing decisions. When that happens, the decision m
     BOOKKEEPING.md
     REBUILD.md
     ARCHITECTURE.md
-    CONVENTIONS.md
     DESIGN.md
+    conventions/
+      GENERAL.md
+      GATEWAY.md
+      UI.md
+      WORKER.md
     templates/
       DIARY.md
       EXECPLAN.md
@@ -84,9 +88,11 @@ Describes global system architecture: executables, services, boundaries, data ow
 
 Architecture decisions that constrain all features belong here or in `docs/DESIGN.md`.
 
-### `docs/CONVENTIONS.md`
+### `docs/conventions/*.md`
 
 Defines coding, testing, naming, configuration, error handling, logging, security, and repository conventions.
+
+`docs/conventions/GENERAL.md` defines cross-module conventions. Module files such as `GATEWAY.md`, `WORKER.md`, and `UI.md` define conventions for their respective source areas.
 
 Agents must treat conventions as binding unless a task explicitly changes them.
 
@@ -153,7 +159,7 @@ AGENTS.md
 docs/BOOKKEEPING.md
 docs/REBUILD.md
 docs/ARCHITECTURE.md
-docs/CONVENTIONS.md
+docs/conventions/*.md
 docs/DESIGN.md
 docs/specs/INDEX.md
 docs/specs/*/SPEC.md
@@ -250,7 +256,7 @@ If implementation discovers a durable decision, it must be promoted from `DIARY.
 - the relevant task file
 - `docs/DESIGN.md`
 - `docs/ARCHITECTURE.md`
-- `docs/CONVENTIONS.md`
+- relevant `docs/conventions/*.md`
 
 ### 8. Rebuild
 
@@ -351,22 +357,21 @@ Schema, API contract, shared package, and configuration changes are usually bloc
 
 ---
 
-## Required Context Bundle for Task Execution
+## Task-Scoped Context Loading
 
-Before implementing a task, an agent must read:
+Task files and linked ExecPlans define the required execution context.
+
+The default implementation context is:
 
 ```text
-AGENTS.md
-docs/BOOKKEEPING.md
-docs/REBUILD.md
-docs/ARCHITECTURE.md
-docs/CONVENTIONS.md
-docs/DESIGN.md
-docs/specs/INDEX.md
+docs/conventions/GENERAL.md
+docs/conventions/<relevant-module>.md
 docs/specs/<feature>/SPEC.md
 docs/specs/<feature>/PLAN.md
 docs/specs/<feature>/tasks/<task>.md
 ```
+
+Read only the module convention files relevant to the task unless the task spans modules.
 
 If the task has an ExecPlan, also read:
 
@@ -374,7 +379,12 @@ If the task has an ExecPlan, also read:
 docs/specs/<feature>/plans/<task>.execplan.md
 ```
 
-If the feature declares related features, read the linked feature `SPEC.md` files and, when needed, their `PLAN.md` files.
+Load global docs by trigger, not by default:
+
+- `docs/BOOKKEEPING.md`: ALM artifact creation or update, task status changes, dependency or concurrency questions, diary rules, ExecPlan rules.
+- `docs/ARCHITECTURE.md`: executables, service boundaries, storage, runtime topology, integrations, authentication boundaries, deployment assumptions.
+- `docs/DESIGN.md`: durable cross-task decisions, decision changes, rebuild-relevant rationale.
+- Related feature specs: only when listed in `docs/specs/INDEX.md`, the feature `SPEC.md`, the feature `PLAN.md`, task dependencies, or task required context.
 
 ---
 
@@ -466,6 +476,7 @@ Avoid these:
 - creating tasks without stable IDs
 - creating ExecPlans without linking them to tasks
 - running agents without bounded context
+- loading the entire `docs/` tree without a declared trigger
 - letting agents infer cross-feature dependencies
 - decomposing features into one-file mechanical tasks with no validation boundary
 - duplicating contradictory rules across docs
@@ -482,7 +493,8 @@ AGENTS.md
 docs/BOOKKEEPING.md
 docs/REBUILD.md
 docs/ARCHITECTURE.md
-docs/CONVENTIONS.md
+docs/conventions/GENERAL.md
+docs/conventions/<module>.md
 docs/specs/INDEX.md
 docs/specs/<feature>/SPEC.md
 docs/specs/<feature>/PLAN.md

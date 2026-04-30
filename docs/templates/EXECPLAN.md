@@ -17,16 +17,15 @@ Describe the task objective and the expected implementation outcome.
 
 ## Required Context
 
-Read before executing:
+Start from the linked task's `Required Context` and the linked task file:
 
-- `docs/BOOKKEEPING.md`
-- `docs/REBUILD.md`
-- `docs/ARCHITECTURE.md`
-- `docs/CONVENTIONS.md`
-- `docs/DESIGN.md`
-- `../SPEC.md`
-- `../PLAN.md`
 - `../tasks/<TASK-ID>-<task-slug>.md`
+
+Add only ExecPlan-specific context:
+
+- TODO: additional `docs/ARCHITECTURE.md` sections, only if needed
+- TODO: additional `docs/DESIGN.md` decisions, only if needed
+- TODO: additional `docs/conventions/<MODULE>.md`, only if needed
 
 ## Assumptions
 
