@@ -12,6 +12,7 @@ Worker code lives under `src/worker/` and targets Go 1.26
 - `CGO_ENABLED=0`. The resulting binary must be a single-executable file.
 - We target Linux x64 first. If it's not too much of an hassle we support MacOS with Apple Silicon.
 - Each CLI command must live in its own file. I expect to see files like `/internal/app/attach.go` or `/internal/app/tmplvars.go`
+- We follow the [go-standards/project-layout](https://github.com/golang-standards/project-layout)
 - Run backend verification from `src/gateway/`:
 
 ```bash

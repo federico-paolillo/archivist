@@ -1,0 +1,13 @@
+app:
+  name: myapp
+debug: false
+claude:
+  path: claude
+  model: ""
+  bare: false
+  skipPermissions: false
+harness:
+  dir: .harness
+loop:
+  maxTries: 2
+  sessionTimeout: ""

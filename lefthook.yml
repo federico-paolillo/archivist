@@ -1,0 +1,78 @@
+lint:
+  parallel: true
+  commands:
+    golangci:
+      root: "src/worker/"
+      run: go tool golangci-lint run
+    biome:
+      root: "src/ui/"
+      run: npm run lint
+    dotnet:
+      root: "src/gateway/"
+      run: dotnet build
+
+test:
+  parallel: true
+  commands:
+    gotest:
+      root: "src/worker/"
+      run: go test -race -shuffle=on ./...
+    vitest:
+      root: "src/ui/"
+      run: npm run test
+    dotnet:
+      root: "src/gateway/"
+      run: dotnet test
+
+format:
+  parallel: true
+  commands:
+    golangci:
+      root: "src/worker/"
+      run: go tool golangci-lint run --fix
+    biome:
+      root: "src/ui/"
+      run: npm run format
+    dotnet:
+      root: "src/gateway/"
+      run: dotnet format
+
+cover:
+  commands:
+    gotest:
+      root: "src/worker/"
+      run: go test -shuffle=on -race -coverprofile=coverage.txt -covermode=atomic
+        ./...
+
+build:
+  parallel: true
+  commands:
+    gobuild:
+      root: "src/worker/"
+      run: go build -v ./...
+    npm:
+      root: "src/ui/"
+      run: npm run build
+    dotnet:
+      root: "src/gateway/"
+      run: dotnet build
+
+pre-push:
+  commands:
+    test:
+      glob:
+        - "*.go"
+        - "*.ts"
+        - "*.tsx"
+        - "*.cs"
+      run: go tool lefthook run test
+
+pre-commit:
+  commands:
+    lint:
+      glob:
+        - "*.go"
+        - "*.ts"
+        - "*.tsx"
+        - "*.cs"
+      run: go tool lefthook run lint
