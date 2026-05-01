@@ -39,11 +39,8 @@ The primary objective for v0 is reliability and simplicity, not feature complete
 
 ## Future Feature Seeds
 
-- Quiz generation from archived articles.
 - Playwright fallback for JavaScript-heavy sites.
-- Search and filtering.
-- Vector embeddings.
 - Tag management UI.
-- Browser extension.
 - Multi-user support.
 - Observability stack with OpenTelemetry and collector support.
+- Quiz generation from archived articles.
