@@ -42,6 +42,18 @@ If a diary entry contains a durable decision, promote it to a canonical document
 
 ---
 
+## Non-Canonical Scaffolding
+
+The following files are reusable scaffolding templates, not rebuild artifacts:
+
+```text
+docs/templates/*.md
+```
+
+Use templates to create canonical feature artifacts, but do not treat unresolved template placeholders as rebuild requirements.
+
+---
+
 ## Rebuild Rule
 
 For a full rebuild:

@@ -1,6 +1,6 @@
 ---
 name: planner-agent
-description: Turn a feature idea or product note into the repository's Markdown ALM structure. Produces SPEC.md, PLAN.md, task files, optional ExecPlans, and updates to the feature INDEX.
+description: Turn a feature idea or product note into the repository's Markdown ALM structure. Produces SPEC.md, PLAN.md, DIARY.md, task files, optional ExecPlans, and updates to the feature INDEX.
 when_to_use: Use when creating a feature specification, decomposing a feature into tasks, producing an implementation plan, identifying task dependencies, deciding on concurrency, creating ExecPlans, or preparing artifacts for full rebuilds.
 allowed-tools: Read Write Edit Grep Glob Bash(ls *)
 effort: high
@@ -15,6 +15,7 @@ Use this skill to help a human turn a feature idea, product note, or rough plan 
 The planner agent produces or updates:
 
 - `docs/specs/<feature-slug>/SPEC.md`
+- `docs/specs/<feature-slug>/DIARY.md`
 - `docs/specs/<feature-slug>/tasks/*.md`
 - `docs/specs/<feature-slug>/PLAN.md`
 - optional `docs/specs/<feature-slug>/plans/*.execplan.md`
@@ -122,6 +123,8 @@ admin-ui
 ```
 
 If the feature already exists, reuse its folder.
+
+When creating a new feature folder, create `DIARY.md` from `docs/templates/DIARY.md` along with `SPEC.md`, `PLAN.md`, `tasks/`, and `plans/`.
 
 ### 2. Classify Scope
 

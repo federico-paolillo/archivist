@@ -1,6 +1,6 @@
 # Personal Article Archivist Concept
 
-This file is a non-canonical product seed for later feature planning. Rebuild-critical architecture, constraints, and durable decisions live in `docs/ARCHITECTURE.md`, `docs/DESIGN.md`, and `docs/CONVENTIONS.md`.
+This file is a non-canonical product seed for later feature planning. Rebuild-critical architecture, constraints, and durable decisions live in `docs/ARCHITECTURE.md`, `docs/DESIGN.md`, and `docs/conventions/*.md`.
 
 ## Goal
 

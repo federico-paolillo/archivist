@@ -132,6 +132,16 @@ An ExecPlan is a detailed implementation plan for a complex task. Not every task
 
 ExecPlans are linked bidirectionally: the task points to its ExecPlan, and the ExecPlan points back to the task.
 
+ExecPlan status values are:
+
+```text
+proposed     drafted but not yet authoritative for execution
+accepted     approved and ready to guide implementation
+in_progress  currently being executed
+completed    task completed using this plan
+superseded   retained for history but replaced by another plan or task update
+```
+
 ### `docs/specs/<feature-slug>/DIARY.md`
 
 Append-only implementation log for the feature. It records what changed, why, validation performed, decisions discovered, and follow-ups.
@@ -142,9 +152,15 @@ Append-only implementation log for the feature. It records what changed, why, va
 
 A skill file defines a reusable agent workflow for a specific kind of task. Skills are not executed automatically; they must be explicitly invoked.
 
-The planner agent skill (`planner-agent/SKILL.md`) defines how to turn a feature idea into the full set of ALM artifacts: SPEC, PLAN, tasks, and optional ExecPlans.
+The planner agent skill (`planner-agent/SKILL.md`) defines how to turn a feature idea into the full set of ALM artifacts: SPEC, PLAN, DIARY, tasks, and optional ExecPlans.
 
 Skill files are not canonical rebuild artifacts. They are tooling for the humans and agents working on the project.
+
+### `docs/templates/*.md`
+
+Templates are non-canonical scaffolding files. They are reusable starting points for generated ALM artifacts, not rebuild inputs.
+
+Generated feature files become canonical only when they are created under a canonical path listed in `docs/REBUILD.md` and all template placeholders have been resolved.
 
 ---
 

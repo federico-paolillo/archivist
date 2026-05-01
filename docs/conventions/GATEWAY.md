@@ -4,7 +4,7 @@ Describes conventions and best-practices when working on the Gateway module.
 
 ## In general
 
-Backend code lives under `src/gateway/` and targets .NET 10 with C# 14. `be/Directory.Build.props` enables nullable reference types, implicit usings, latest analysis, and warnings as errors. 
+Backend code lives under `src/gateway/` and targets .NET 10 with C# 14. `src/gateway/Directory.Build.props` enables nullable reference types, implicit usings, latest analysis, and warnings as errors.
 
 Conventions:
 

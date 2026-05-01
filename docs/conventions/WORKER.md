@@ -11,9 +11,8 @@ Worker code lives under `src/worker/` and targets Go 1.26
 - Do not take shortcuts or make stub implementations. If you find something difficult to implement challenge the design.
 - `CGO_ENABLED=0`. The resulting binary must be a single-executable file.
 - We target Linux x64 first. If it's not too much of an hassle we support MacOS with Apple Silicon.
-- Each CLI command must live in its own file. I expect to see files like `/internal/app/attach.go` or `/internal/app/tmplvars.go`
 - We follow the [go-standards/project-layout](https://github.com/golang-standards/project-layout)
-- Run backend verification from `src/gateway/`:
+- Run worker verification from `src/worker/`:
 
 ```bash
 go tool lefthook run build
@@ -46,7 +45,7 @@ In addition to the `Root` type, the new `os.OpenInRoot` function provides a simp
 
 The `Root` type provides a simple, safe, portable API for operating with untrusted filenames.
 
-When possible and functionally correct use `Root` to handle file system interactions and traversal scoped to the `.harness` folder.
+When possible and functionally correct, use `Root` or `OpenInRoot` to handle filesystem interactions scoped to `DATA_DIR`, especially `/data/articles/{article_id}/` artifact paths.
 
 ## Composition root
 
@@ -56,11 +55,20 @@ Anytime you add a new service to the composition root you must test that it is c
 
 ## Configuration
 
-Whenever you introduce a new config setting always place it under the appropriate node (e.g. `claude` or `harness`) or make a new one. Place configuration at root level unless there are no better places.
+Worker configuration is loaded from environment variables or equivalent deployment secret mechanisms. Required v0 worker settings include:
 
-Add a sensible default to `func Default() *Root` and `config.example.yml`. 
+```text
+DATA_DIR
+SQLITE_PATH
+LLM_PROVIDER
+LLM_API_KEY
+LLM_MODEL
+JINA_ENABLED
+```
 
-Always extend `load_test.go` to assert default values and to assert environment variables are loaded.
+Whenever you introduce a worker configuration key, document it in `docs/conventions/GENERAL.md`, `docs/ARCHITECTURE.md`, and any affected feature spec or task. Add sensible defaults only for non-secret values.
+
+Always extend worker configuration tests to assert default values, required values, and environment variable loading.
 
 ## Error wrapping
 
