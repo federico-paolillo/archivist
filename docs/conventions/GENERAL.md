@@ -31,9 +31,9 @@ Configuration keys use uppercase snake case, for example `DATA_DIR` and `TELEGRA
 
 ## Error Handling
 
-Processing failures must be persisted in SQLite with enough context for the UI to show a failure state and for operators to diagnose the failed article/job.
+Processing failures must be persisted in SQLite with enough context for the UI to show a failure state, for Telegram completion replies to report the error, and for operators to diagnose the failed article/job.
 
-Failed jobs retry up to three times with backoff before entering a terminal dead state.
+v0 does not automatically retry failed jobs or failed Telegram notifications. Manual requeue is performed by sending the URL again unless a future feature changes this convention.
 
 ## Logging and Observability
 

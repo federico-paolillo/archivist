@@ -60,12 +60,12 @@ Suggested minimal format:
 
 **Decision:** SQLite is the authoritative store for state. The filesystem stores large raw and derived artifacts under `/data/articles/{article_id}/`.
 
-**Consequences:** Rebuild-critical state must be recoverable from SQLite plus the artifact paths it records. Artifact writes use temporary files followed by rename. Optional hashes may be added for integrity or debugging, but they are not required for v0.
+**Consequences:** Rebuild-critical state must be recoverable from SQLite plus deterministic artifact paths derived from `DATA_DIR` and `article_id`. Artifact writes use temporary files followed by rename. Optional hashes may be added for integrity or debugging, but they are not required for v0.
 
 ### DSGN-004: SQLite Job Queue With One Worker
 
 **Date:** 2026-04-30
-**Status:** accepted
+**Status:** superseded by DSGN-011
 
 **Context:** v0 needs retryable background processing without introducing an external queue.
 
@@ -104,4 +104,48 @@ Suggested minimal format:
 
 **Decision:** Summarization uses a provider-agnostic interface and produces strict JSON with `summary`, `key_points`, `tags`, and `template_version`.
 
-**Consequences:** Summary output must be schema-validated. Malformed LLM output is retried before the job is marked failed.
+**Consequences:** Summary output must be schema-validated. In v0, malformed LLM output fails the job instead of entering an automatic retry loop.
+
+### DSGN-008: Gateway Owns Telegram Replies
+
+**Date:** 2026-05-01
+**Status:** superseded by DSGN-011
+
+**Context:** Telegram ingestion needs both immediate acknowledgement replies and later terminal success/failure replies. The architecture already keeps gateway and worker communication through SQLite rather than direct RPC.
+
+**Decision:** The gateway owns all Telegram Bot API calls. The gateway sends immediate replies for accepted and invalid authorized webhook messages. The worker records terminal notification intent by writing SQLite outbox rows when Telegram-originated jobs complete or fail. The gateway dispatches those terminal outbox rows as replies to the original Telegram message.
+
+**Consequences:** The worker never depends on Telegram Bot API clients or gateway callback endpoints. Terminal notification delivery is retryable through SQLite outbox state. Telegram delivery failures do not mutate terminal article/job state.
+
+### DSGN-009: Persist External Identity Correlation Early
+
+**Date:** 2026-05-02
+**Status:** superseded by DSGN-010
+
+**Context:** v0 is single-user, but Telegram-originated work should be correlatable to future Archivist user records without reprocessing historical Telegram messages. Telegram sender user ID is distinct from chat ID and reply message ID.
+
+**Decision:** Accepted Telegram ingestions persist `telegram_user_id` as sender identity metadata and upsert an external identity correlation row keyed by `(provider, external_user_id)`, initially using provider `telegram` and the Telegram sender user ID. The correlation row includes nullable `archivist_user_id` because no canonical Archivist users table exists yet.
+
+**Consequences:** The system gains a durable future join point for multi-tenancy and per-user processing. v0 authorization remains `TELEGRAM_ALLOWED_USER_ID`; external identity correlation does not drive authorization, routing, ownership, or job behavior until a future feature changes the canonical docs.
+
+### DSGN-010: Seed Telegram Identity Correlation With Personal Account
+
+**Date:** 2026-05-03
+**Status:** superseded by DSGN-011
+
+**Context:** v0 is single-user and the first Archivist user account is known ahead of the broader user model. Keeping `archivist_user_id` non-null simplifies future correlation and avoids a later backfill for the personal Telegram account.
+
+**Decision:** Accepted Telegram ingestions upsert external identity correlation rows with provider `telegram`, the Telegram sender user ID as `external_user_id`, and `archivist_user_id = 01ASB2XFCZJY7WHZ2FNRTMQJCT`. This ULID is the personal Archivist account ID.
+
+**Consequences:** Historical Telegram-originated jobs can be correlated to the personal Archivist account once user-aware features exist. v0 authorization remains `TELEGRAM_ALLOWED_USER_ID`; the personal account ULID must not be used as a catch-all for future additional Telegram users.
+
+### DSGN-011: Simplified V0 Persistence Without Automatic Retries
+
+**Date:** 2026-05-03
+**Status:** accepted
+
+**Context:** v0 should minimize persistence shape and operational obligations. Automatic retries require observability and operational policy that are out of scope. Telegram delivery failures and worker failures must still be visible enough for manual requeue by sending the URL again.
+
+**Decision:** v0 persistence uses `users`, `articles`, `jobs`, and `notifications`. The personal `users.id` is `01ASB2XFCZJY7WHZ2FNRTMQJCT`, with `telegram_user_id` stored directly on that row. Jobs have only `queued`, `running`, `succeeded`, and `failed` states and are claimed atomically with `UPDATE ... RETURNING`; there are no retry, backoff, or lock-owner fields. Notifications have only `pending`, `sent`, and `failed` states and are not retried. Notification dispatch derives reply targets from jobs and success content from article artifacts. Article artifact paths are computed from `DATA_DIR` and `article_id`; artifact path columns and extraction telemetry columns are not stored.
+
+**Consequences:** The database remains small and rebuildable. Failures are terminal in v0 and surface through persisted error fields. Users can manually re-send URLs to create new processing jobs. Future retry support, multi-worker locking, richer notification metadata, or extraction observability must be introduced by new canonical specs and design updates.

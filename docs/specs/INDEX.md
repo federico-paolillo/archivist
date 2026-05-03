@@ -10,7 +10,7 @@ This file prevents scattered feature folders from becoming unmanageable.
 
 | Slug | Title | Status | Depends On | Spec | Plan |
 |---|---|---|---|---|---|
-| — | — | — | — | — | — |
+| `telegram-ingestion` | Telegram Ingestion | draft | — | [`SPEC.md`](./telegram-ingestion/SPEC.md) | [`PLAN.md`](./telegram-ingestion/PLAN.md) |
 
 Status values: `draft` \| `in_progress` \| `done` \| `blocked` \| `skipped`
 

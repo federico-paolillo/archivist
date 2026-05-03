@@ -37,8 +37,10 @@ The system favors a small, rebuildable deployment over horizontal scale. SQLite 
   - accept URLs only from the configured Telegram user;
   - create article records;
   - enqueue article processing jobs;
+  - send immediate Telegram replies for accepted or invalid authorized ingestion messages;
+  - dispatch terminal Telegram completion replies from SQLite notifications;
   - expose authenticated API endpoints for the UI;
-  - support basic admin actions, including retry and delete.
+  - support basic admin delete actions.
 
 ### Worker
 
@@ -53,7 +55,8 @@ The system favors a small, rebuildable deployment over horizontal scale. SQLite 
   - score extraction candidates and select the best candidate;
   - call the configured LLM summarizer;
   - validate summary JSON;
-  - persist artifacts and final article/job state.
+  - persist artifacts and final article/job state;
+  - create terminal notification rows for Telegram-originated jobs.
 
 ### Web UI
 
@@ -62,11 +65,11 @@ The system favors a small, rebuildable deployment over horizontal scale. SQLite 
   - show the article list;
   - show article detail;
   - display summary, key points, tags, Markdown content, original link, and failure messages;
-  - expose retry and delete actions.
+  - expose delete actions.
 
 ## Data Storage
 
-SQLite is the source of truth for article state, job state, processing status, artifact paths, and error state.
+SQLite is the source of truth for user state, article state, job state, notification state, and error state.
 
 Filesystem storage under `/data` stores larger raw and derived artifacts:
 
@@ -78,38 +81,58 @@ Filesystem storage under `/data` stores larger raw and derived artifacts:
       snapshot.html
       content.md
       summary.json
+      summary.md
       metadata.json
 ```
 
-Artifact writes must be atomic: write to a temporary path and then rename into place. Optional artifact hashes may be stored for integrity checks and debugging.
+Artifact writes must be atomic: write to a temporary path and then rename into place. Artifact paths are deterministic from `DATA_DIR` and `article_id`; v0 does not store artifact path columns in SQLite. Optional artifact hashes may be stored for integrity checks and debugging if a future spec requires them.
+
+Core user state includes:
+
+- `id`: seeded as `01ASB2XFCZJY7WHZ2FNRTMQJCT` for the personal account in v0
+- `telegram_user_id`
 
 Core article state includes:
 
 - `id`
+- `user_id`
 - `original_url`
 - `canonical_url`
 - `title`
-- `domain`
-- `status`: `pending`, `processing`, `ready`, or `failed`
-- `selected_extractor`
-- `extractor_score`
-- artifact paths for snapshot, Markdown, summary, and metadata
+- `status`: `queued`, `ready`, or `failed`
 - `error_message`
 - `created_at`
-- `processed_at`
 
 Core job state includes:
 
 - `id`
+- `user_id`
 - `article_id`
 - `type`
-- `status`: `queued`, `running`, `succeeded`, `failed`, `retrying`, or `dead`
-- `attempts`
-- `run_after`
-- `locked_at`
-- `locked_by`
+- `status`: `queued`, `running`, `succeeded`, or `failed`
+- `telegram_update_id`
+- `telegram_chat_id`
+- `telegram_message_id`
+- `telegram_user_id`
 - `error_message`
 - `created_at`
+- `started_at`
+- `completed_at`
+- `expires_at`
+
+Telegram update idempotency is keyed by `jobs.telegram_update_id`.
+
+Notification state includes:
+
+- `id`
+- `job_id`
+- `status`: `pending`, `sent`, or `failed`
+- `error_message`
+- `created_at`
+- `sent_at`
+- `expires_at`
+
+Jobs do not retry automatically in v0. Notifications do not retry automatically in v0. Failed jobs and failed notifications persist error text so the user can manually re-send the URL or the operator can diagnose the issue.
 
 ## Service Boundaries and Communication
 
@@ -117,13 +140,21 @@ The gateway and worker communicate through SQLite, not direct RPC.
 
 The UI communicates only with the gateway API. It must not read SQLite or filesystem artifacts directly.
 
-The worker owns processing jobs and filesystem artifact production. The gateway owns request authentication, article/job creation, UI-facing API behavior, and admin actions.
+The worker owns processing jobs, filesystem artifact production, final article/job state, and creation of terminal notification rows. The gateway owns request authentication, article/job creation, Telegram API calls, terminal notification dispatch, UI-facing API behavior, and admin actions.
 
 ## External Integrations
 
 ### Telegram
 
 Telegram is the only v0 ingestion channel. The gateway accepts Telegram webhook requests and rejects requests that do not match the configured webhook secret or allowed Telegram user ID.
+
+Authorized Telegram messages must contain exactly one trimmed absolute `http` or `https` URL. Invalid authorized messages receive `Nope, you must send only an URL`. Valid queued URL messages receive `Ok, I will have a look` after the article/job enqueue transaction commits. Completion replies are sent later by the gateway from SQLite notification rows, as replies to the original Telegram message.
+
+The gateway persists the Telegram sender user ID separately from `telegram_chat_id` and `telegram_message_id`. `telegram_user_id` is sender identity metadata. `telegram_chat_id` and `telegram_message_id` are reply-target metadata.
+
+The v0 personal account ULID must not be treated as a catch-all for future multi-user ingestion. Any feature that accepts additional Telegram users must define explicit identity-linking behavior before changing `TELEGRAM_ALLOWED_USER_ID` authorization semantics.
+
+The worker must not call Telegram APIs directly.
 
 ### Article Websites
 
@@ -189,6 +220,7 @@ JINA_ENABLED
 - Single Go worker instance in v0.
 - SQLite-backed metadata and job queue.
 - Filesystem-backed artifact storage.
+- No automatic worker retries or Telegram notification retries in v0.
 - No external queue system in v0.
 - No Playwright or headless browser rendering in v0.
 - No full-text search, filtering, advanced tagging, browser extension, PWA/offline mode, or observability stack in v0.
