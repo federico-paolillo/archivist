@@ -45,3 +45,38 @@ Canonical Updates:
 - `docs/conventions/ERRORS.md`
 - `docs/conventions/GENERAL.md`
 - `docs/conventions/WORKER.md`
+
+## 2026-05-04 — MDEXT-DOC: Provider Boundary And Summary Supersession
+
+Status:
+- completed
+
+Summary:
+- Amended Markdown extraction planning so local and Jina extraction run behind `MarkdownExtractor`, and summary generation supersedes Markdown-complete terminal success.
+
+Changes:
+- Updated `SPEC.md`, `PLAN.md`, `MDEXT-003`, `MDEXT-004`, `MDEXT-005`, and the `MDEXT-005` ExecPlan.
+- Added the `MDEXT-004` Jina fallback ExecPlan.
+- Marked `MDEXT-006` skipped because `SUMGEN-005` owns final success notifications.
+
+Decisions:
+- Pipeline orchestration depends on `MarkdownExtractor`, not go-readability or Jina SDK/client types.
+- Jina uses an official suitable SDK when one exists; otherwise the Worker uses a small internal Reader adapter.
+- Markdown completion is intermediate once summary generation is implemented.
+
+Validation:
+- Documentation consistency checked by repository search and review.
+
+Follow-ups:
+- Implement `MDEXT-004` with SDK availability verification at execution time.
+- Implement `SUMGEN-002` after `MDEXT-005` is done.
+
+Canonical Updates:
+- `docs/specs/markdown-extraction/SPEC.md`
+- `docs/specs/markdown-extraction/PLAN.md`
+- `docs/specs/markdown-extraction/tasks/MDEXT-003-worker-go-readability-extraction.md`
+- `docs/specs/markdown-extraction/tasks/MDEXT-004-worker-jina-reader-fallback.md`
+- `docs/specs/markdown-extraction/tasks/MDEXT-005-worker-markdown-pipeline-integration.md`
+- `docs/specs/markdown-extraction/tasks/MDEXT-006-gateway-markdown-success-notification.md`
+- `docs/specs/markdown-extraction/plans/MDEXT-004-worker-jina-reader-fallback.execplan.md`
+- `docs/specs/markdown-extraction/plans/MDEXT-005-worker-markdown-pipeline-integration.execplan.md`

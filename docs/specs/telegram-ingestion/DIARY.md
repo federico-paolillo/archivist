@@ -64,3 +64,29 @@ Canonical Updates:
 - `docs/specs/telegram-ingestion/tasks/TELING-003-worker-terminal-notification-contract.md`
 - `docs/specs/telegram-ingestion/tasks/TELING-004-telegram-notification-dispatcher.md`
 - `docs/specs/telegram-ingestion/plans/TELING-004-telegram-notification-dispatcher.execplan.md`
+
+## 2026-05-04 — TELING-DOC: Summary Notification Alignment
+
+Status:
+- completed
+
+Summary:
+- Aligned Telegram terminal notification docs with summary-complete final success.
+
+Changes:
+- Updated success notification requirements and task/ExecPlan wording to treat snapshot-only replies as interim bridges only.
+
+Decisions:
+- Final v0 successful Telegram terminal replies are summary-based and owned by `SUMGEN-005`.
+
+Validation:
+- Documentation consistency checked by repository search and review.
+
+Follow-ups:
+- Implement `SUMGEN-005` after Worker summary completion exists.
+
+Canonical Updates:
+- `docs/specs/telegram-ingestion/SPEC.md`
+- `docs/specs/telegram-ingestion/tasks/TELING-003-worker-terminal-notification-contract.md`
+- `docs/specs/telegram-ingestion/tasks/TELING-004-telegram-notification-dispatcher.md`
+- `docs/specs/telegram-ingestion/plans/TELING-004-telegram-notification-dispatcher.execplan.md`

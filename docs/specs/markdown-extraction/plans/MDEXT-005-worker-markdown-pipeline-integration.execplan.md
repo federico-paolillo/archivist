@@ -35,9 +35,9 @@ Add only ExecPlan-specific context:
 
 - `ARTPROC-005` has provided the Worker pipeline that snapshots HTML and persists snapshot-related failures.
 - `MDEXT-002` provides atomic `content.md` writes.
-- `MDEXT-003` provides local extraction results that distinguish success, unreadable, and failure.
-- `MDEXT-004` provides Jina fallback results with ARC-coded failure mapping.
-- Markdown success is the terminal completion point until the future summary feature supersedes it.
+- `MDEXT-003` provides a local go-readability `MarkdownExtractor`.
+- `MDEXT-004` provides a Jina Reader `MarkdownExtractor` with ARC-coded failure mapping.
+- Markdown success is the terminal completion point only until `summary-generation` supersedes it.
 
 ## Non-Goals
 
@@ -52,17 +52,18 @@ Add only ExecPlan-specific context:
 1. Identify the existing Worker pipeline stage after `snapshot.html` is promoted.
 2. Replace snapshot-only terminal success with a Markdown extraction stage.
 3. Read snapshot HTML through the artifact layer.
-4. Call the local go-readability extractor with snapshot bytes and canonical URL.
+4. Call the local `MarkdownExtractor` with snapshot bytes and canonical URL.
 5. On local success, retain the Markdown and selected provider metadata.
-6. On local unreadable or local extraction failure, log the fallback reason and call Jina Reader when enabled.
+6. On local unreadable or local extraction failure, log the fallback reason and call the Jina `MarkdownExtractor` when enabled.
 7. On Jina success, retain the Markdown and selected provider metadata.
 8. On Jina failure, map the terminal public error to the Jina ARC code; use `ARC-011` for insufficient balance.
 9. Atomically write `content.md` before opening the terminal success transaction.
-10. Persist Markdown success in one transaction: set article `ready`, clear article error, mark job `succeeded`, set completion/TTL fields, and insert one pending notification.
-11. Persist Markdown failure in one transaction: set article `failed`, set ARC-coded `articles.error_message`, mark job `failed`, persist job error context, set completion/TTL fields, and insert one pending notification.
-12. Add structured logs for provider attempts, fallback reason, selected provider, `article_id`, `job_id`, canonical URL, duration, ARC code, and artifact write result.
-13. Add tests for local success, local unreadable plus Jina success, local failure plus Jina success, Jina general failure, Jina insufficient balance, Markdown write failure, notification creation, and rollback behavior.
-14. Update task status, `PLAN.md`, and `DIARY.md` after validation if implementation is completed.
+10. If summary generation is not yet implemented, persist Markdown success in one transaction: set article `ready`, clear article error, mark job `succeeded`, set completion/TTL fields, and insert one pending notification.
+11. If summary generation is implemented, hand off to the summary stage after `content.md` is promoted and do not mark the article/job succeeded at the Markdown boundary.
+12. Persist Markdown failure in one transaction: set article `failed`, set ARC-coded `articles.error_message`, mark job `failed`, persist job error context, set completion/TTL fields, and insert one pending notification.
+13. Add structured logs for provider attempts, fallback reason, selected provider, `article_id`, `job_id`, canonical URL, duration, ARC code, and artifact write result.
+14. Add tests for local success, local unreadable plus Jina success, local failure plus Jina success, Jina general failure, Jina insufficient balance, Markdown write failure, notification creation, abstraction boundaries, and rollback behavior.
+15. Update task status, `PLAN.md`, and `DIARY.md` after validation if implementation is completed.
 
 ## Validation Plan
 

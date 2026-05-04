@@ -34,6 +34,10 @@ Detailed HTTP, filesystem, library, stack, or provider diagnostics belong in str
 | `ARC-010` | Jina Reader fallback failed | Archivist could not extract this page with the fallback reader. |
 | `ARC-011` | Jina Reader insufficient balance | Archivist could not use the fallback reader because the Jina account is out of credit. |
 | `ARC-012` | Markdown artifact write failed | Archivist could not store the Markdown article. |
+| `ARC-013` | Summarizer provider failure | Archivist could not summarize this article. |
+| `ARC-014` | Summarizer context or request is too large | This article is too large to summarize. |
+| `ARC-015` | Summarizer billing failure | Archivist could not use the summarizer because the provider account has a billing issue. |
+| `ARC-016` | Summary artifact write failed | Archivist could not store the article summary. |
 | `ARC-999` | Unknown processing failure | Archivist could not process the URL. |
 
 ## Rules

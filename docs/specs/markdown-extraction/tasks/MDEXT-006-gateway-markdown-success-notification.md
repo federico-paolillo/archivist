@@ -2,7 +2,7 @@
 id: MDEXT-006
 feature: markdown-extraction
 title: Gateway Markdown Success Notification
-status: blocked
+status: skipped
 depends_on: [MDEXT-005, TELING-004]
 blocks: []
 parallel: false
@@ -14,21 +14,18 @@ canonical: true
 
 ## Objective
 
-Update Gateway terminal notification dispatch so succeeded Markdown-complete jobs produce deterministic success replies.
+This task is skipped because `summary-generation` supersedes Markdown-complete terminal success before this bridge is implemented.
 
 ## Story / Context
 
-As the authorized Telegram user, I need a terminal reply after Markdown extraction succeeds even though summary generation is specified in a later feature.
+As the authorized Telegram user, I ultimately need the generated summary, so Gateway success notification work continues in `SUMGEN-005`.
 
 ## Scope
 
 This task includes:
 
-- Success notification content selection for succeeded jobs with `content.md`.
-- Deterministic Markdown-complete Telegram reply text.
-- Tests covering Markdown-complete success notification.
-- Documentation that this bridge must be superseded by the future summary feature.
-- Removal or replacement of snapshot-only success behavior introduced by `ARTPROC-006` if it exists.
+- Historical Markdown-complete Telegram reply text only if this task is explicitly revived before summary generation.
+- Documentation that this bridge is superseded by `summary-generation`.
 
 ## Out of Scope
 
@@ -53,8 +50,7 @@ Required inputs, existing files, interfaces, or decisions:
 
 Expected outputs, files, behavior, or interfaces:
 
-- Gateway dispatcher success branch for Markdown-complete jobs.
-- Gateway tests for Markdown-complete success and ARC-coded failure notification behavior.
+- No production outputs while skipped.
 
 ## Expected Affected Areas
 
@@ -79,13 +75,13 @@ Do not load unrelated feature folders unless listed here or required by dependen
 ## Acceptance Criteria
 
 ```gherkin
-Scenario: Markdown-complete success notification is sent
+Scenario: Markdown-complete success notification is superseded
   Given a pending notification exists for a succeeded job
   And the article has content.md
-  And no summary artifact exists
-  When the Gateway dispatcher sends the terminal reply
-  Then it sends deterministic Markdown-complete success text
-  And marks the notification sent if Telegram accepts the reply
+  And summary-generation is planned
+  When this task is evaluated for implementation
+  Then implementation is skipped
+  And summary notification behavior is handled by SUMGEN-005
 
 Scenario: ARC-coded failure notification is sent
   Given a pending notification exists for a failed job
@@ -97,11 +93,9 @@ Scenario: ARC-coded failure notification is sent
 
 ## Done When
 
-- Markdown-complete success notifications are supported.
-- Snapshot-only success is no longer the terminal success notification for this sequence.
-- Missing summary artifacts for Markdown-complete jobs do not fail notification delivery.
-- Failure notifications preserve ARC-coded job error text.
-- Tests cover Markdown-complete success and ARC-coded failure.
+- Task remains skipped unless explicitly revived.
+- Summary-complete success notifications are implemented by `SUMGEN-005`.
+- Failure notification preservation remains covered by `TELING-004` and `SUMGEN-005`.
 - Task status and `PLAN.md` are updated if the task is completed.
 - `DIARY.md` has an entry if implementation is performed.
 
@@ -117,7 +111,7 @@ cd src/gateway && dotnet test
 
 Manual validation, if any:
 
-- None.
+- None while skipped.
 
 ## Dependencies
 
@@ -144,4 +138,4 @@ null
 
 ## Notes
 
-- This bridge is not the final v0 success notification contract. The future summary feature must replace it with summary-based completion.
+- Skipped because `summary-generation` supersedes Markdown-complete terminal success with summary-complete success before this bridge is implemented.

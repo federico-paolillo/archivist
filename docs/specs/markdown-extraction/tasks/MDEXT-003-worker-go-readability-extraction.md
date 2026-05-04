@@ -14,7 +14,7 @@ canonical: true
 
 ## Objective
 
-Implement local Markdown extraction from HTML using go-readability v2 and HTML-to-Markdown conversion.
+Implement local Markdown extraction from HTML using go-readability v2 and HTML-to-Markdown conversion behind the Worker-owned `MarkdownExtractor` interface.
 
 ## Story / Context
 
@@ -26,6 +26,7 @@ This task includes:
 
 - Adding `codeberg.org/readeck/go-readability/v2`.
 - Adding `github.com/JohannesKaufmann/html-to-markdown/v2`.
+- Implementing the shared Worker-owned `MarkdownExtractor` contract for the local extractor.
 - Parsing saved HTML snapshot bytes with canonical URL context.
 - Calling `CheckDocument()` before accepting local readability output.
 - Returning a typed local unreadable result when `CheckDocument()` returns false.
@@ -57,7 +58,7 @@ Required inputs, existing files, interfaces, or decisions:
 
 Expected outputs, files, behavior, or interfaces:
 
-- Worker local extractor service or package.
+- Worker local `MarkdownExtractor` implementation.
 - Tests for local extraction result classes.
 
 ## Expected Affected Areas
@@ -105,7 +106,8 @@ Scenario: local conversion fails
 
 ## Done When
 
-- Worker has a local extractor using go-readability v2.
+- Worker has a local `MarkdownExtractor` using go-readability v2.
+- Local implementation does not leak go-readability or converter types into pipeline orchestration.
 - `CheckDocument()` gates local success.
 - Local extraction output is Markdown, not raw HTML.
 - Local unreadable documents are distinguishable from unknown failures.

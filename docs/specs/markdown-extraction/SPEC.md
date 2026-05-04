@@ -13,7 +13,7 @@ canonical: true
 
 ## Intent
 
-Extract readable Markdown from successfully snapshotted article HTML, persist it as the canonical Markdown artifact, and make Markdown extraction the current terminal success point for article-processing jobs until the later summary feature supersedes it.
+Extract readable Markdown from successfully snapshotted article HTML, persist it as the canonical Markdown artifact, and provide the input to summary generation. Markdown extraction is an intermediate stage once `summary-generation` exists.
 
 ## Motivation
 
@@ -30,12 +30,13 @@ In scope:
 - Jina Reader fallback only when local extraction cannot produce Markdown.
 - Preference for an official Jina Reader Go SDK if one exists at implementation time.
 - Small internal Jina Reader adapter only when no suitable official Reader SDK exists.
+- A Worker-owned `MarkdownExtractor` abstraction for local and external extraction providers.
 - Atomic Markdown artifact writes to `{DATA_DIR}/articles/{article_id}/content.md`.
-- Worker terminal success only after `content.md` is promoted.
+- Worker terminal success after `content.md` only until `summary-generation` supersedes Markdown completion.
 - Worker terminal failure when both local extraction and Jina fallback fail.
 - ARC-coded public errors for local extraction, Jina fallback, Jina insufficient balance, and Markdown writes.
 - Structured Worker logs for critical extraction decisions and provider fallback.
-- Gateway success notification behavior for Markdown-complete jobs.
+- Gateway success notification behavior for Markdown-complete jobs only until `summary-generation` supersedes Markdown completion.
 
 ## Out of Scope
 
@@ -72,14 +73,18 @@ Not included:
 - REQ-009: Jina integration must prefer an official Jina Reader Go SDK if one exists at implementation time.
 - REQ-010: If no suitable official Jina Reader Go SDK exists, the Worker may implement a small internal HTTP adapter for the Reader API.
 - REQ-011: The Worker must not use untagged or low-adoption third-party Jina Reader wrappers as production dependencies.
-- REQ-012: The Worker must persist Markdown to `{DATA_DIR}/articles/{article_id}/content.md`.
+- REQ-012: The Worker must expose local and Jina extraction through a shared Worker-owned `MarkdownExtractor` interface.
+- REQ-012A: The go-readability implementation must run behind `MarkdownExtractor` and must not leak library-specific types into pipeline orchestration.
+- REQ-012B: The Jina Reader implementation must run behind `MarkdownExtractor` and must not leak Jina SDK/client types into pipeline orchestration.
+- REQ-012C: Jina integration must use an official Jina-provided SDK if a suitable Reader API SDK exists for the implementation language. If no suitable official SDK exists, the Worker may implement a small internal Reader adapter.
+- REQ-012D: The Worker must persist Markdown to `{DATA_DIR}/articles/{article_id}/content.md`.
 - REQ-013: Markdown writes must be atomic: write a temporary file, then rename into place.
-- REQ-014: Markdown success must set `articles.status = ready`, clear `articles.error_message`, set `jobs.status = succeeded`, set terminal timestamps/TTL, and insert exactly one pending notification in one SQLite transaction.
+- REQ-014: Markdown success is an interim terminal success only when summary generation is not implemented. In final v0, Markdown success must continue to summary generation and must not set `articles.status = ready`, set `jobs.status = succeeded`, or insert a success notification.
 - REQ-015: Markdown failure must set `articles.status = failed`, set `articles.error_message` to an ARC-coded public error, set `jobs.status = failed`, persist job error context, set terminal timestamps/TTL, and insert exactly one pending notification in one SQLite transaction.
 - REQ-016: Persisted public article errors must use codes defined in `docs/conventions/ERRORS.md`.
 - REQ-017: The Worker must log provider attempts, fallback reason, selected provider, ARC code on failure, `article_id`, `job_id`, canonical URL, duration, and artifact write result when available.
-- REQ-018: The Gateway must send a deterministic Markdown-complete success reply for succeeded jobs with `content.md`.
-- REQ-019: Snapshot-only success notification is superseded by Markdown-complete success.
+- REQ-018: The Gateway must send a deterministic Markdown-complete success reply for succeeded jobs with `content.md` only until `summary-generation` supersedes this behavior.
+- REQ-019: Snapshot-only and Markdown-complete success notifications are superseded by summary-complete success in final v0.
 - REQ-020: This feature must not call an LLM summarizer.
 
 ## Acceptance Criteria
@@ -182,8 +187,9 @@ No artifact paths, provider telemetry columns, failure-code columns, score colum
 - Local extraction library: `codeberg.org/readeck/go-readability/v2`.
 - Local Markdown conversion library: `github.com/JohannesKaufmann/html-to-markdown/v2`.
 - Jina fallback: Reader API through an official Reader Go SDK if available, otherwise a small internal adapter.
-- Worker terminal state contract: article update, job update, and notification insert in one transaction.
-- Gateway notification dispatcher: sends failure replies from job error text and Markdown-complete success replies for succeeded jobs with `content.md`.
+- Worker extractor contract: `MarkdownExtractor` implementations return success, local unreadable, or ARC-coded failure without exposing provider SDK types to orchestration.
+- Worker terminal state contract: article update, job update, and notification insert in one transaction only when Markdown completion is still the current terminal success point.
+- Gateway notification dispatcher: sends failure replies from job error text and Markdown-complete success replies for succeeded jobs with `content.md` only until summary generation supersedes this behavior.
 
 ## Dependencies
 
@@ -208,7 +214,7 @@ Impacts:
 ## Rebuild Notes
 
 - Existing code is not authoritative; rebuilds must follow this spec and linked tasks.
-- Markdown completion is the current terminal success point until the future summary feature supersedes it.
+- Markdown completion is an intermediate stage once `summary-generation` is implemented. Final v0 success is summary-complete.
 - Do not restore candidate scoring for v0 unless a future canonical decision changes the extraction strategy.
 - Do not add article artifact path columns.
 - Do not call an LLM summarizer from this feature.

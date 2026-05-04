@@ -51,7 +51,7 @@ Required inputs, existing files, interfaces, or decisions:
 
 - Completed `TELING-001` persistence contract.
 - Worker job terminal state model.
-- Structured summary artifact contract from broader processing work when available.
+- Text summary artifact contract from summary generation when available.
 
 ## Outputs
 

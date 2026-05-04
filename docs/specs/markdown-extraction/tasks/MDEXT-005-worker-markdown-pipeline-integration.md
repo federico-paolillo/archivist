@@ -14,7 +14,7 @@ canonical: true
 
 ## Objective
 
-Integrate Markdown extraction into the Worker pipeline so terminal success is committed only after `content.md` is atomically written.
+Integrate Markdown extraction into the Worker pipeline through the `MarkdownExtractor` abstraction so `content.md` is atomically written before the pipeline continues to summary generation or, until summary generation exists, commits interim terminal success.
 
 ## Story / Context
 
@@ -24,11 +24,12 @@ As the Worker, I need the article-processing pipeline to progress from HTML snap
 
 This task includes:
 
-- Pipeline sequence after HTML snapshotting: local extraction, optional Jina fallback, Markdown artifact write, terminal transition.
+- Pipeline sequence after HTML snapshotting: local extractor, optional Jina extractor fallback, Markdown artifact write, and either summary-generation handoff or interim terminal transition.
+- Calling only the Worker-owned `MarkdownExtractor` contract from orchestration code.
 - Structured logs for provider attempts, fallback decisions, selected provider, ARC code, and artifact write result.
 - Markdown-success transaction updating article status, job success, TTL, and notification row.
 - Markdown-failure transaction updating article failure state, job failure state, TTL, and notification row.
-- Tests for success, fallback, provider failure, artifact failure, logging, and transactional behavior.
+- Tests for abstraction usage, success, fallback, provider failure, artifact failure, logging, and transactional behavior.
 
 ## Out of Scope
 
@@ -55,7 +56,7 @@ Required inputs, existing files, interfaces, or decisions:
 
 Expected outputs, files, behavior, or interfaces:
 
-- Worker pipeline orchestration with Markdown extraction.
+- Worker pipeline orchestration with Markdown extraction through `MarkdownExtractor`.
 - Transactional terminal state persistence after Markdown success or failure.
 - Tests for Markdown-complete pipeline behavior.
 
@@ -123,7 +124,9 @@ Scenario: extraction failure is committed transactionally
 
 ## Done When
 
-- Worker pipeline marks success only after `content.md` is promoted.
+- Worker pipeline calls extractor abstractions only; provider-specific SDK types do not enter orchestration.
+- Worker pipeline marks Markdown-stage success only after `content.md` is promoted.
+- Final v0 success remains blocked on summary generation once `summary-generation` is implemented.
 - Failure sets article failed, stores ARC-coded public error, sets job failed, and inserts notification in one transaction.
 - Logs capture provider attempt, fallback reason, selected provider, ARC code, and artifact write result.
 - Tests cover local success, Jina fallback success, provider failure, Markdown write failure, notification creation, and transaction rollback behavior.
@@ -172,4 +175,4 @@ ExecPlan:
 
 ## Notes
 
-- The future summary feature must supersede Markdown success as the final processing completion criterion.
+- The `summary-generation` feature supersedes Markdown success as the final processing completion criterion.

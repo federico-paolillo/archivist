@@ -14,7 +14,7 @@ canonical: true
 
 ## Objective
 
-Implement the Worker pipeline that claims article-processing jobs, fetches HTML, stores `snapshot.html`, runs documented no-op future stages, and commits terminal article/job/notification state transactionally.
+Implement the Worker pipeline that claims article-processing jobs, fetches HTML, stores `snapshot.html`, and either commits interim terminal state when no downstream pipeline exists or hands off to Markdown extraction in final v0.
 
 ## Story / Context
 
@@ -26,7 +26,8 @@ This task includes:
 
 - Job claim integration for article-processing jobs.
 - Pipeline stages: dequeue, resolve/fetch, snapshot, extraction slot no-op, rating slot no-op, terminal transition.
-- Snapshot-success transaction updating article status, canonical URL, job success, TTL, and notification row.
+- Snapshot-success transaction updating article status, canonical URL, job success, TTL, and notification row only when no downstream pipeline exists.
+- Final v0 handoff behavior where snapshot success continues to Markdown extraction and does not mark article/job success.
 - Failure transaction updating article failure state, job failure state, TTL, and notification row.
 - Structured Worker logging for article ID, job ID, URL, final URL, status, duration, and ARC code when applicable.
 - Worker tests for success, failure, and transactional behavior.
@@ -89,15 +90,14 @@ Do not load unrelated feature folders unless listed here or required by dependen
 ## Acceptance Criteria
 
 ```gherkin
-Scenario: Snapshot success is committed transactionally
+Scenario: Snapshot success continues to downstream processing in final v0
   Given a running article-processing job has fetched valid HTML
   When the Worker stores snapshot.html successfully
   Then articles.canonical_url is the final redirected URL
-  And articles.status is ready
-  And articles.error_message is null
-  And jobs.status is succeeded
-  And one pending notification row exists for the job
-  And those database changes commit in one transaction
+  And Markdown extraction is invoked when markdown-extraction is implemented
+  And articles.status is not set to ready at the snapshot boundary
+  And jobs.status is not set to succeeded at the snapshot boundary
+  And no success notification row is inserted at the snapshot boundary
 
 Scenario: Fetch failure is committed transactionally
   Given a running article-processing job fails with ARC-004
@@ -112,7 +112,8 @@ Scenario: Fetch failure is committed transactionally
 ## Done When
 
 - Worker pipeline claims and processes queued article-processing jobs.
-- Snapshot success sets article ready, clears article error, sets job succeeded, and inserts notification in one transaction.
+- Snapshot success sets article ready, clears article error, sets job succeeded, and inserts notification in one transaction only when no downstream pipeline exists.
+- Final v0 snapshot success continues to Markdown extraction without committing article/job success.
 - Failure sets article failed, stores ARC-coded public error, sets job failed, and inserts notification in one transaction.
 - Extraction and rating slots are explicit no-ops or documented extension points.
 - Tests cover success, failure, canonical URL update, notification creation, and transaction rollback behavior.
@@ -161,4 +162,4 @@ ExecPlan:
 
 ## Notes
 
-- The `markdown-extraction` feature supersedes snapshot success as the final processing completion criterion.
+- The `summary-generation` feature supersedes snapshot success as the final processing completion criterion.

@@ -14,7 +14,7 @@ canonical: true
 
 ## Objective
 
-Implement Jina Reader fallback for Markdown extraction when local go-readability cannot produce Markdown.
+Implement Jina Reader fallback for Markdown extraction behind the Worker-owned `MarkdownExtractor` interface when local go-readability cannot produce Markdown.
 
 ## Story / Context
 
@@ -27,6 +27,8 @@ This task includes:
 - Verifying whether an official Jina Reader Go SDK exists at implementation time.
 - Using an official Jina Reader Go SDK if one exists and supports the Reader API.
 - Implementing a small internal Reader adapter only if no suitable official SDK exists.
+- Implementing the shared Worker-owned `MarkdownExtractor` contract for the Jina extractor.
+- Keeping Jina SDK/client or adapter types inside the Jina implementation.
 - Calling Jina Reader with the article canonical URL.
 - Supporting `JINA_ENABLED`.
 - Supporting optional `JINA_API_KEY` for authenticated Reader requests.
@@ -59,7 +61,8 @@ Required inputs, existing files, interfaces, or decisions:
 
 Expected outputs, files, behavior, or interfaces:
 
-- Worker Jina Reader client or adapter.
+- Worker Jina `MarkdownExtractor` implementation.
+- Jina Reader client or adapter isolated behind the extractor implementation.
 - Provider failure classification for Jina fallback.
 - Worker configuration support for optional `JINA_API_KEY`.
 
@@ -114,6 +117,8 @@ Scenario: Jina reports insufficient balance
 ## Done When
 
 - Jina SDK availability is verified and recorded in the task diary entry.
+- Jina fallback implements `MarkdownExtractor`.
+- Worker pipeline code does not import Jina SDK/client or adapter types.
 - Jina fallback can return Markdown from the canonical URL.
 - `JINA_ENABLED` gates fallback usage.
 - `JINA_API_KEY` is loaded without being required when unauthenticated Reader use is acceptable.
@@ -152,7 +157,7 @@ Blocks:
 ExecPlan:
 
 ```text
-null
+../plans/MDEXT-004-worker-jina-reader-fallback.execplan.md
 ```
 
 ## Open Questions

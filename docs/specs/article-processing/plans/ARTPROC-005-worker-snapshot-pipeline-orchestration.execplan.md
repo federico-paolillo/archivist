@@ -52,12 +52,13 @@ Add only ExecPlan-specific context:
 4. Call the `ARTPROC-004` resolver/fetcher.
 5. On fetch success, call the `ARTPROC-003` artifact layer to atomically write `snapshot.html`.
 6. Keep extraction and rating as explicit no-op stages with no side effects.
-7. Persist snapshot success in one transaction: update `articles.canonical_url`, set article `ready`, clear article error, mark job `succeeded`, set completion/TTL fields, and insert one pending notification.
-8. On any ARC-coded fetch or snapshot failure, persist failure in one transaction: set article `failed`, set ARC-coded `articles.error_message`, mark job `failed`, persist job error context, set completion/TTL fields, and insert one pending notification.
-9. On unknown implementation failures, map public article error to `ARC-999` while logging operational details.
-10. Add structured logs for `article_id`, `job_id`, original URL, final URL when available, status, duration, and ARC code.
-11. Add tests for success, fetch failures, snapshot failure, notification creation, canonical URL update, and rollback behavior.
-12. Update task status, `PLAN.md`, and `DIARY.md` after validation if implementation is completed.
+7. If no downstream pipeline is implemented, persist snapshot success in one transaction: update `articles.canonical_url`, set article `ready`, clear article error, mark job `succeeded`, set completion/TTL fields, and insert one pending notification.
+8. If Markdown extraction or summary generation is implemented, update the canonical URL and continue to the next pipeline stage without marking article/job success or inserting a success notification at the snapshot boundary.
+9. On any ARC-coded fetch or snapshot failure, persist failure in one transaction: set article `failed`, set ARC-coded `articles.error_message`, mark job `failed`, persist job error context, set completion/TTL fields, and insert one pending notification.
+10. On unknown implementation failures, map public article error to `ARC-999` while logging operational details.
+11. Add structured logs for `article_id`, `job_id`, original URL, final URL when available, status, duration, and ARC code.
+12. Add tests for success, downstream handoff, fetch failures, snapshot failure, notification creation, canonical URL update, and rollback behavior.
+13. Update task status, `PLAN.md`, and `DIARY.md` after validation if implementation is completed.
 
 ## Validation Plan
 
@@ -85,7 +86,7 @@ Manual checks:
 - Committing article/job state before snapshot rename would create false success; snapshot write must complete before terminal success transaction.
 - Missing transaction boundaries could create a terminal job without a notification row.
 - Persisting raw HTTP details in `articles.error_message` would violate the ARC convention.
-- Gateway notification dispatch must handle snapshot-only success only if `ARTPROC-006` is implemented before `markdown-extraction`; otherwise Markdown-complete notification is owned by `MDEXT-006`.
+- Gateway notification dispatch must handle snapshot-only success only if `ARTPROC-006` is explicitly revived before downstream features; otherwise summary-complete notification is owned by `SUMGEN-005`.
 
 ## Rollback / Recovery Notes
 

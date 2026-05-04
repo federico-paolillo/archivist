@@ -28,7 +28,7 @@ This task includes:
 - `docs/specs/INDEX.md` update.
 - Artifact path convention under `docs/conventions/ARTIFACTS.md`.
 - Error catalog extension for Markdown extraction failures.
-- Architecture and design updates for Markdown-complete terminal success.
+- Architecture and design updates for Markdown-complete interim success before summary generation.
 - Worker configuration and logging convention updates.
 
 ## Out of Scope
@@ -102,7 +102,7 @@ Scenario: Markdown extraction planning artifacts exist
   And markdown-extraction is listed in docs/specs/INDEX.md
 
 Scenario: Durable contracts are promoted
-  Given Markdown extraction changes artifact, error, logging, and terminal success behavior
+  Given Markdown extraction changes artifact, error, logging, and interim success behavior
   When this task is complete
   Then those contracts are documented in canonical docs
   And no required behavior exists only in DIARY.md

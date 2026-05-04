@@ -10,7 +10,7 @@ Architecture decisions that constrain all features belong here or in `docs/DESIG
 
 Archivist is a single-user personal article archiving system.
 
-The v0 system accepts article URLs through Telegram, stores article state in SQLite, processes queued article jobs with a single worker, writes large artifacts to the filesystem, generates structured LLM summaries, and exposes a minimal authenticated web UI for review and administration.
+The v0 system accepts article URLs through Telegram, stores article state in SQLite, processes queued article jobs with a single worker, writes large artifacts to the filesystem, generates text LLM summaries, and exposes a minimal authenticated web UI for review and administration.
 
 High-level flow:
 
@@ -39,6 +39,7 @@ The system favors a small, rebuildable deployment over horizontal scale. SQLite 
   - enqueue article processing jobs;
   - send immediate Telegram replies for accepted or invalid authorized ingestion messages;
   - dispatch terminal Telegram completion replies from SQLite notifications;
+  - read article artifacts from `/data` through read-only abstractions;
   - expose authenticated API endpoints for the UI;
   - support basic admin delete actions.
 
@@ -54,7 +55,7 @@ The system favors a small, rebuildable deployment over horizontal scale. SQLite 
   - fall back to Jina Reader when local readability cannot produce Markdown and Jina is enabled;
   - convert selected local extracted content to Markdown;
   - call the configured LLM summarizer;
-  - validate summary JSON;
+  - persist text-only summaries;
   - persist artifacts and final article/job state;
   - create terminal notification rows for Telegram-originated jobs.
 
@@ -80,8 +81,8 @@ Filesystem storage under `/data` stores larger raw and derived artifacts:
     {article_id}/
       snapshot.html
       content.md
-      summary.json
       summary.md
+      summary.json  # future structured summary artifact
       metadata.json
 ```
 
@@ -136,6 +137,8 @@ Notification state includes:
 
 Jobs do not retry automatically in v0. Notifications do not retry automatically in v0. Failed jobs and failed notifications persist error text so the user can manually re-send the URL or the operator can diagnose the issue.
 
+In final v0 processing, `articles.status = ready`, `jobs.status = succeeded`, and the success notification row are committed only after `summary.md` has been atomically written. HTML snapshotting and Markdown extraction are intermediate stages once summary generation exists. Any terminal failure in fetch, snapshot, Markdown extraction, summarization, or artifact writing marks the article and job failed with an ARC-coded public error.
+
 ## Service Boundaries and Communication
 
 The gateway and worker communicate through SQLite, not direct RPC.
@@ -173,7 +176,7 @@ The Worker logs critical extraction decisions, including fallback from go-readab
 
 ### LLM Provider
 
-The worker uses a provider-agnostic summarization interface in the future summary feature. Provider, API key, and model are configuration values.
+The Worker uses a provider-agnostic summarization interface. Claude through Anthropic is the first v0 provider, but provider, API key, and model are configuration values. The Anthropic implementation must use official Anthropic SDKs when suitable SDKs exist for the implementation language. Provider-specific SDK types must not leak outside the summarizer adapter.
 
 ## Runtime Topology
 

@@ -28,7 +28,8 @@ This task includes:
 - Telegram send-message integration for terminal replies.
 - Reply targeting using `jobs.telegram_chat_id` and `jobs.telegram_message_id`.
 - Success reply content loaded from the deterministic article summary artifact path when summary artifacts exist.
-- Deterministic snapshot-complete success text for snapshot-only succeeded jobs until the v0 extraction/summarization feature supersedes that bridge.
+- Deterministic snapshot-complete success text for snapshot-only succeeded jobs only until downstream extraction/summarization supersedes that bridge.
+- Summary-based success notification remains owned by `SUMGEN-005` once summary generation is implemented.
 - Failure reply content loaded from `jobs.error_message`.
 - ARC-coded article-processing failure replies preserve `jobs.error_message` unchanged except for deterministic Telegram length truncation.
 - Deterministic Telegram message length truncation.
@@ -96,7 +97,7 @@ Scenario: Dispatcher sends success reply
   When the dispatcher sends the Telegram reply
   Then the reply target is read from the job Telegram metadata
   And the reply body is read from the deterministic article summary artifact when it exists
-  And snapshot-only succeeded jobs without a summary artifact receive deterministic snapshot-complete text
+  And snapshot-only succeeded jobs without a summary artifact receive deterministic snapshot-complete text only before downstream processing supersedes that bridge
   And the notification is marked sent
 
 Scenario: Dispatcher sends failure reply
@@ -130,7 +131,7 @@ Scenario: Expired sent or failed notifications are cleaned up
 ## Done When
 
 - Dispatcher sends terminal replies from pending notification rows.
-- Dispatcher supports snapshot-only success replies until the v0 extraction/summarization feature replaces that behavior.
+- Dispatcher supports snapshot-only success replies only until the v0 extraction/summarization feature replaces that behavior.
 - Dispatcher preserves ARC-coded article-processing failure text from `jobs.error_message`, subject only to deterministic Telegram length truncation.
 - Dispatcher never changes terminal article/job state as a side effect of Telegram delivery failure.
 - Telegram delivery failure marks the notification failed without retrying.

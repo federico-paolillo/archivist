@@ -19,7 +19,7 @@ Process queued article jobs by resolving the submitted URL, fetching the final H
 
 Telegram ingestion creates article records and queued jobs but does not process article content. The Worker needs the first reliable processing slice: dequeue a job, resolve redirects, snapshot HTML, persist success or failure state, and produce notification intent for the Gateway.
 
-This feature intentionally stops before extraction, readability comparison, scoring, Markdown generation, and summarization. Those are v0 work but require their own feature spec.
+This feature intentionally stops before extraction, readability comparison, scoring, Markdown generation, and summarization. Those are v0 work but require their own feature specs. Once Markdown extraction and summary generation are present, snapshot completion is an intermediate stage, not final article/job success.
 
 ## Scope
 
@@ -35,7 +35,7 @@ In scope:
 - Transactional snapshot-success state update, job completion, and notification creation.
 - Transactional failure state update, ARC-coded article error, job failure context, and notification creation.
 - Empty pipeline slots for later extraction and rating stages, documented as future replacement points.
-- Gateway notification behavior for snapshot-complete success only if implemented before `markdown-extraction`; otherwise snapshot-only notification is superseded by Markdown-complete success.
+- Gateway notification behavior for snapshot-complete success only if implemented before downstream pipeline stages; otherwise snapshot-only notification is superseded by later Markdown and summary completion.
 
 ## Out of Scope
 
@@ -73,13 +73,13 @@ Not included:
 - REQ-008: Successful URL resolution must update `articles.canonical_url` to the final redirected URL.
 - REQ-009: Successful snapshot processing must write only `snapshot.html`.
 - REQ-010: Snapshot writes must be atomic: write a temporary file, then rename into place.
-- REQ-011: Snapshot success must set `articles.status = ready`, clear `articles.error_message`, set `jobs.status = succeeded`, set terminal timestamps/TTL, and insert exactly one pending notification in one SQLite transaction.
+- REQ-011: Snapshot success is an interim terminal success only when no downstream extraction or summary feature is present. In final v0, snapshot success must continue to Markdown extraction and must not set `articles.status = ready`, set `jobs.status = succeeded`, or insert a success notification.
 - REQ-012: Processing failure must set `articles.status = failed`, set `articles.error_message` to an ARC-coded public error, set `jobs.status = failed`, persist job error context, set terminal timestamps/TTL, and insert exactly one pending notification in one SQLite transaction.
 - REQ-013: Persisted public article errors must use codes defined in `docs/conventions/ERRORS.md`.
 - REQ-014: The Worker must not call Telegram APIs directly.
 - REQ-015: The Gateway may send a snapshot-complete success notification only until `markdown-extraction` supersedes snapshot-only completion.
 - REQ-016: Extraction and rating pipeline steps must exist only as no-op slots or documentation boundaries in this feature.
-- REQ-017: The `markdown-extraction` feature supersedes the snapshot-complete success criterion with Markdown-complete processing.
+- REQ-017: The `markdown-extraction` and `summary-generation` features supersede the snapshot-complete success criterion with summary-complete processing.
 
 ## Acceptance Criteria
 
@@ -199,8 +199,8 @@ Impacts:
 ## Rebuild Notes
 
 - Existing code is not authoritative; rebuilds must follow this spec and linked tasks.
-- Snapshot success is an interim completion point only because extraction/summarization are specified separately.
-- The `markdown-extraction` feature replaces snapshot-complete success with Markdown-complete processing.
+- Snapshot success is an interim completion point only while extraction/summarization are not implemented. Final v0 success is summary-complete.
+- The `markdown-extraction` and `summary-generation` features replace snapshot-complete success with summary-complete processing.
 - `snapshot.html` is the only artifact written by this feature.
 - Do not add article artifact path columns.
 - Do not add retry states or automatic retry scheduling.

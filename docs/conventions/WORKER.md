@@ -73,11 +73,23 @@ Whenever you introduce a worker configuration key, document it in `docs/conventi
 
 Always extend worker configuration tests to assert default values, required values, and environment variable loading.
 
+## Provider Boundaries
+
+Worker pipeline orchestration must depend on Archivist-owned interfaces for external or replaceable processing providers.
+
+Markdown extraction uses a Worker-owned `MarkdownExtractor` abstraction. The local go-readability implementation and the Jina Reader implementation must sit behind that abstraction. Pipeline code must not import or expose Jina SDK/client types. Use an official Jina-provided SDK when a suitable Reader API SDK exists for the implementation language. If no suitable official SDK exists, a small internal Reader adapter is acceptable; untagged or low-adoption third-party wrappers are not.
+
+Summary generation uses a Worker-owned `SummarizerService` abstraction. Claude/Anthropic is the first provider implementation and must use official Anthropic SDKs when suitable SDKs exist. In Go, prefer `github.com/anthropics/anthropic-sdk-go`. Pipeline code must not import or expose Anthropic SDK request or response types.
+
+Snapshot and Markdown stages are intermediate pipeline stages once summary generation is implemented. Final Worker success for v0 means `summary.md` has been atomically promoted and the article/job/notification terminal state has been committed.
+
 ## Error wrapping
 
 Persisted user-facing article-processing failures must use ARC codes from `docs/conventions/ERRORS.md`. Store a short public message on `articles.error_message`, and keep detailed HTTP, filesystem, library, or stack diagnostics in logs or job diagnostic context.
 
 Markdown extraction must log critical provider decisions. At minimum, log the local go-readability attempt, fallback from go-readability to Jina with reason, selected provider on success, ARC code on failure, `article_id`, `job_id`, canonical URL, duration, and artifact write result when available.
+
+Summary generation must log summarizer provider, model, provider request identifier when available, ARC code on failure, `article_id`, `job_id`, canonical URL, duration, and artifact write result when available. Logs must not include API keys or full article/summary content.
 
 When adding additional context to an error, either with fmt.Errorf or by implementing a custom type, you need to decide whether the new error should wrap the original. There is no single answer to this question; it depends on the context in which the new error is created. Wrap an error to expose it to callers. Do not wrap an error when doing so would expose implementation details.
 

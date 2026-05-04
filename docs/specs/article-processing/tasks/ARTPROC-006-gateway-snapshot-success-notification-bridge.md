@@ -18,7 +18,7 @@ Update Gateway terminal notification dispatch so succeeded snapshot-only jobs pr
 
 ## Skip Rationale
 
-This task is skipped because `markdown-extraction` supersedes snapshot-only terminal success before this bridge is implemented. Gateway success notification work continues in `MDEXT-006`.
+This task is skipped because downstream processing supersedes snapshot-only terminal success before this bridge is implemented. Final Gateway success notification work continues in `SUMGEN-005`.
 
 ## Story / Context
 
@@ -145,4 +145,4 @@ null
 
 ## Notes
 
-- Skipped because `markdown-extraction` supersedes snapshot-only terminal success with Markdown-complete success before this bridge is implemented.
+- Skipped because `summary-generation` supersedes snapshot-only terminal success with summary-complete success before this bridge is implemented.

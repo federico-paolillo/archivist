@@ -109,3 +109,31 @@ Canonical Updates:
 - `docs/specs/article-processing/PLAN.md`
 - `docs/specs/article-processing/SPEC.md`
 - `docs/specs/article-processing/tasks/ARTPROC-006-gateway-snapshot-success-notification-bridge.md`
+
+## 2026-05-04 - ARTPROC-DOC: Summary-Complete Final Success Alignment
+
+Status:
+- completed
+
+Summary:
+- Aligned article-processing docs with final v0 done semantics from summary generation.
+
+Changes:
+- Updated the feature spec, plan, `ARTPROC-005`, `ARTPROC-006`, and `ARTPROC-005` ExecPlan.
+
+Decisions:
+- Snapshot success is not final v0 success once downstream Markdown extraction and summary generation are implemented.
+- Final success notification work is owned by `SUMGEN-005`.
+
+Validation:
+- Documentation consistency checked by repository search and review.
+
+Follow-ups:
+- Implement snapshot pipeline handoff behavior when downstream pipeline dependencies are available.
+
+Canonical Updates:
+- `docs/specs/article-processing/SPEC.md`
+- `docs/specs/article-processing/PLAN.md`
+- `docs/specs/article-processing/tasks/ARTPROC-005-worker-snapshot-pipeline-orchestration.md`
+- `docs/specs/article-processing/tasks/ARTPROC-006-gateway-snapshot-success-notification-bridge.md`
+- `docs/specs/article-processing/plans/ARTPROC-005-worker-snapshot-pipeline-orchestration.execplan.md`

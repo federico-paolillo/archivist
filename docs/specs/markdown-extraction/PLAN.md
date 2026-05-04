@@ -23,8 +23,7 @@ ARTPROC-005 -> MDEXT-005
 MDEXT-002 -> MDEXT-005
 MDEXT-003 -> MDEXT-005
 MDEXT-004 -> MDEXT-005
-MDEXT-005 -> MDEXT-006
-TELING-004 -> MDEXT-006
+MDEXT-005 -> SUMGEN-002
 ```
 
 ---
@@ -38,13 +37,13 @@ TELING-004 -> MDEXT-006
 ### Phase 2: Worker Extraction Foundations
 
 - `MDEXT-002` extends Worker artifact access with atomic `content.md` writes.
-- `MDEXT-003` implements local go-readability v2 extraction and Markdown conversion.
-- `MDEXT-004` implements Jina Reader fallback and provider failure mapping.
+- `MDEXT-003` implements local go-readability v2 extraction and Markdown conversion behind `MarkdownExtractor`.
+- `MDEXT-004` implements Jina Reader fallback behind `MarkdownExtractor`, with SDK selection captured in an ExecPlan.
 
 ### Phase 3: Pipeline Integration And Notifications
 
 - `MDEXT-005` integrates Markdown extraction into Worker terminal processing.
-- `MDEXT-006` replaces snapshot-only success notifications with Markdown-complete success notifications.
+- `MDEXT-006` is skipped once `summary-generation` is planned because `SUMGEN-005` owns the final success notification path.
 
 ---
 
@@ -55,9 +54,9 @@ TELING-004 -> MDEXT-006
 | `MDEXT-001` | Create feature artifacts and contracts | done | - | `MDEXT-002`, `MDEXT-003`, `MDEXT-004` | no | - |
 | `MDEXT-002` | Worker Markdown artifact access | blocked | `MDEXT-001`, `ARTPROC-003` | `MDEXT-005` | yes | - |
 | `MDEXT-003` | Worker go-readability extraction | ready | `MDEXT-001` | `MDEXT-005` | yes | - |
-| `MDEXT-004` | Worker Jina Reader fallback | ready | `MDEXT-001` | `MDEXT-005` | yes | - |
-| `MDEXT-005` | Worker Markdown pipeline integration | blocked | `ARTPROC-005`, `MDEXT-002`, `MDEXT-003`, `MDEXT-004` | `MDEXT-006` | no | `plans/MDEXT-005-worker-markdown-pipeline-integration.execplan.md` |
-| `MDEXT-006` | Gateway Markdown success notification | blocked | `MDEXT-005`, `TELING-004` | - | no | - |
+| `MDEXT-004` | Worker Jina Reader fallback | ready | `MDEXT-001` | `MDEXT-005` | yes | `plans/MDEXT-004-worker-jina-reader-fallback.execplan.md` |
+| `MDEXT-005` | Worker Markdown pipeline integration | blocked | `ARTPROC-005`, `MDEXT-002`, `MDEXT-003`, `MDEXT-004` | `SUMGEN-002` | no | `plans/MDEXT-005-worker-markdown-pipeline-integration.execplan.md` |
+| `MDEXT-006` | Gateway Markdown success notification | skipped | `MDEXT-005`, `TELING-004` | - | no | - |
 
 ---
 
@@ -66,7 +65,7 @@ TELING-004 -> MDEXT-006
 - `MDEXT-003` and `MDEXT-004` may run in parallel after `MDEXT-001` because they own separate provider adapters.
 - `MDEXT-002` must wait for `ARTPROC-003` because it extends the shared artifact access layer created by article processing.
 - `MDEXT-005` must wait for HTML snapshot orchestration and all Markdown extraction components.
-- `MDEXT-006` must wait for the Worker to produce Markdown-complete terminal state and for the Gateway notification dispatcher to exist.
+- `MDEXT-006` is skipped because summary generation supersedes Markdown-complete terminal notifications before implementation.
 - Worker pipeline orchestration, SQLite terminal-transition code, and Gateway dispatcher behavior must not be modified concurrently by multiple tasks.
 
 ---
@@ -77,8 +76,9 @@ TELING-004 -> MDEXT-006
 - HTML snapshot output from `article-processing`.
 - Deterministic artifact paths in `docs/conventions/ARTIFACTS.md`.
 - ARC error-code catalog in `docs/conventions/ERRORS.md`.
+- Worker-owned `MarkdownExtractor` contract shared by local and Jina implementations.
 - Worker configuration for `JINA_ENABLED` and optional `JINA_API_KEY`.
-- Gateway terminal notification content selection for Markdown-complete success.
+- Gateway terminal notification content selection for summary-complete success in `summary-generation`.
 
 ---
 

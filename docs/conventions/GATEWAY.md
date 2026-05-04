@@ -36,6 +36,12 @@ Conventions:
 - Use `AsNoTracking()` for read-only EF projections.
 - Do not add migrations unless the persistence schema changes.
 
+## Artifact Reads
+
+Gateway may read article artifacts under `DATA_DIR` through a read-only artifact abstraction. This abstraction must not expose write, create, rename, or delete operations. Gateway code must not mutate `/data` artifacts; Worker owns artifact production and deletion behavior defined by feature specs.
+
+Terminal success notification dispatch reads `{DATA_DIR}/articles/{article_id}/summary.md` once summary generation is implemented. Missing or unreadable summary artifacts fail notification delivery without changing terminal article or job state.
+
 ## Testing
 
 - Tests are mandatory for backend code changes. Cover at least the happy path and the main failure path when the change adds behavior.
