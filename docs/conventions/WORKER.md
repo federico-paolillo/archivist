@@ -55,7 +55,7 @@ Anytime you add a new service to the composition root you must test that it is c
 
 ## Configuration
 
-Worker configuration is loaded from environment variables or equivalent deployment secret mechanisms. Required v0 worker settings include:
+Worker configuration is loaded from environment variables or equivalent deployment secret mechanisms. Worker settings include:
 
 ```text
 DATA_DIR
@@ -64,7 +64,10 @@ LLM_PROVIDER
 LLM_API_KEY
 LLM_MODEL
 JINA_ENABLED
+JINA_API_KEY
 ```
+
+`JINA_API_KEY` is optional unless a task or deployment requires authenticated Jina Reader requests. It is secret material and must not be logged.
 
 Whenever you introduce a worker configuration key, document it in `docs/conventions/GENERAL.md`, `docs/ARCHITECTURE.md`, and any affected feature spec or task. Add sensible defaults only for non-secret values.
 
@@ -73,6 +76,8 @@ Always extend worker configuration tests to assert default values, required valu
 ## Error wrapping
 
 Persisted user-facing article-processing failures must use ARC codes from `docs/conventions/ERRORS.md`. Store a short public message on `articles.error_message`, and keep detailed HTTP, filesystem, library, or stack diagnostics in logs or job diagnostic context.
+
+Markdown extraction must log critical provider decisions. At minimum, log the local go-readability attempt, fallback from go-readability to Jina with reason, selected provider on success, ARC code on failure, `article_id`, `job_id`, canonical URL, duration, and artifact write result when available.
 
 When adding additional context to an error, either with fmt.Errorf or by implementing a custom type, you need to decide whether the new error should wrap the original. There is no single answer to this question; it depends on the context in which the new error is created. Wrap an error to expose it to callers. Do not wrap an error when doing so would expose implementation details.
 

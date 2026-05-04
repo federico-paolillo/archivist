@@ -84,3 +84,28 @@ Follow-ups:
 
 Canonical Updates:
 - `docs/conventions/ERRORS.md`, `docs/conventions/GENERAL.md`, and `docs/conventions/WORKER.md`.
+
+## 2026-05-04 - ARTPROC-006: Gateway Snapshot Success Notification Bridge
+
+Status:
+- skipped
+
+Summary:
+- Skipped the snapshot-only Gateway success bridge because `markdown-extraction` supersedes snapshot-only terminal success before the bridge is implemented.
+
+Changes:
+- Updated the task status and article-processing plan to point the next terminal success notification work at Markdown completion.
+
+Decisions:
+- Snapshot-only success remains an interim concept in the original article-processing spec, but it is no longer the next executable notification bridge once Markdown extraction is planned.
+
+Validation:
+- Reviewed the updated task, plan, and Markdown extraction dependency references.
+
+Follow-ups:
+- Implement Markdown-complete notification behavior through `MDEXT-006`.
+
+Canonical Updates:
+- `docs/specs/article-processing/PLAN.md`
+- `docs/specs/article-processing/SPEC.md`
+- `docs/specs/article-processing/tasks/ARTPROC-006-gateway-snapshot-success-notification-bridge.md`

@@ -21,6 +21,7 @@ ARTPROC-002 -> ARTPROC-004
 ARTPROC-003 -> ARTPROC-004
 ARTPROC-004 -> ARTPROC-005
 ARTPROC-005 -> ARTPROC-006
+ARTPROC-005 -> MDEXT-005
 ```
 
 Cross-feature dependency:
@@ -48,7 +49,7 @@ TELING-004 -> ARTPROC-006
 ### Phase 3: Processing And Notifications
 
 - `ARTPROC-005` implements Worker orchestration and transactional terminal state changes.
-- `ARTPROC-006` updates Gateway success notification behavior for snapshot-complete jobs.
+- `ARTPROC-006` updates Gateway success notification behavior for snapshot-complete jobs only if implemented before `markdown-extraction`; it is otherwise superseded by `MDEXT-006`.
 
 ---
 
@@ -60,8 +61,8 @@ TELING-004 -> ARTPROC-006
 | `ARTPROC-002` | Define shared ARC error-code convention | done | `ARTPROC-001` | `ARTPROC-004` | yes | - |
 | `ARTPROC-003` | Worker filesystem artifact access layer | ready | `ARTPROC-001` | `ARTPROC-004` | yes | - |
 | `ARTPROC-004` | Worker URL resolver and HTML fetcher | blocked | `ARTPROC-002`, `ARTPROC-003` | `ARTPROC-005` | no | - |
-| `ARTPROC-005` | Worker snapshot pipeline orchestration | blocked | `ARTPROC-004`, `TELING-001`, `TELING-003` | `ARTPROC-006` | no | `plans/ARTPROC-005-worker-snapshot-pipeline-orchestration.execplan.md` |
-| `ARTPROC-006` | Gateway snapshot success notification bridge | blocked | `ARTPROC-005`, `TELING-004` | - | no | - |
+| `ARTPROC-005` | Worker snapshot pipeline orchestration | blocked | `ARTPROC-004`, `TELING-001`, `TELING-003` | `ARTPROC-006`, `MDEXT-005` | no | `plans/ARTPROC-005-worker-snapshot-pipeline-orchestration.execplan.md` |
+| `ARTPROC-006` | Gateway snapshot success notification bridge | skipped | `ARTPROC-005`, `TELING-004` | - | no | - |
 
 ---
 
@@ -70,7 +71,7 @@ TELING-004 -> ARTPROC-006
 - `ARTPROC-003` may run after `ARTPROC-001` because it only owns Worker artifact access code.
 - `ARTPROC-004` must wait for `ARTPROC-002` and `ARTPROC-003` because fetch failures must map to canonical ARC codes and snapshot size handling depends on artifact boundaries.
 - `ARTPROC-005` must run after Worker fetch and after Telegram ingestion persistence/outbox contracts are implemented.
-- `ARTPROC-006` must run after the Gateway notification dispatcher exists.
+- `ARTPROC-006` is skipped when `markdown-extraction` is planned before snapshot-only notification work, because `MDEXT-006` owns the next terminal success notification contract.
 - Worker repository, SQLite terminal-transition code, and Gateway dispatcher behavior must not be modified concurrently by multiple tasks.
 
 ---
@@ -81,7 +82,7 @@ TELING-004 -> ARTPROC-006
 - Deterministic article artifact path convention under `DATA_DIR`.
 - ARC error-code catalog in `docs/conventions/ERRORS.md`.
 - Worker HTTP fetch policy using `github.com/imroc/req/v3`.
-- Gateway terminal notification content selection for snapshot-only success.
+- Snapshot-only Gateway success notification is superseded by Markdown-complete notification in `markdown-extraction`.
 
 ---
 

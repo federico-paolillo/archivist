@@ -85,7 +85,7 @@ Manual checks:
 - Committing article/job state before snapshot rename would create false success; snapshot write must complete before terminal success transaction.
 - Missing transaction boundaries could create a terminal job without a notification row.
 - Persisting raw HTTP details in `articles.error_message` would violate the ARC convention.
-- Gateway notification dispatch must handle snapshot-only success until summary artifacts exist.
+- Gateway notification dispatch must handle snapshot-only success only if `ARTPROC-006` is implemented before `markdown-extraction`; otherwise Markdown-complete notification is owned by `MDEXT-006`.
 
 ## Rollback / Recovery Notes
 

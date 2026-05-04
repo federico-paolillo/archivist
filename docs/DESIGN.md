@@ -58,7 +58,7 @@ Suggested minimal format:
 
 **Context:** Article records and job state need transactional updates, while raw HTML, Markdown, and summaries are better stored as files.
 
-**Decision:** SQLite is the authoritative store for state. The filesystem stores large raw and derived artifacts under `/data/articles/{article_id}/`.
+**Decision:** SQLite is the authoritative store for state. The filesystem stores large raw and derived artifacts under `/data/articles/{article_id}/`, with filenames defined in `docs/conventions/ARTIFACTS.md`.
 
 **Consequences:** Rebuild-critical state must be recoverable from SQLite plus deterministic artifact paths derived from `DATA_DIR` and `article_id`. Artifact writes use temporary files followed by rename. Optional hashes may be added for integrity or debugging, but they are not required for v0.
 
@@ -87,13 +87,24 @@ Suggested minimal format:
 ### DSGN-006: Candidate-Based Extraction With Scoring
 
 **Date:** 2026-04-30
-**Status:** accepted
+**Status:** superseded by DSGN-012
 
 **Context:** Article extraction quality varies by source and extraction method.
 
 **Decision:** The worker attempts multiple extraction candidates, scores them, selects the highest-scoring candidate, and fails extraction when all candidates score below `0.6`.
 
 **Consequences:** v0 extraction is best-effort and explicit about failure. Candidate scoring may consider title presence, content length, paragraph count, link density, boilerplate ratio, sentence density, error-page detection, canonical URL detection, language detection, and heading structure.
+
+### DSGN-012: Local-First Markdown Extraction With Jina Fallback
+
+**Date:** 2026-05-04
+**Status:** accepted
+
+**Context:** The v0 pipeline needs Markdown before summary generation, but cost control matters. Local extraction is cheaper than provider calls, while some pages still need an external fallback.
+
+**Decision:** Markdown extraction uses a deterministic local-first sequence. The Worker first uses `codeberg.org/readeck/go-readability/v2` against the saved HTML snapshot and calls `CheckDocument()` before accepting local output. If `CheckDocument()` returns false, local extraction fails, or local Markdown conversion fails, the Worker logs the fallback decision and calls Jina Reader when enabled. Successful Markdown is persisted as `content.md`, and Markdown completion is the current terminal success point until the future summary feature supersedes it.
+
+**Consequences:** v0 does not use extraction candidate scoring or a quality score threshold. The system minimizes paid Jina usage, but still has a provider fallback for unreadable local results. Provider decisions must be logged, and Jina insufficient-balance failures must be distinguishable from generic provider failures.
 
 ### DSGN-007: Provider-Agnostic Structured Summaries
 

@@ -35,7 +35,7 @@ In scope:
 - Transactional snapshot-success state update, job completion, and notification creation.
 - Transactional failure state update, ARC-coded article error, job failure context, and notification creation.
 - Empty pipeline slots for later extraction and rating stages, documented as future replacement points.
-- Gateway notification behavior for snapshot-complete success until the v0 extraction/summarization feature supersedes it.
+- Gateway notification behavior for snapshot-complete success only if implemented before `markdown-extraction`; otherwise snapshot-only notification is superseded by Markdown-complete success.
 
 ## Out of Scope
 
@@ -77,9 +77,9 @@ Not included:
 - REQ-012: Processing failure must set `articles.status = failed`, set `articles.error_message` to an ARC-coded public error, set `jobs.status = failed`, persist job error context, set terminal timestamps/TTL, and insert exactly one pending notification in one SQLite transaction.
 - REQ-013: Persisted public article errors must use codes defined in `docs/conventions/ERRORS.md`.
 - REQ-014: The Worker must not call Telegram APIs directly.
-- REQ-015: The Gateway must be able to send a snapshot-complete success notification when a succeeded job has no summary artifact.
+- REQ-015: The Gateway may send a snapshot-complete success notification only until `markdown-extraction` supersedes snapshot-only completion.
 - REQ-016: Extraction and rating pipeline steps must exist only as no-op slots or documentation boundaries in this feature.
-- REQ-017: A later v0 extraction/summarization feature must supersede the snapshot-complete success criterion with full article processing completion.
+- REQ-017: The `markdown-extraction` feature supersedes the snapshot-complete success criterion with Markdown-complete processing.
 
 ## Acceptance Criteria
 
@@ -134,11 +134,11 @@ Scenario: Snapshot write fails
   And jobs.status is "failed"
   And no partial snapshot is promoted as snapshot.html
 
-Scenario: Gateway sends interim snapshot success notification
+Scenario: Gateway sends interim snapshot success notification before Markdown extraction
   Given a pending notification exists for a succeeded snapshot-only job
   And no summary artifact exists for the article
   When the Gateway dispatches the notification
-  Then it sends a deterministic snapshot-complete success reply
+  Then it sends a deterministic snapshot-complete success reply unless markdown-extraction has superseded this behavior
   And marks the notification sent if Telegram accepts the reply
 ```
 
@@ -200,7 +200,7 @@ Impacts:
 
 - Existing code is not authoritative; rebuilds must follow this spec and linked tasks.
 - Snapshot success is an interim completion point only because extraction/summarization are specified separately.
-- The later v0 extraction/summarization feature must replace snapshot-complete success with full processing completion.
+- The `markdown-extraction` feature replaces snapshot-complete success with Markdown-complete processing.
 - `snapshot.html` is the only artifact written by this feature.
 - Do not add article artifact path columns.
 - Do not add retry states or automatic retry scheduling.
@@ -231,4 +231,5 @@ Impacts:
 - `./tasks/ARTPROC-004-worker-url-resolver-and-html-fetcher.md`
 - `./tasks/ARTPROC-005-worker-snapshot-pipeline-orchestration.md`
 - `./tasks/ARTPROC-006-gateway-snapshot-success-notification-bridge.md`
+- `../markdown-extraction/SPEC.md`
 - `./plans/ARTPROC-005-worker-snapshot-pipeline-orchestration.execplan.md`

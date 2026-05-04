@@ -4,7 +4,7 @@ feature: article-processing
 title: Worker Snapshot Pipeline Orchestration
 status: blocked
 depends_on: [ARTPROC-004, TELING-001, TELING-003]
-blocks: [ARTPROC-006]
+blocks: [ARTPROC-006, MDEXT-005]
 parallel: false
 exec_plan: ../plans/ARTPROC-005-worker-snapshot-pipeline-orchestration.execplan.md
 canonical: true
@@ -145,6 +145,7 @@ Depends on:
 Blocks:
 
 - `ARTPROC-006`
+- `MDEXT-005`
 
 ## ExecPlan
 
@@ -160,4 +161,4 @@ ExecPlan:
 
 ## Notes
 
-- The later v0 extraction/summarization feature must supersede snapshot success as the final processing completion criterion.
+- The `markdown-extraction` feature supersedes snapshot success as the final processing completion criterion.

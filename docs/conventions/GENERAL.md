@@ -23,6 +23,8 @@ Production source layout is module-specific and documented in the relevant file 
 
 Canonical rebuild artifacts remain under `docs/` and `docs/specs/` according to `docs/REBUILD.md`. Feature planning tasks must create feature folders under `docs/specs/<feature-slug>/` and update `docs/specs/INDEX.md`.
 
+Runtime artifact paths are defined in `docs/conventions/ARTIFACTS.md`.
+
 ## Naming
 
 Language-specific naming conventions are defined in module convention files when needed.
@@ -50,6 +52,8 @@ Logs for article processing should include these fields when available:
 - `duration`
 - `error`
 
+Markdown extraction logs should also include provider attempt, fallback reason, selected provider, ARC code on failure, canonical URL, and artifact write result when available.
+
 A dedicated observability stack is out of scope for v0.
 
 ## Testing
@@ -62,7 +66,7 @@ Before any task is marked done, run the validation required by that task or its 
 
 Runtime configuration is supplied through environment variables or equivalent deployment secret mechanisms.
 
-Required v0 configuration keys are:
+Known v0 configuration keys are:
 
 ```text
 DATA_DIR
@@ -75,7 +79,10 @@ LLM_PROVIDER
 LLM_API_KEY
 LLM_MODEL
 JINA_ENABLED
+JINA_API_KEY
 ```
+
+`JINA_API_KEY` is optional configuration for authenticated Jina Reader requests. It must be treated as a secret when supplied.
 
 Feature specs or tasks that add configuration keys must update this file or the relevant module convention file, plus any affected architecture or design decisions.
 
@@ -94,6 +101,8 @@ Feature planning or implementation tasks that add dependencies must document the
 ## File Writes
 
 Artifact writes under `/data` must be atomic: write to a temporary path, then rename into place.
+
+Article artifact filenames and directories must follow `docs/conventions/ARTIFACTS.md`.
 
 ## Identifiers
 

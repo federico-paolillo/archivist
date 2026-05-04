@@ -29,6 +29,11 @@ Detailed HTTP, filesystem, library, stack, or provider diagnostics belong in str
 | `ARC-005` | Response is not HTML | The URL did not return an HTML article page. |
 | `ARC-006` | Response exceeds snapshot size limit | The HTML response is too large to archive. |
 | `ARC-007` | Snapshot write failed | Archivist could not store the HTML snapshot. |
+| `ARC-008` | go-readability found document unreadable | Archivist could not read this page locally. |
+| `ARC-009` | go-readability extraction or Markdown conversion failed | Archivist could not extract this page locally. |
+| `ARC-010` | Jina Reader fallback failed | Archivist could not extract this page with the fallback reader. |
+| `ARC-011` | Jina Reader insufficient balance | Archivist could not use the fallback reader because the Jina account is out of credit. |
+| `ARC-012` | Markdown artifact write failed | Archivist could not store the Markdown article. |
 | `ARC-999` | Unknown processing failure | Archivist could not process the URL. |
 
 ## Rules

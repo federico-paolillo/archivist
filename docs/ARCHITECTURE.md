@@ -50,9 +50,9 @@ The system favors a small, rebuildable deployment over horizontal scale. SQLite 
   - atomically dequeue jobs from SQLite;
   - fetch article HTML over plain HTTP(S);
   - store the raw HTML snapshot;
-  - extract readable content using configured extraction candidates;
-  - convert selected extracted content to Markdown;
-  - score extraction candidates and select the best candidate;
+  - extract readable content with go-readability v2 first;
+  - fall back to Jina Reader when local readability cannot produce Markdown and Jina is enabled;
+  - convert selected local extracted content to Markdown;
   - call the configured LLM summarizer;
   - validate summary JSON;
   - persist artifacts and final article/job state;
@@ -86,6 +86,8 @@ Filesystem storage under `/data` stores larger raw and derived artifacts:
 ```
 
 Artifact writes must be atomic: write to a temporary path and then rename into place. Artifact paths are deterministic from `DATA_DIR` and `article_id`; v0 does not store artifact path columns in SQLite. Optional artifact hashes may be stored for integrity checks and debugging if a future spec requires them.
+
+The canonical artifact path convention is defined in `docs/conventions/ARTIFACTS.md`.
 
 Core user state includes:
 
@@ -162,14 +164,16 @@ The worker fetches article HTML using direct HTTP(S) requests. v0 does not use P
 
 ### Extraction Providers and Libraries
 
-The worker attempts content extraction with:
+The worker attempts Markdown extraction in this order:
 
-- Jina Reader when enabled;
-- a Go readability implementation.
+1. go-readability v2 from the saved HTML snapshot.
+2. Jina Reader fallback when go-readability `CheckDocument()` returns false, local extraction fails, or local Markdown conversion fails, and Jina is enabled.
+
+The Worker logs critical extraction decisions, including fallback from go-readability to Jina. If both local extraction and Jina fallback fail, the job becomes terminally failed.
 
 ### LLM Provider
 
-The worker uses a provider-agnostic summarization interface. Provider, API key, and model are configuration values.
+The worker uses a provider-agnostic summarization interface in the future summary feature. Provider, API key, and model are configuration values.
 
 ## Runtime Topology
 
@@ -212,7 +216,10 @@ LLM_PROVIDER
 LLM_API_KEY
 LLM_MODEL
 JINA_ENABLED
+JINA_API_KEY
 ```
+
+`JINA_API_KEY` is optional configuration for authenticated Jina Reader requests and must be treated as secret material when supplied.
 
 ## Key Constraints
 
