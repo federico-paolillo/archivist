@@ -14,6 +14,7 @@ The primary objective for v0 is reliability and simplicity, not feature complete
 
 - Telegram bot ingestion for one authorized user.
 - URL-to-article processing pipeline.
+- Notifications for success, failure.
 - HTML snapshot storage.
 - Article content extraction with fallback handling.
 - Markdown generation.
@@ -21,11 +22,11 @@ The primary objective for v0 is reliability and simplicity, not feature complete
 - Persistent article metadata, job state, and artifact storage.
 - Minimal web UI with article list and detail view.
 - Private authentication for the UI and API.
-- Retry mechanism for failed jobs.
 - Basic admin actions: retry and delete.
 
 ## v0 Non-Goals
 
+- Retry mechanism for failed jobs.
 - High scalability.
 - Multi-tenancy.
 - Real-time processing guarantees.

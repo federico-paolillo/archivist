@@ -29,6 +29,7 @@ This task includes:
 - Updating article status to `ready` or `failed`.
 - Updating job status to `succeeded` or `failed`.
 - Persisting final job error state on failure.
+- Preserving ARC-coded public article-processing failures on the article/job error fields used by downstream notification dispatch.
 - Creating one pending notification row for the terminal job.
 - Setting terminal job `expires_at` to 14 days after completion.
 - Ensuring article update, job update, and notification insert are atomic.
@@ -74,6 +75,7 @@ Read before execution:
 - `../PLAN.md`
 - `docs/ARCHITECTURE.md`
 - `docs/DESIGN.md`
+- `docs/conventions/ERRORS.md`
 - `docs/conventions/GENERAL.md`
 - `docs/conventions/WORKER.md`
 - `./TELING-001-persistence-contracts.md`
@@ -108,6 +110,16 @@ Scenario: Telegram-originated job fails
   And the job expires_at is 14 days after completion
   And one pending notification row is created for the job
 
+Scenario: Telegram-originated article-processing job fails with an ARC-coded error
+  Given a job has Telegram origin metadata
+  And the worker article-processing failure is "[ARC-003] The URL was not found."
+  When the worker marks the job failed
+  Then the article status is failed
+  And the article error_message stores "[ARC-003] The URL was not found."
+  And the job status is failed
+  And the job error_message stores "[ARC-003] The URL was not found."
+  And one pending notification row is created for the job
+
 Scenario: Non-Telegram job reaches terminal state
   Given a job has no Telegram origin metadata
   When the worker marks the job terminal
@@ -121,6 +133,7 @@ Scenario: Non-Telegram job reaches terminal state
 - Worker terminal persistence updates article, job, and notification state in one transaction.
 - Success writes deterministic artifacts and marks article/job success.
 - Failure persists final error and marks article/job failure.
+- Article-processing failures preserve ARC-coded public error text for downstream Gateway notification dispatch.
 - No worker retry state or retry scheduling exists.
 - Task status and `PLAN.md` are updated if the task is completed.
 - `DIARY.md` has an entry if implementation is performed.
@@ -165,3 +178,4 @@ null
 ## Notes
 
 - Worker code must not import or depend on Telegram Bot API clients.
+- ARC coding is required only for persisted public article-processing failures, not for Telegram protocol, authorization, acknowledgement, or delivery errors.

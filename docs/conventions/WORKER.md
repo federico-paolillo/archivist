@@ -72,6 +72,8 @@ Always extend worker configuration tests to assert default values, required valu
 
 ## Error wrapping
 
+Persisted user-facing article-processing failures must use ARC codes from `docs/conventions/ERRORS.md`. Store a short public message on `articles.error_message`, and keep detailed HTTP, filesystem, library, or stack diagnostics in logs or job diagnostic context.
+
 When adding additional context to an error, either with fmt.Errorf or by implementing a custom type, you need to decide whether the new error should wrap the original. There is no single answer to this question; it depends on the context in which the new error is created. Wrap an error to expose it to callers. Do not wrap an error when doing so would expose implementation details.
 
 As one example, imagine a Parse function which reads a complex data structure from an io.Reader. If an error occurs, we wish to report the line and column number at which it occurred. If the error occurs while reading from the io.Reader, we will want to wrap that error to allow inspection of the underlying problem. Since the caller provided the io.Reader to the function, it makes sense to expose the error produced by it.

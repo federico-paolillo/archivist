@@ -83,8 +83,10 @@ Not included:
 - REQ-020: Automatic worker retries are out of scope for v0.
 - REQ-021: The worker must not call Telegram APIs directly.
 - REQ-022: The gateway must dispatch pending notifications by joining `notifications -> jobs -> articles`.
-- REQ-023: Successful completion replies must read the summary artifact from the deterministic article artifact path under `DATA_DIR`.
+- REQ-023: Successful completion replies must read the summary artifact from the deterministic article artifact path under `DATA_DIR` once summary artifacts exist.
+- REQ-023A: Until the v0 extraction/summarization feature supersedes snapshot-only completion, successful snapshot-only jobs must produce a deterministic snapshot-complete Telegram reply instead of failing notification delivery because no summary artifact exists.
 - REQ-024: Failed completion replies must use `jobs.error_message`.
+- REQ-024A: Failed article-processing completion replies must preserve ARC-coded public error text from `jobs.error_message`, including the leading `[ARC-NNN]` prefix defined by `docs/conventions/ERRORS.md`.
 - REQ-025: Terminal Telegram replies must fit within Telegram message length limits by deterministic truncation when necessary.
 - REQ-026: Telegram notification delivery errors must mark the notification `failed` with an error message and must not be retried automatically.
 - REQ-027: Notification states must be limited to `pending`, `sent`, and `failed`.
@@ -161,14 +163,21 @@ Scenario: Job fails
 Scenario: Gateway sends success notification
   Given a pending notification exists for a succeeded job
   When the gateway dispatches the notification
-  Then the gateway reads the summary artifact from the deterministic article artifact path
-  And the gateway replies to the original Telegram message with the summary text
+  Then the gateway replies to the original Telegram message with summary text when a summary artifact exists
+  And the gateway replies with deterministic snapshot-complete text for a snapshot-only succeeded job without a summary artifact
   And the notification is marked "sent"
 
 Scenario: Gateway sends failure notification
   Given a pending notification exists for a failed job
   When the gateway dispatches the notification
   Then the gateway replies to the original Telegram message with the job error_message
+  And the notification is marked "sent"
+
+Scenario: Gateway preserves ARC-coded article-processing failure notification
+  Given a pending notification exists for a failed article-processing job
+  And the job error_message is "[ARC-003] The URL was not found."
+  When the gateway dispatches the notification
+  Then the gateway replies to the original Telegram message with "[ARC-003] The URL was not found."
   And the notification is marked "sent"
 
 Scenario: Telegram notification delivery fails
@@ -256,6 +265,7 @@ Notifications are gateway delivery records. They do not copy article IDs, Telegr
 - SQLite queue contract: gateway inserts article and queued job records; worker claims queued jobs atomically with `UPDATE ... RETURNING`.
 - SQLite notification contract: worker inserts one pending notification when a job reaches `succeeded` or `failed`; gateway dispatches pending notifications.
 - Filesystem artifact contract: worker writes deterministic article artifacts under `DATA_DIR`; gateway reads the summary artifact for success replies and UI APIs.
+- Error convention contract: `docs/conventions/ERRORS.md` defines ARC-coded public article-processing failures that Telegram notification dispatch must preserve when transported through `jobs.error_message`.
 - Configuration:
   - `DATA_DIR`
   - `SQLITE_PATH`
@@ -269,6 +279,7 @@ Depends on:
 
 - `docs/ARCHITECTURE.md` gateway, worker, SQLite, filesystem, and Telegram boundaries.
 - `docs/DESIGN.md` decisions DSGN-002, DSGN-003, DSGN-005, DSGN-008, and DSGN-011.
+- `docs/conventions/ERRORS.md` for ARC-coded public article-processing failure text transported by terminal Telegram notifications.
 
 Impacts:
 
@@ -287,6 +298,8 @@ Impacts:
 - `telegram_user_id` is sender identity metadata; `telegram_chat_id` and `telegram_message_id` are reply-target metadata. These fields must not be conflated.
 - `users` is canonical storage for the personal user and Telegram user mapping in v0.
 - Article artifact paths are computed from `DATA_DIR` and `article_id`; do not add artifact path columns unless a future spec changes that decision.
+- Snapshot-only success notification is an interim article-processing bridge. The later v0 extraction/summarization feature must replace it with summary-based completion.
+- ARC error codes apply only to persisted user-facing article-processing failures. Telegram webhook validation replies, authorization failures, acknowledgement failures, and Telegram delivery errors are not ARC-coded.
 - Extraction telemetry is logged, not stored in durable schema, for v0.
 - Existing code is not authoritative; rebuilds must follow this spec and linked tasks.
 
