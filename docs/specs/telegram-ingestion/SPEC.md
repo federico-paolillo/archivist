@@ -74,7 +74,7 @@ Not included:
 - REQ-011: Telegram `update_id` must be persisted on jobs for idempotency so duplicate updates do not create duplicate jobs.
 - REQ-012: Jobs must retain Telegram reply-target metadata: `telegram_chat_id`, `telegram_message_id`, and `telegram_update_id`.
 - REQ-013: Jobs must retain Telegram sender identity metadata as `telegram_user_id`, distinct from `telegram_chat_id`.
-- REQ-014: The personal `users` row must use `id = 01ASB2XFCZJY7WHZ2FNRTMQJCT` and the authorized Telegram sender user ID.
+- REQ-014: The personal `users` row must use `id = 01ASB2XFCZJY7WHZ2FNRTMQJCT`; Telegram ingestion must set or preserve the authorized Telegram sender user ID on that row without changing `password_hash`.
 - REQ-015: The worker must claim queued jobs atomically with `UPDATE ... RETURNING`.
 - REQ-016: Job states must be limited to `queued`, `running`, `succeeded`, and `failed`.
 - REQ-017: Worker completion must update article state, update job state, and insert one pending notification in the same SQLite transaction.
@@ -196,7 +196,8 @@ SQLite remains the source of truth for users, articles, jobs, and notifications.
 ### `users`
 
 - `id`: ULID, seeded as `01ASB2XFCZJY7WHZ2FNRTMQJCT`.
-- `telegram_user_id`: unique and required for Telegram ingestion.
+- `telegram_user_id`: nullable until Telegram ingestion maps the configured Telegram user; unique when present and required for accepted Telegram ingestion behavior.
+- `password_hash`: Argon2id PHC string owned by `authn`; Telegram ingestion must preserve it.
 
 The v0 system has one user row. No user timestamps, provisioning state, roles, tenants, or external identity table are required.
 

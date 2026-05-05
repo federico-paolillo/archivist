@@ -74,13 +74,15 @@ SQLITE_PATH
 TELEGRAM_BOT_TOKEN
 TELEGRAM_ALLOWED_USER_ID
 TELEGRAM_WEBHOOK_SECRET
-AUTH_COOKIE_SECRET
+AUTH_BOOTSTRAP_PASSWORD
 LLM_PROVIDER
 LLM_API_KEY
 LLM_MODEL
 JINA_ENABLED
 JINA_API_KEY
 ```
+
+`AUTH_BOOTSTRAP_PASSWORD` is required only when initializing a missing personal-user password hash. It must be exactly 2048 printable ASCII characters and must be treated as secret material.
 
 `JINA_API_KEY` is optional configuration for authenticated Jina Reader requests. It must be treated as a secret when supplied.
 
@@ -90,7 +92,7 @@ Feature specs or tasks that add configuration keys must update this file or the 
 
 Secrets must not be committed to the repository.
 
-The UI and UI-facing API must require cookie authentication. Telegram ingestion must validate both the webhook secret and allowed Telegram user ID.
+The UI and UI-facing API must require cookie authentication. Cookie authentication must follow `docs/specs/authn/SPEC.md`, including the `__Host-app-auth` opaque session cookie contract, browser-session cookie lifetime, 24-hour server-side absolute expiry, same-origin unsafe-method checks, and in-memory v0 login throttling. Telegram ingestion must validate both the webhook secret and allowed Telegram user ID.
 
 ## Dependencies
 

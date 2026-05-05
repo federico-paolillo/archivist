@@ -30,11 +30,23 @@ Conventions:
 - Prefer typed results from `Microsoft.AspNetCore.Http.HttpResults`.
 - Map expected application problems to appropriate HTTP responses at the API boundary.
 
+## Authentication
+
+- UI/API auth routes are unprefixed: `POST /login`, `POST /logout`, and `GET /auth/session`.
+- Use the custom `"app-cookie"` authentication handler registered through `AddAppCookie()` for browser auth.
+- The auth cookie name is `__Host-app-auth`; set `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/`, and no `Domain`.
+- The cookie value is an opaque 32-byte CSPRNG session id encoded as base64url without padding. Do not encrypt, sign, MAC, or embed user/session metadata in the cookie value.
+- Auth sessions are stored behind `ISessionStore`. The v0 implementation is in-memory; multi-replica deployments must replace it with Redis or another explicit shared store before adding gateway replicas.
+- Cookie auth must return `401` or `403` for API requests instead of redirecting to login or access-denied pages.
+- Unsafe HTTP methods must reject cross-site requests before endpoint handling.
+- Login verification must validate shape and request size before Argon2id work and must use in-memory throttling in v0.
+
 ## Persistence
 
 - EF Core entity classes live under `Archivist.Gateway.Application/Entities`.
 - Use `AsNoTracking()` for read-only EF projections.
 - Do not add migrations unless the persistence schema changes.
+- Auth persistence owns `users.password_hash` and may ensure the personal user row exists before Telegram ingestion maps `telegram_user_id`.
 
 ## Artifact Reads
 

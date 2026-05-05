@@ -13,6 +13,13 @@ Frontend code lives under `src/ui/` and targets Preact with Tailwind CSS.
 - Use factory functions for transient dependencies in `deps.ts`
 - `preact-iso` offers a simple router for Preact with conventional and hooks-based APIs. We use that for routing
 
+## Authentication
+
+- The UI checks `GET /auth/session` during startup and shows the password-only login form on `401`.
+- The UI submits credentials only to `POST /login` and does not store the password in local storage, session storage, IndexedDB, or URL state.
+- Authenticated requests must use same-origin `fetch` with credentials included.
+- The logout control calls `POST /logout` and returns the UI to the login state on success or `401`.
+
 ## Testing
 
 - Frontend tests are colocated as `ui/src/**/*.test.{ts,tsx}`.

@@ -93,7 +93,8 @@ The canonical artifact path convention is defined in `docs/conventions/ARTIFACTS
 Core user state includes:
 
 - `id`: seeded as `01ASB2XFCZJY7WHZ2FNRTMQJCT` for the personal account in v0
-- `telegram_user_id`
+- `telegram_user_id`: nullable until Telegram ingestion maps the configured Telegram user, unique when present
+- `password_hash`: nullable only before UI/API authentication bootstrap completes, then an Argon2id PHC string
 
 Core article state includes:
 
@@ -200,7 +201,13 @@ Security boundaries:
 - Telegram ingestion is limited to one configured `TELEGRAM_ALLOWED_USER_ID`.
 - Telegram webhook requests require `TELEGRAM_WEBHOOK_SECRET`.
 - The entire UI and UI-facing API are protected by cookie authentication.
-- Cookie authentication uses `AUTH_COOKIE_SECRET`, a long random secret supplied through configuration.
+- UI/API authentication uses password-only login for the fixed personal user.
+- Password hashes are Argon2id PHC strings stored on the personal `users` row.
+- `AUTH_BOOTSTRAP_PASSWORD` is a one-time secret used only to initialize `users.password_hash` when missing.
+- Browser auth uses an opaque server-issued session id in `__Host-app-auth`, with `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/`, no `Domain`, browser-session cookie lifetime, and 24-hour server-side absolute expiry.
+- Gateway auth integrates with ASP.NET Core through a custom `"app-cookie"` authentication handler registered by `AddAppCookie()`.
+- v0 stores auth sessions in memory behind `ISessionStore`; gateway restart invalidates existing auth sessions by design.
+- Multi-replica UI/API auth requires a shared `ISessionStore`, with Redis preferred, and shared login throttling state.
 - Secrets must be supplied through environment variables or equivalent deployment secret mechanisms.
 - Secrets must not be committed to the repository.
 
@@ -214,7 +221,7 @@ SQLITE_PATH
 TELEGRAM_BOT_TOKEN
 TELEGRAM_ALLOWED_USER_ID
 TELEGRAM_WEBHOOK_SECRET
-AUTH_COOKIE_SECRET
+AUTH_BOOTSTRAP_PASSWORD
 LLM_PROVIDER
 LLM_API_KEY
 LLM_MODEL
@@ -224,10 +231,13 @@ JINA_API_KEY
 
 `JINA_API_KEY` is optional configuration for authenticated Jina Reader requests and must be treated as secret material when supplied.
 
+`AUTH_BOOTSTRAP_PASSWORD` is required only before the personal user's `password_hash` has been initialized. It must be exactly 2048 printable ASCII characters and must be treated as secret material.
+
 ## Key Constraints
 
 - Single-user system in v0.
 - Single Go worker instance in v0.
+- Single gateway instance in v0 for in-memory auth throttling and ephemeral cookie keys.
 - SQLite-backed metadata and job queue.
 - Filesystem-backed artifact storage.
 - No automatic worker retries or Telegram notification retries in v0.

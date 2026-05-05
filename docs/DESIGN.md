@@ -182,3 +182,69 @@ Suggested minimal format:
 **Decision:** v0 persistence uses `users`, `articles`, `jobs`, and `notifications`. The personal `users.id` is `01ASB2XFCZJY7WHZ2FNRTMQJCT`, with `telegram_user_id` stored directly on that row. Jobs have only `queued`, `running`, `succeeded`, and `failed` states and are claimed atomically with `UPDATE ... RETURNING`; there are no retry, backoff, or lock-owner fields. Notifications have only `pending`, `sent`, and `failed` states and are not retried. Notification dispatch derives reply targets from jobs and success content from article artifacts. Article artifact paths are computed from `DATA_DIR` and `article_id`; artifact path columns and extraction telemetry columns are not stored.
 
 **Consequences:** The database remains small and rebuildable. Failures are terminal in v0 and surface through persisted error fields. Users can manually re-send URLs to create new processing jobs. Future retry support, multi-worker locking, richer notification metadata, or extraction observability must be introduced by new canonical specs and design updates.
+
+### DSGN-015: Opaque Session Cookie Authentication For V0 UI/API
+
+**Date:** 2026-05-05
+**Status:** accepted
+
+**Context:** The v0 web UI needs a private browser authentication surface for one personal user. The original custom-cookie idea included random cookie names, user-id hashes, startup-generated signing secrets, and an in-memory user-id map. The later cookie-ticket design made auth cookie key-ring management part of the deployment surface. Both approaches add concerns that do not improve the v0 threat model.
+
+**Decision:** UI/API authentication uses password-only login against the fixed personal user and an opaque server-issued session id cookie. The password is a generated 2048-character printable ASCII bearer secret stored only as an Argon2id PHC hash on `users.password_hash`.
+
+The auth cookie is named `__Host-app-auth` and carries only an opaque session identifier: 32 bytes from `RandomNumberGenerator.GetBytes`, base64url-encoded without padding. The cookie is a pure capability. It contains no user id, role, expiry timestamp, or session metadata.
+
+The gateway stores authoritative session state server-side as `sessionId -> { userId, createdAt, absoluteExpiresAt }`. The v0 implementation is an in-memory `ConcurrentDictionary<string, SessionEntry>` behind an `ISessionStore` interface. Expiry is absolute and server-side enforced at 24 hours from issue. The cookie itself is browser-session scoped and must not set `Expires` or `Max-Age`.
+
+Cookie attributes are fixed: `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/`, no `Domain`, and the `__Host-` prefix. Cookie values are never logged and must be redacted from request and response logging middleware.
+
+Authentication integrates with the normal ASP.NET Core authentication pipeline through a custom `IAuthenticationHandler`, or `AuthenticationHandler<AppCookieOptions>`, registered by `AddAppCookie()` on `AuthenticationBuilder`. The default scheme and authentication type are `"app-cookie"`. On success, the handler sets `HttpContext.User` to a minimal `ClaimsPrincipal` containing only `ClaimTypes.NameIdentifier` with the personal user id.
+
+`POST /login` accepts the password in the request body and rejects non-`POST`, non-same-origin, or non-TLS requests. Login throttling is applied per IP and globally before Argon2id verification so throttling cannot become a CPU amplification vector. Failed verification returns `401`, does not disclose whether the user exists or whether a hash exists, and increments throttle counters. Successful verification always rotates the session: if the request carries an existing valid cookie, the old session-store entry is removed; a fresh 32-byte session id is generated; `{ userId, createdAt = now, absoluteExpiresAt = now + 24h }` is inserted; `__Host-app-auth` is set with the fixed cookie attributes; and the endpoint returns `204 No Content`. The endpoint must not log the password, session id, cookie value, or `Set-Cookie` header.
+
+`POST /logout` reads the cookie and removes the matching session-store entry when present. It always emits `Set-Cookie: __Host-app-auth=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0` and returns `204 No Content`, regardless of whether the cookie or store entry existed. Clearing only the cookie leaves server-side state alive until expiry; clearing only the store entry leaves the browser sending a dead cookie until replacement. Both actions are required.
+
+The authentication handler only authenticates. On `HandleAuthenticateAsync`, a missing cookie returns `AuthenticateResult.NoResult()`. An unknown session returns failure without exposing a useful distinction to clients. An expired session is removed from the store and fails. A valid session returns `AuthenticateResult.Success(new AuthenticationTicket(principal, Scheme.Name))`. The handler must not issue, clear, rotate, or refresh cookies; `/login` and `/logout` own cookie lifecycle. Sliding expiry is not implemented.
+
+The session-store contract is:
+
+```csharp
+public interface ISessionStore
+{
+    Task<SessionEntry?> GetAsync(string sessionId, CancellationToken ct);
+    Task SetAsync(string sessionId, SessionEntry entry, CancellationToken ct);
+    Task RemoveAsync(string sessionId, CancellationToken ct);
+}
+
+public sealed record SessionEntry(
+    string UserId,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset AbsoluteExpiresAt);
+```
+
+`RemoveAsync` on a missing key is a no-op. The v0 in-memory implementation removes expired entries on lookup and may also perform a periodic sweep. Multi-replica deployment swaps `ISessionStore` to Redis, preferred over memcached because Redis can provide predictable TTL behavior and avoids authentication semantics depending on memory-pressure eviction.
+
+The registration surface is:
+
+```csharp
+public static AuthenticationBuilder AddAppCookie(
+    this AuthenticationBuilder builder,
+    Action<AppCookieOptions>? configure = null);
+```
+
+`AppCookieOptions` exposes at minimum `CookieName`, default `"__Host-app-auth"`, and `SessionLifetime`, default `TimeSpan.FromHours(24)`. The session store is resolved from dependency injection.
+
+```csharp
+services.AddSingleton<ISessionStore, InMemorySessionStore>();
+services.AddAuthentication("app-cookie").AddAppCookie();
+services.AddAuthorization();
+// app.UseAuthentication(); app.UseAuthorization();
+```
+
+Do not add sliding expiry, refresh tokens, multiple concurrent sessions per user, server-side revocation lists beyond entry removal, or encryption, signing, MACs, or other cryptographic transforms over the cookie value without a new design decision.
+
+**Reasoning:** The v0 threat model is a single personal user behind TLS. The realistic risks are credential theft, XSS, CSRF, and replay. They are not cookie tampering or inspection by an attacker who has not already stolen the cookie. Because the cookie value is a random capability with no embedded meaning, there is no value to encrypt. There is also no value to sign: a forged random string will not exist in `ISessionStore`, so lookup fails and the request is unauthorized. Constant-time comparison is not required because the session id is used as a dictionary key, not compared byte-by-byte against a stored secret. Theft mitigations stay the same as the previous design: `__Host-` prefix, `HttpOnly`, `Secure`, `SameSite=Strict`, host-only scope, browser-session cookie lifetime, TLS, server-side absolute expiry, and login throttling. This design also removes the ASP.NET Core key-ring deployment concern because there is no protected cookie payload to share across replicas. Multiple gateway replicas need only a shared session store and shared throttling state.
+
+**Consequences:** v0 no longer depends on key-ring management for UI/API cookie auth. v0 explicitly requires server-side auth session state, reversing the previous no-session-store line. Multi-replica deployment requires a shared `ISessionStore` implementation, with Redis recommended, plus shared login throttling state. Gateway restart still invalidates all sessions in v0 because the in-memory store is wiped; this is intentional and keeps the prior restart-invalidation behavior. `[Authorize]`, `HttpContext.User`, and `User.Identity.IsAuthenticated` continue to work through the standard ASP.NET Core pipeline, so downstream endpoint code and filters remain normal.
+
+**Amendment History:** 2026-05-05 amendment supersedes the original ASP.NET Core cookie-ticket design under this same decision id.

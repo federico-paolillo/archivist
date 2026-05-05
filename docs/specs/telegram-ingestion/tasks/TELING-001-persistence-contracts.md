@@ -24,7 +24,7 @@ As the gateway and worker, we need a shared database contract so ingestion, work
 
 This task includes:
 
-- `users` table with fixed personal user ID `01ASB2XFCZJY7WHZ2FNRTMQJCT` and unique `telegram_user_id`.
+- `users` table with fixed personal user ID `01ASB2XFCZJY7WHZ2FNRTMQJCT`, nullable unique `telegram_user_id`, and preservation of auth-owned `password_hash`.
 - `articles` table with only durable article state: URL, optional canonical URL/title, status, error, and created timestamp.
 - `jobs` table for worker queue state and Telegram origin metadata.
 - `notifications` table for gateway delivery state linked to jobs.
@@ -101,6 +101,7 @@ Scenario: Valid Telegram URL is persisted atomically
   And one queued job is created for that article
   And the Telegram update_id is recorded
   And the Telegram sender user ID is recorded as telegram_user_id
+  And any existing password_hash is preserved
   And the transaction commits atomically
 
 Scenario: Telegram sender identity is stored on the personal Archivist user
@@ -145,6 +146,7 @@ Scenario: Deterministic article artifacts are resolved without path columns
 - Idempotency prevents duplicate articles/jobs for duplicate Telegram `update_id` values.
 - Accepted Telegram ingestions persist `telegram_user_id` separately from `chat_id`.
 - The personal user row maps the authorized Telegram user to `01ASB2XFCZJY7WHZ2FNRTMQJCT`.
+- Telegram ingestion preserves the auth-owned `users.password_hash` column.
 - Article schema omits summary, domain, artifact path columns, extraction telemetry, and processed timestamp.
 - Terminal notification rows can be created atomically with terminal article/job state.
 - Job and notification states exclude retry states.

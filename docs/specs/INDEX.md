@@ -10,6 +10,7 @@ This file prevents scattered feature folders from becoming unmanageable.
 
 | Slug | Title | Status | Depends On | Spec | Plan |
 |---|---|---|---|---|---|
+| `authn` | UI/API Authentication | draft | `telegram-ingestion` | [`SPEC.md`](./authn/SPEC.md) | [`PLAN.md`](./authn/PLAN.md) |
 | `telegram-ingestion` | Telegram Ingestion | draft | — | [`SPEC.md`](./telegram-ingestion/SPEC.md) | [`PLAN.md`](./telegram-ingestion/PLAN.md) |
 | `article-processing` | URL-To-Article Processing Pipeline | draft | `telegram-ingestion` | [`SPEC.md`](./article-processing/SPEC.md) | [`PLAN.md`](./article-processing/PLAN.md) |
 | `markdown-extraction` | Markdown Extraction With Fallbacks | draft | `article-processing` | [`SPEC.md`](./markdown-extraction/SPEC.md) | [`PLAN.md`](./markdown-extraction/PLAN.md) |
