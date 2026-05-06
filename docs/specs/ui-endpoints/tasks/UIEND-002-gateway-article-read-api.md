@@ -4,8 +4,8 @@ feature: ui-endpoints
 title: Gateway article read API
 status: blocked
 depends_on: [UIEND-001, AUTHN-003, TELING-001, SUMGEN-005]
-blocks: []
-parallel: true
+blocks: [UI-003]
+parallel: false
 exec_plan: ../plans/UIEND-002-gateway-article-read-api.execplan.md
 canonical: true
 ---
@@ -24,6 +24,7 @@ This task includes:
 - `GET /articles/{id}`
 - Article ULID cursor validation.
 - Fixed 25-item list pages.
+- Lower-camel JSON DTOs for list and detail responses.
 - Authenticated user scoping.
 - Read-only artifact reads for `summary.md` and `content.md`.
 - Gateway integration tests for auth, pagination, detail, and artifact behavior.
@@ -101,7 +102,7 @@ Depends on:
 
 Blocks:
 
-- None.
+- `UI-003`
 
 ## ExecPlan
 

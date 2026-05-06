@@ -44,3 +44,37 @@ Canonical Updates:
 - `docs/specs/article-processing/SPEC.md`
 - `docs/specs/markdown-extraction/SPEC.md`
 - `docs/specs/markdown-extraction/PLAN.md`
+
+## 2026-05-06 — DOCS-SANITY: Summary Final Success Contract
+
+Status:
+- completed
+
+Summary:
+- Completed the summary-generation docs so summary completion is the only final v0 success path.
+
+Changes:
+- Added and linked the `SUMGEN-005` ExecPlan.
+- Replaced the invalid Anthropic model ID with `claude-3-5-haiku-20241022` while retaining `LLM_MODEL` override support.
+- Accepted the ready `SUMGEN-003` ExecPlan.
+
+Decisions:
+- Summary-complete processing owns final article/job success and Gateway success notification content.
+- Snapshot and Markdown stages are intermediate handoffs.
+
+Validation:
+- Structural docs check passed for task/PLAN drift, dependency drift, ExecPlan links, required context, Markdown links, and canonical TODOs.
+- Targeted repository searches found no invalid model ID and no ready task linked to a proposed ExecPlan.
+- Production build/test validation was not required because this was a docs-only correction.
+
+Follow-ups:
+- Implement `SUMGEN-005` after Worker summary completion and the narrowed Telegram dispatcher exist.
+
+Canonical Updates:
+- `docs/specs/summary-generation/SPEC.md`
+- `docs/specs/summary-generation/PLAN.md`
+- `docs/specs/summary-generation/tasks/SUMGEN-001-create-feature-artifacts-and-contracts.md`
+- `docs/specs/summary-generation/tasks/SUMGEN-003-summarizer-provider-adapter.md`
+- `docs/specs/summary-generation/tasks/SUMGEN-005-gateway-summary-notification.md`
+- `docs/specs/summary-generation/plans/SUMGEN-003-summarizer-provider-adapter.execplan.md`
+- `docs/specs/summary-generation/plans/SUMGEN-005-gateway-summary-notification.execplan.md`

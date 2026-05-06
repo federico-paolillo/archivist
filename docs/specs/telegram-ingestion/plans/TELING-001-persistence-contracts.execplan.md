@@ -1,7 +1,7 @@
 ---
 id: TELING-001-PLAN
 task: ../tasks/TELING-001-persistence-contracts.md
-status: proposed
+status: accepted
 canonical: true
 ---
 
@@ -25,6 +25,7 @@ Add only ExecPlan-specific context:
 
 - `docs/ARCHITECTURE.md`
 - `docs/DESIGN.md`
+- `docs/conventions/ARTIFACTS.md`
 - `docs/conventions/GATEWAY.md`
 - `docs/conventions/WORKER.md`
 

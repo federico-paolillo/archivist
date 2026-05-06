@@ -87,7 +87,7 @@ Scenario: TODO
 Required checks:
 
 ```bash
-# TODO: add validation commands
+# Add validation commands.
 ```
 
 Manual validation, if any:

@@ -25,6 +25,8 @@ Suggested minimal format:
 **Consequences:** What changes as a result. What becomes easier or harder.
 ```
 
+Only decisions with `Status: accepted` are binding for rebuild. Decisions marked `superseded` or `under review` are retained as historical context and must not be used as required behavior when they conflict with accepted decisions.
+
 ---
 
 ## Decisions

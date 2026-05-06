@@ -74,6 +74,8 @@ Not included:
 - REQ-021: Missing artifact directories must not fail deletion.
 - REQ-022: Artifact cleanup failures must return `500 Internal Server Error`.
 - REQ-023: `DELETE /articles/{id}` must enforce same-origin unsafe-method protection.
+- REQ-024: JSON response bodies must use lower-camel property names.
+- REQ-025: Delete and worker job claim must serialize through SQLite write transactions. Delete must recheck associated job status inside the delete transaction, and worker claim must not claim jobs whose article row has been deleted.
 
 ## Acceptance Criteria
 
@@ -128,6 +130,7 @@ Scenario: Delete queued article
   When the browser requests DELETE /articles/{id}
   Then the response status is 204
   And the article, jobs, notifications, and artifact directory are removed
+  And a later worker claim cannot claim the deleted job
 
 Scenario: Delete rejects running article
   Given the authenticated user owns an article with a running job
@@ -149,11 +152,11 @@ Article list rows expose:
 
 - `id`
 - `title`
-- `original_url`
-- `canonical_url`
+- `originalUrl`
+- `canonicalUrl`
 - `status`
-- `error_message`
-- `created_at`
+- `errorMessage`
+- `createdAt`
 
 Article detail adds:
 
@@ -180,6 +183,57 @@ Delete behavior is hard delete. Deleted articles disappear from list and detail 
   - Running job exists: `409 Conflict`.
   - Cross-site unsafe request: `403 Forbidden`.
   - Artifact cleanup failure: `500 Internal Server Error`.
+
+JSON response contracts:
+
+```json
+{
+  "items": [
+    {
+      "id": "01H00000000000000000000000",
+      "title": "Article title",
+      "originalUrl": "https://example.com/input",
+      "canonicalUrl": "https://example.com/final",
+      "status": "ready",
+      "errorMessage": null,
+      "createdAt": "2026-05-06T12:00:00Z"
+    }
+  ],
+  "nextCursor": "01GZZZZZZZZZZZZZZZZZZZZZZ",
+  "previousCursor": null
+}
+```
+
+```json
+{
+  "id": "01H00000000000000000000000",
+  "title": "Article title",
+  "originalUrl": "https://example.com/input",
+  "canonicalUrl": "https://example.com/final",
+  "status": "ready",
+  "errorMessage": null,
+  "createdAt": "2026-05-06T12:00:00Z",
+  "summaryMarkdown": "Summary text",
+  "contentMarkdown": "Article Markdown"
+}
+```
+
+Error responses use the minimal shape below when a response body is needed:
+
+```json
+{
+  "error": "Short public error message."
+}
+```
+
+`DELETE /articles/{id}` returns `204 No Content` without a response body on success.
+
+Delete/claim serialization:
+
+- Gateway delete must start a SQLite write transaction, re-read the article and associated job statuses inside that transaction, reject if any job is `running`, delete associated notifications/jobs/article rows, and commit only after artifact cleanup succeeds or is known to be unnecessary.
+- Worker job claim must use a SQLite write transaction and claim only queued jobs whose article row still exists.
+- If delete commits first, later worker claim observes no claimable job.
+- If worker claim commits first and sets a job to `running`, delete returns `409 Conflict`.
 
 ## Dependencies
 

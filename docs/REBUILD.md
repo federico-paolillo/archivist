@@ -19,6 +19,9 @@ docs/REBUILD.md
 docs/ARCHITECTURE.md
 docs/conventions/*.md
 docs/DESIGN.md
+docs/design/DESIGN.md
+docs/design/login.png
+docs/design/view.png
 docs/specs/INDEX.md
 docs/specs/*/SPEC.md
 docs/specs/*/PLAN.md
@@ -78,11 +81,12 @@ Read documents in this order:
 5. `docs/conventions/GENERAL.md`
 6. relevant module convention files under `docs/conventions/`
 7. `docs/DESIGN.md`
-8. `docs/specs/INDEX.md`
-9. feature `SPEC.md` files in dependency order
-10. feature `PLAN.md` files in dependency order
-11. task files in executable order
-12. linked ExecPlans when present
+8. `docs/design/DESIGN.md` and referenced design assets when rebuilding UI behavior
+9. `docs/specs/INDEX.md`
+10. feature `SPEC.md` files in dependency order
+11. feature `PLAN.md` files in dependency order
+12. task files in executable order
+13. linked ExecPlans when present
 
 Always read `docs/conventions/GENERAL.md`. Read only the relevant module convention files unless the rebuild step spans modules.
 
@@ -103,8 +107,16 @@ Default rules:
 Project-specific ordering:
 
 ```text
-TODO: define feature execution order here.
+1. telegram-ingestion
+2. authn
+3. article-processing
+4. markdown-extraction
+5. summary-generation
+6. ui-endpoints
+7. ui
 ```
+
+Task-level cross-feature dependencies in feature `PLAN.md` files further constrain this order. In particular, the shared persistence foundation from `TELING-001` must precede auth password persistence, article processing orchestration, and UI endpoint work; final success notification behavior is completed by `SUMGEN-005`; and the browser UI starts only after auth and UI article endpoint contracts are implemented and validated.
 
 ---
 
@@ -153,7 +165,17 @@ A rebuild is not complete until:
 Project validation commands:
 
 ```bash
-# TODO: add validation commands
+cd src/gateway && dotnet format
+cd src/gateway && dotnet build
+cd src/gateway && dotnet test
+cd src/worker && go tool lefthook run build
+cd src/worker && go tool lefthook run format
+cd src/worker && go tool lefthook run lint
+cd src/worker && go tool lefthook run test
+cd src/ui && npm run format
+cd src/ui && npm run lint
+cd src/ui && npm run build
+cd src/ui && npm run test
 ```
 
 ---

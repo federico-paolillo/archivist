@@ -31,7 +31,7 @@ This task includes:
 - Blank black detail pane for `/articles` with no selected id.
 - Ready, queued/non-ready, failed, detail-fetch-error, and delete-error states.
 - Summary/content Markdown rendering with raw HTML disabled or sanitized.
-- `Original` action using `canonical_url` when present, otherwise `original_url`.
+- `Original` action using `canonicalUrl` when present, otherwise `originalUrl`.
 - `Delete` action and confirmation modal.
 - Delete cancel and confirm behavior.
 - List/detail state reset after successful delete.

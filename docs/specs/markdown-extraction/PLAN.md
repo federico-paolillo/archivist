@@ -89,8 +89,7 @@ MDEXT-005 -> SUMGEN-002
 3. Run Worker go-readability extraction tests.
 4. Run Worker Jina fallback tests.
 5. Run Worker pipeline transaction and logging tests.
-6. Run Gateway notification tests.
-7. Run complete Worker and Gateway verification.
+6. Run complete Worker and Gateway verification.
 
 Validation commands:
 

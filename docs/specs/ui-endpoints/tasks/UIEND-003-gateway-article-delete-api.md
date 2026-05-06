@@ -4,8 +4,8 @@ feature: ui-endpoints
 title: Gateway article delete API
 status: blocked
 depends_on: [UIEND-001, AUTHN-003, TELING-001]
-blocks: []
-parallel: true
+blocks: [UI-003]
+parallel: false
 exec_plan: ../plans/UIEND-003-gateway-article-delete-api.execplan.md
 canonical: true
 ---
@@ -25,6 +25,7 @@ This task includes:
 - Authenticated user scoping.
 - Hard deletion of article rows, associated jobs, associated notifications, and the deterministic artifact directory.
 - Rejection of delete when any associated job is `running`.
+- SQLite write-transaction serialization with worker job claim.
 - Gateway integration tests for delete behavior.
 
 ## Out of Scope
@@ -100,7 +101,7 @@ Depends on:
 
 Blocks:
 
-- None.
+- `UI-003`
 
 ## ExecPlan
 

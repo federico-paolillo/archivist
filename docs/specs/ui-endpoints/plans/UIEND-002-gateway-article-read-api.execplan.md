@@ -38,7 +38,7 @@ Implement authenticated article list/detail routes backed by SQLite and determin
 
 ## Implementation Sequence
 
-1. Add article API DTOs for list, cursors, detail, and error-free success responses.
+1. Add lower-camel article API DTOs for list, cursors, detail, and error responses.
 2. Add application article query services that use SQLite with authenticated user scoping.
 3. Add read-only artifact access for `summary.md` and `content.md`.
 4. Map `GET /articles` and `GET /articles/{id}` with `RequireAuthorization`.

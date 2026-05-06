@@ -137,3 +137,35 @@ Canonical Updates:
 - `docs/specs/article-processing/tasks/ARTPROC-005-worker-snapshot-pipeline-orchestration.md`
 - `docs/specs/article-processing/tasks/ARTPROC-006-gateway-snapshot-success-notification-bridge.md`
 - `docs/specs/article-processing/plans/ARTPROC-005-worker-snapshot-pipeline-orchestration.execplan.md`
+
+## 2026-05-06 - DOCS-SANITY: Snapshot Handoff Correction
+
+Status:
+- completed
+
+Summary:
+- Corrected article-processing docs so snapshot success is only a handoff to Markdown extraction in final v0.
+
+Changes:
+- Updated `SPEC.md`, `PLAN.md`, `ARTPROC-003`, `ARTPROC-005`, `ARTPROC-006`, and the `ARTPROC-005` ExecPlan.
+- Added the artifact convention to required context where snapshot artifact behavior depends on it.
+
+Decisions:
+- Snapshot success writes `snapshot.html`, updates the canonical URL when known, and keeps the job running.
+- Snapshot success does not mark the article ready, mark the job succeeded, or create success notifications in final v0.
+
+Validation:
+- Structural docs check passed for task/PLAN drift, dependency drift, ExecPlan links, required context, Markdown links, and canonical TODOs.
+- Targeted repository searches found no stale terminal-success wording at the snapshot boundary.
+- Production build/test validation was not required because this was a docs-only correction.
+
+Follow-ups:
+- Implement `ARTPROC-005` as a Markdown handoff once upstream dependencies are complete.
+
+Canonical Updates:
+- `docs/specs/article-processing/SPEC.md`
+- `docs/specs/article-processing/PLAN.md`
+- `docs/specs/article-processing/tasks/ARTPROC-003-worker-filesystem-artifact-access-layer.md`
+- `docs/specs/article-processing/tasks/ARTPROC-005-worker-snapshot-pipeline-orchestration.md`
+- `docs/specs/article-processing/tasks/ARTPROC-006-gateway-snapshot-success-notification-bridge.md`
+- `docs/specs/article-processing/plans/ARTPROC-005-worker-snapshot-pipeline-orchestration.execplan.md`

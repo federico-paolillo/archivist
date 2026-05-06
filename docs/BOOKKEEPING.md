@@ -14,7 +14,7 @@ The primary objective is repeatable full regeneration of the application from re
 
 The codebase is not the canonical artifact.
 
-Canonical rebuild knowledge must live in Markdown files under `docs/` and `docs/specs/`. If a behavior, constraint, architectural decision, interface, or acceptance criterion must survive a rebuild, it must be written in one of the canonical files.
+Canonical rebuild knowledge must live in `AGENTS.md` or Markdown files under `docs/` and `docs/specs/`. If a behavior, constraint, architectural decision, interface, or acceptance criterion must survive a rebuild, it must be written in one of the canonical files.
 
 Implementation may discover missing decisions. When that happens, the decision must be promoted back into the appropriate document before or alongside code changes.
 
@@ -142,6 +142,8 @@ completed    task completed using this plan
 superseded   retained for history but replaced by another plan or task update
 ```
 
+ExecPlans are canonical planning records even when `status: proposed`, but proposed ExecPlans are not authoritative execution guidance. A task marked `ready` that links an ExecPlan must link an `accepted` ExecPlan; during execution the ExecPlan may move to `in_progress`, and after completion it may move to `completed`.
+
 ### `docs/specs/<feature-slug>/DIARY.md`
 
 Append-only implementation log for the feature. It records what changed, why, validation performed, decisions discovered, and follow-ups.
@@ -177,6 +179,9 @@ docs/REBUILD.md
 docs/ARCHITECTURE.md
 docs/conventions/*.md
 docs/DESIGN.md
+docs/design/DESIGN.md
+docs/design/login.png
+docs/design/view.png
 docs/specs/INDEX.md
 docs/specs/*/SPEC.md
 docs/specs/*/PLAN.md
@@ -350,6 +355,8 @@ task: ../tasks/AUTHN-001-implement-login.md
 ```
 
 This bidirectional link is required for complex tasks.
+
+If a task is `ready` and has an ExecPlan, the linked ExecPlan must be `accepted`. Do not execute a ready task from a `proposed` ExecPlan.
 
 If a task does not need an ExecPlan, set:
 

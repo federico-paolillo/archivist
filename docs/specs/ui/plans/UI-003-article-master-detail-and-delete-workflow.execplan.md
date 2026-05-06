@@ -44,7 +44,7 @@ Add only ExecPlan-specific context:
 ## Implementation Sequence
 
 1. Add article API client methods for list, detail, and delete using the configured API base and credentials.
-2. Define TypeScript DTOs matching `ui-endpoints`: metadata fields plus `summaryMarkdown` and `contentMarkdown` for detail.
+2. Define TypeScript DTOs matching `ui-endpoints`: lower-camel metadata fields plus `summaryMarkdown` and `contentMarkdown` for detail.
 3. Render the master-detail grid under the authenticated shell: fixed top bar, bordered master pane, bordered detail pane, dense ledger rows, black/gray surfaces, no rounded corners.
 4. Load the first article page from `GET /articles` when the authenticated articles shell mounts.
 5. Render article rows with id, title fallback, URL, status, and selected inversion matching the design system.
@@ -56,9 +56,9 @@ Add only ExecPlan-specific context:
 11. Render Markdown with raw HTML disabled. If adding a Markdown dependency, prefer a renderer that escapes raw HTML by configuration; document the dependency reason in the task diary.
 12. Validate Markdown links so `javascript:` URLs cannot execute. External links opened from rendered content must use `rel="noopener noreferrer"`.
 13. For queued and other non-ready/non-failed details, render centered white text exactly `Come back later.` while retaining available article actions.
-14. For failed details, render the persisted `error_message` centered in red while retaining available article actions.
+14. For failed details, render the persisted `errorMessage` centered in red while retaining available article actions.
 15. For detail fetch failures, render the failure text centered in red.
-16. Implement `Original` as a link to `canonical_url` when present, otherwise `original_url`, opening in a new tab/window with `noopener` and `noreferrer`.
+16. Implement `Original` as a link to `canonicalUrl` when present, otherwise `originalUrl`, opening in a new tab/window with `noopener` and `noreferrer`.
 17. Implement `Delete` with a modal containing exactly `Are you sure?`, `Yes`, and `Nevermind`.
 18. Ensure `Nevermind` closes the modal without sending a request.
 19. Ensure `Yes` sends `DELETE /articles/{id}` through the configured API base.

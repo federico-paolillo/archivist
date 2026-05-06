@@ -80,3 +80,36 @@ Canonical Updates:
 - `docs/specs/markdown-extraction/tasks/MDEXT-006-gateway-markdown-success-notification.md`
 - `docs/specs/markdown-extraction/plans/MDEXT-004-worker-jina-reader-fallback.execplan.md`
 - `docs/specs/markdown-extraction/plans/MDEXT-005-worker-markdown-pipeline-integration.execplan.md`
+
+## 2026-05-06 — DOCS-SANITY: Markdown Handoff Correction
+
+Status:
+- completed
+
+Summary:
+- Corrected Markdown extraction docs so Markdown success is only a handoff to summary generation in final v0.
+
+Changes:
+- Updated `SPEC.md`, `PLAN.md`, `MDEXT-004`, `MDEXT-005`, `MDEXT-006`, and the `MDEXT-004`/`MDEXT-005` ExecPlans.
+- Fixed `MDEXT-005` to block `SUMGEN-002` and linked `MDEXT-004` to its accepted ExecPlan.
+
+Decisions:
+- Markdown success writes `content.md` and keeps the job running for summary generation.
+- Markdown success does not mark the article ready, mark the job succeeded, or create success notifications in final v0.
+
+Validation:
+- Structural docs check passed for task/PLAN drift, dependency drift, ExecPlan links, required context, Markdown links, and canonical TODOs.
+- Targeted repository searches found no stale terminal-success wording at the Markdown boundary.
+- Production build/test validation was not required because this was a docs-only correction.
+
+Follow-ups:
+- Implement `SUMGEN-002` only after `MDEXT-005` is complete.
+
+Canonical Updates:
+- `docs/specs/markdown-extraction/SPEC.md`
+- `docs/specs/markdown-extraction/PLAN.md`
+- `docs/specs/markdown-extraction/tasks/MDEXT-004-worker-jina-reader-fallback.md`
+- `docs/specs/markdown-extraction/tasks/MDEXT-005-worker-markdown-pipeline-integration.md`
+- `docs/specs/markdown-extraction/tasks/MDEXT-006-gateway-markdown-success-notification.md`
+- `docs/specs/markdown-extraction/plans/MDEXT-004-worker-jina-reader-fallback.execplan.md`
+- `docs/specs/markdown-extraction/plans/MDEXT-005-worker-markdown-pipeline-integration.execplan.md`

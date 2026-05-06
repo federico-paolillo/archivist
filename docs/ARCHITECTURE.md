@@ -238,6 +238,7 @@ LLM_API_KEY
 LLM_MODEL
 JINA_ENABLED
 JINA_API_KEY
+VITE_API_BASE_PATH
 ```
 
 `JINA_API_KEY` is optional configuration for authenticated Jina Reader requests and must be treated as secret material when supplied.
@@ -250,7 +251,7 @@ The UI build uses `VITE_API_BASE_PATH` to choose the same-origin public API base
 
 - Single-user system in v0.
 - Single Go worker instance in v0.
-- Single gateway instance in v0 for in-memory auth throttling and ephemeral cookie keys.
+- Single gateway instance in v0 for in-memory auth sessions and login throttling.
 - SQLite-backed metadata and job queue.
 - Filesystem-backed artifact storage.
 - No automatic worker retries or Telegram notification retries in v0.

@@ -14,7 +14,7 @@ canonical: true
 
 ## Objective
 
-This task is skipped because `summary-generation` supersedes Markdown-complete terminal success before this bridge is implemented.
+This task is skipped because `summary-generation` supersedes Markdown-stage terminal success before this bridge is implemented.
 
 ## Story / Context
 
@@ -24,7 +24,7 @@ As the authorized Telegram user, I ultimately need the generated summary, so Gat
 
 This task includes:
 
-- Historical Markdown-complete Telegram reply text only if this task is explicitly revived before summary generation.
+- Historical Markdown-stage Telegram reply text only if this task is explicitly revived before summary generation.
 - Documentation that this bridge is superseded by `summary-generation`.
 
 ## Out of Scope
@@ -75,9 +75,8 @@ Do not load unrelated feature folders unless listed here or required by dependen
 ## Acceptance Criteria
 
 ```gherkin
-Scenario: Markdown-complete success notification is superseded
-  Given a pending notification exists for a succeeded job
-  And the article has content.md
+Scenario: Markdown-stage success notification is superseded
+  Given a job has produced content.md
   And summary-generation is planned
   When this task is evaluated for implementation
   Then implementation is skipped
@@ -138,4 +137,4 @@ null
 
 ## Notes
 
-- Skipped because `summary-generation` supersedes Markdown-complete terminal success with summary-complete success before this bridge is implemented.
+- Skipped because `summary-generation` supersedes Markdown-stage terminal success with summary-complete success before this bridge is implemented.

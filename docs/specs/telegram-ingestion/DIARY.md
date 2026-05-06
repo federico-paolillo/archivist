@@ -90,3 +90,36 @@ Canonical Updates:
 - `docs/specs/telegram-ingestion/tasks/TELING-003-worker-terminal-notification-contract.md`
 - `docs/specs/telegram-ingestion/tasks/TELING-004-telegram-notification-dispatcher.md`
 - `docs/specs/telegram-ingestion/plans/TELING-004-telegram-notification-dispatcher.execplan.md`
+
+## 2026-05-06 — DOCS-SANITY: Dispatcher Scope Correction
+
+Status:
+- completed
+
+Summary:
+- Corrected Telegram notification documentation so `TELING-004` owns dispatcher infrastructure, failure replies, delivery state, truncation, and cleanup only.
+
+Changes:
+- Limited `TELING-004` task and ExecPlan success handling to a later summary-generation branch.
+- Updated `SPEC.md` dependencies and artifact-read ownership.
+- Accepted the `TELING-001` ExecPlan and fixed PLAN/table parallel notation drift.
+
+Decisions:
+- Final v0 success notification content is owned by `SUMGEN-005`.
+- Gateway summary artifact reads for success replies are not part of `TELING-004`.
+
+Validation:
+- Structural docs check passed for task/PLAN drift, dependency drift, ExecPlan links, required context, Markdown links, and canonical TODOs.
+- Targeted repository searches found no stale model/config drift or snapshot/Markdown terminal-success wording.
+- Production build/test validation was not required because this was a docs-only correction.
+
+Follow-ups:
+- Implement `TELING-004` according to the narrowed dispatcher scope after dependencies are complete.
+
+Canonical Updates:
+- `docs/specs/telegram-ingestion/SPEC.md`
+- `docs/specs/telegram-ingestion/PLAN.md`
+- `docs/specs/telegram-ingestion/tasks/TELING-001-persistence-contracts.md`
+- `docs/specs/telegram-ingestion/tasks/TELING-004-telegram-notification-dispatcher.md`
+- `docs/specs/telegram-ingestion/plans/TELING-001-persistence-contracts.execplan.md`
+- `docs/specs/telegram-ingestion/plans/TELING-004-telegram-notification-dispatcher.execplan.md`

@@ -6,7 +6,7 @@ status: ready
 depends_on: [MDEXT-001]
 blocks: [MDEXT-005]
 parallel: true
-exec_plan: null
+exec_plan: ../plans/MDEXT-004-worker-jina-reader-fallback.execplan.md
 canonical: true
 ---
 

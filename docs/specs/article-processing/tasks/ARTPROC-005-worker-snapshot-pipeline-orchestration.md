@@ -75,6 +75,7 @@ Read before execution:
 - `../PLAN.md`
 - `docs/ARCHITECTURE.md`
 - `docs/DESIGN.md`
+- `docs/conventions/ARTIFACTS.md`
 - `docs/conventions/ERRORS.md`
 - `docs/conventions/GENERAL.md`
 - `docs/conventions/WORKER.md`
@@ -112,8 +113,8 @@ Scenario: Fetch failure is committed transactionally
 ## Done When
 
 - Worker pipeline claims and processes queued article-processing jobs.
-- Snapshot success sets article ready, clears article error, sets job succeeded, and inserts notification in one transaction only when no downstream pipeline exists.
-- Final v0 snapshot success continues to Markdown extraction without committing article/job success.
+- Snapshot success atomically writes `snapshot.html`, updates `articles.canonical_url`, and continues to Markdown extraction in final v0.
+- Final v0 snapshot success does not commit article/job success, terminal timestamps/TTL, or a success notification.
 - Failure sets article failed, stores ARC-coded public error, sets job failed, and inserts notification in one transaction.
 - Extraction and rating slots are explicit no-ops or documented extension points.
 - Tests cover success, failure, canonical URL update, notification creation, and transaction rollback behavior.

@@ -27,7 +27,7 @@ In scope:
 - Worker-owned `SummarizerService` abstraction.
 - Anthropic/Claude provider implementation behind that abstraction.
 - Official Anthropic SDK usage when a suitable SDK exists; in Go, prefer `github.com/anthropics/anthropic-sdk-go`.
-- Default summarizer configuration with `LLM_PROVIDER=anthropic`, `LLM_MODEL=claude-haiku-4-5`, and required `LLM_API_KEY`.
+- Default summarizer configuration with `LLM_PROVIDER=anthropic`, `LLM_MODEL=claude-3-5-haiku-20241022`, and required `LLM_API_KEY`.
 - Fixed summary system prompt that requests text-only output.
 - Terminal failure when Markdown exceeds context or request limits; v0 does not chunk or truncate source Markdown.
 - Atomic summary artifact writes to `{DATA_DIR}/articles/{article_id}/summary.md`.
@@ -67,7 +67,7 @@ Not included:
 - REQ-005: The Anthropic implementation must use an official Anthropic SDK when a suitable SDK exists for the implementation language.
 - REQ-006: Go implementations must prefer `github.com/anthropics/anthropic-sdk-go` for Anthropic API access.
 - REQ-007: The default provider must be `anthropic`.
-- REQ-008: The default model must be `claude-haiku-4-5`.
+- REQ-008: The default model must be `claude-3-5-haiku-20241022`.
 - REQ-009: `LLM_API_KEY` must be required when `LLM_PROVIDER=anthropic`.
 - REQ-010: The Worker must send the extracted Markdown as source content with a fixed system prompt that requests text-only summary output.
 - REQ-011: The Worker must not request structured JSON for v0 summaries.
@@ -241,3 +241,4 @@ Impacts:
 - `./tasks/SUMGEN-005-gateway-summary-notification.md`
 - `./plans/SUMGEN-003-summarizer-provider-adapter.execplan.md`
 - `./plans/SUMGEN-004-worker-summary-pipeline-integration.execplan.md`
+- `./plans/SUMGEN-005-gateway-summary-notification.execplan.md`

@@ -81,3 +81,33 @@ Canonical Updates:
 - `docs/specs/authn/tasks/AUTHN-003-gateway-cookie-authentication-endpoints.md`
 - `docs/specs/authn/plans/AUTHN-002-password-persistence-and-bootstrap.execplan.md`
 - `docs/specs/authn/plans/AUTHN-003-gateway-cookie-authentication.execplan.md`
+
+## 2026-05-06 — DOCS-SANITY: UI Auth Dependency Correction
+
+Status:
+- completed
+
+Summary:
+- Corrected authn dependency docs so UI routing/auth shell work waits for the validated browser auth contract.
+
+Changes:
+- Updated `AUTHN-003`, `AUTHN-004`, and `PLAN.md` blockers.
+- Replaced stale global cookie-key wording with in-memory sessions and login throttling.
+
+Decisions:
+- `UI-002` depends on `AUTHN-004`, not only on earlier auth endpoint planning.
+
+Validation:
+- Structural docs check passed for task/PLAN drift, dependency drift, ExecPlan links, required context, Markdown links, and canonical TODOs.
+- Targeted repository searches found no stale ephemeral-cookie-key wording.
+- Production build/test validation was not required because this was a docs-only correction.
+
+Follow-ups:
+- Implement UI routing only after the browser auth contract is validated.
+
+Canonical Updates:
+- `docs/specs/authn/PLAN.md`
+- `docs/specs/authn/tasks/AUTHN-003-gateway-cookie-authentication-endpoints.md`
+- `docs/specs/authn/tasks/AUTHN-004-protect-ui-api-and-validate-auth-client-contract.md`
+- `docs/ARCHITECTURE.md`
+- `docs/conventions/GENERAL.md`

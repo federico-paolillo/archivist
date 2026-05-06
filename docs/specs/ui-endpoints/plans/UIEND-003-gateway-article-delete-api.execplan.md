@@ -29,6 +29,7 @@ Implement authenticated article hard deletion with SQLite cleanup and determinis
 - Deleting queued jobs is allowed.
 - Deleting running jobs is not allowed and returns `409`.
 - Missing artifact directories are already-cleaned state and do not fail deletion.
+- Delete and worker claim serialize through SQLite write transactions; whichever transition commits first determines the visible outcome.
 
 ## Non-Goals
 
@@ -38,11 +39,12 @@ Implement authenticated article hard deletion with SQLite cleanup and determinis
 
 ## Implementation Sequence
 
-1. Add delete service behavior that checks article ownership and running-job conflicts.
-2. Remove associated notifications, jobs, article row, and artifact directory as one handler operation.
-3. Keep delete artifact cleanup separate from read-only artifact access.
-4. Map `DELETE /articles/{id}` with `RequireAuthorization` and same-origin enforcement.
-5. Add integration tests for success, conflict, not found, malformed IDs, missing artifacts, row cleanup, directory cleanup, and cross-site rejection.
+1. Add delete service behavior that starts a SQLite write transaction, checks article ownership, and rechecks running-job conflicts inside that transaction.
+2. Ensure worker job claim only claims queued jobs whose article row still exists, so a delete that commits first leaves no claimable job.
+3. Remove associated notifications, jobs, article row, and artifact directory as one handler operation; commit the database delete only after artifact cleanup succeeds or is known to be unnecessary.
+4. Keep delete artifact cleanup separate from read-only artifact access.
+5. Map `DELETE /articles/{id}` with `RequireAuthorization` and same-origin enforcement.
+6. Add integration tests for success, delete/claim race ordering, conflict, not found, malformed IDs, missing artifacts, row cleanup, directory cleanup, and cross-site rejection.
 
 ## Validation Plan
 
@@ -58,7 +60,7 @@ cd src/gateway && dotnet test
 
 ## Risks
 
-- Filesystem and SQLite changes are not an atomic distributed transaction. The v0 handler performs both in one operation and fails before commit when artifact cleanup fails.
+- Filesystem and SQLite changes are not an atomic distributed transaction. The v0 handler performs artifact cleanup before committing the SQLite delete, so cleanup failure returns `500` and leaves article state intact.
 
 ## Rollback / Recovery Notes
 

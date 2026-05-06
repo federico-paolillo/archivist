@@ -32,10 +32,10 @@ In scope:
 - HTML-only acceptance for `text/html` and `application/xhtml+xml`.
 - Atomic `snapshot.html` writes under `{DATA_DIR}/articles/{article_id}/`.
 - Article canonical URL update to the final redirected URL after successful resolution.
-- Transactional snapshot-success state update, job completion, and notification creation.
+- Final-v0 snapshot handoff to Markdown extraction without article/job success or success notification creation.
 - Transactional failure state update, ARC-coded article error, job failure context, and notification creation.
 - Empty pipeline slots for later extraction and rating stages, documented as future replacement points.
-- Gateway notification behavior for snapshot-complete success only if implemented before downstream pipeline stages; otherwise snapshot-only notification is superseded by later Markdown and summary completion.
+- Snapshot-only success notification work remains skipped because final v0 success notification is summary-based.
 
 ## Out of Scope
 
@@ -73,13 +73,13 @@ Not included:
 - REQ-008: Successful URL resolution must update `articles.canonical_url` to the final redirected URL.
 - REQ-009: Successful snapshot processing must write only `snapshot.html`.
 - REQ-010: Snapshot writes must be atomic: write a temporary file, then rename into place.
-- REQ-011: Snapshot success is an interim terminal success only when no downstream extraction or summary feature is present. In final v0, snapshot success must continue to Markdown extraction and must not set `articles.status = ready`, set `jobs.status = succeeded`, or insert a success notification.
+- REQ-011: Snapshot success must continue to Markdown extraction and must not set `articles.status = ready`, set `jobs.status = succeeded`, or insert a success notification in final v0.
 - REQ-012: Processing failure must set `articles.status = failed`, set `articles.error_message` to an ARC-coded public error, set `jobs.status = failed`, persist job error context, set terminal timestamps/TTL, and insert exactly one pending notification in one SQLite transaction.
 - REQ-013: Persisted public article errors must use codes defined in `docs/conventions/ERRORS.md`.
 - REQ-014: The Worker must not call Telegram APIs directly.
-- REQ-015: The Gateway may send a snapshot-complete success notification only until `markdown-extraction` supersedes snapshot-only completion.
+- REQ-015: Gateway snapshot-stage notification work is skipped in final v0; success notification content is summary-based and owned by `summary-generation`.
 - REQ-016: Extraction and rating pipeline steps must exist only as no-op slots or documentation boundaries in this feature.
-- REQ-017: The `markdown-extraction` and `summary-generation` features supersede the snapshot-complete success criterion with summary-complete processing.
+- REQ-017: The `markdown-extraction` and `summary-generation` features supersede the snapshot-stage success criterion with summary-complete processing.
 
 ## Acceptance Criteria
 
@@ -92,10 +92,10 @@ Scenario: Worker snapshots an HTML article
   When the Worker processes the job
   Then the Worker stores snapshot.html under DATA_DIR/articles/{article_id}/
   And articles.canonical_url is set to the final redirected URL
-  And articles.status is "ready"
-  And articles.error_message is null
-  And jobs.status is "succeeded"
-  And one pending notification exists for the job
+  And Markdown extraction is invoked when the downstream Markdown stage is implemented
+  And articles.status is not set to "ready" at the snapshot boundary in final v0
+  And jobs.status is not set to "succeeded" at the snapshot boundary in final v0
+  And no success notification is inserted at the snapshot boundary in final v0
 
 Scenario: URL returns not found
   Given a queued article-processing job exists
@@ -104,7 +104,7 @@ Scenario: URL returns not found
   Then articles.status is "failed"
   And articles.error_message starts with "[ARC-003]"
   And jobs.status is "failed"
-  And one pending notification exists for the job
+  And one pending failure notification row exists for the job
 
 Scenario: URL requires unavailable access
   Given a queued article-processing job exists
@@ -113,7 +113,7 @@ Scenario: URL requires unavailable access
   Then articles.status is "failed"
   And articles.error_message starts with "[ARC-002]"
   And jobs.status is "failed"
-  And one pending notification exists for the job
+  And one pending failure notification row exists for the job
 
 Scenario: URL returns non-HTML content
   Given a queued article-processing job exists
@@ -134,27 +134,24 @@ Scenario: Snapshot write fails
   And jobs.status is "failed"
   And no partial snapshot is promoted as snapshot.html
 
-Scenario: Gateway sends interim snapshot success notification before Markdown extraction
-  Given a pending notification exists for a succeeded snapshot-only job
-  And no summary artifact exists for the article
-  When the Gateway dispatches the notification
-  Then it sends a deterministic snapshot-complete success reply unless markdown-extraction has superseded this behavior
-  And marks the notification sent if Telegram accepts the reply
+Scenario: Snapshot boundary is not terminal success in final v0
+  Given summary generation is part of the final v0 pipeline
+  When the Worker stores snapshot.html successfully
+  Then the job continues to downstream processing
+  And Gateway success notification content is not selected from snapshot completion
 ```
 
 ## Data and State
 
 This feature uses the existing `users`, `articles`, `jobs`, and `notifications` schema from `telegram-ingestion`.
 
-Successful snapshot processing updates:
+Successful snapshot processing in final v0 has these effects:
 
 - `articles.canonical_url`: final URL after redirects.
-- `articles.status`: `ready`.
-- `articles.error_message`: `null`.
-- `jobs.status`: `succeeded`.
-- `jobs.completed_at`: completion timestamp.
-- `jobs.expires_at`: 14 days after completion.
-- `notifications`: one pending row for the job.
+- filesystem: atomically written `{DATA_DIR}/articles/{article_id}/snapshot.html`.
+- downstream pipeline: the job remains non-terminal and proceeds to Markdown extraction.
+
+Successful snapshot processing must not set `articles.status = ready`, set `jobs.status = succeeded`, set terminal timestamps/TTL, or insert a success notification row in final v0.
 
 Failed processing updates:
 
@@ -173,8 +170,9 @@ No artifact paths, HTTP status columns, failure-code columns, extraction telemet
 - Worker job source: SQLite queued article-processing jobs.
 - Worker HTTP client: `github.com/imroc/req/v3`.
 - Worker artifact store: `{DATA_DIR}/articles/{article_id}/snapshot.html`.
-- Worker terminal state contract: article update, job update, and notification insert in one transaction.
-- Gateway notification dispatcher: sends failure replies from job error text and interim success replies for snapshot-complete jobs without summary artifacts.
+- Worker stage contract: update canonical URL, write `snapshot.html`, and hand off to Markdown extraction in final v0.
+- Worker terminal failure contract: article update, job update, and notification insert in one transaction.
+- Gateway notification dispatcher: sends failure replies from job error text; final success replies are summary-based and owned by `summary-generation`.
 
 ## Dependencies
 
@@ -184,6 +182,7 @@ Depends on:
 - `docs/ARCHITECTURE.md`
 - `docs/DESIGN.md`
 - `docs/conventions/GENERAL.md`
+- `docs/conventions/ARTIFACTS.md`
 - `docs/conventions/WORKER.md`
 - `docs/conventions/GATEWAY.md`
 - `docs/conventions/ERRORS.md`
@@ -199,8 +198,8 @@ Impacts:
 ## Rebuild Notes
 
 - Existing code is not authoritative; rebuilds must follow this spec and linked tasks.
-- Snapshot success is an interim completion point only while extraction/summarization are not implemented. Final v0 success is summary-complete.
-- The `markdown-extraction` and `summary-generation` features replace snapshot-complete success with summary-complete processing.
+- Snapshot success is an intermediate stage. Final v0 success is summary-complete.
+- The `markdown-extraction` and `summary-generation` features replace snapshot-stage success with summary-complete processing.
 - `snapshot.html` is the only artifact written by this feature.
 - Do not add article artifact path columns.
 - Do not add retry states or automatic retry scheduling.

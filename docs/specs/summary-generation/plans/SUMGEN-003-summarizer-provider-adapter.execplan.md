@@ -1,7 +1,7 @@
 ---
 id: SUMGEN-003-PLAN
 task: ../tasks/SUMGEN-003-summarizer-provider-adapter.md
-status: proposed
+status: accepted
 canonical: true
 ---
 
@@ -32,7 +32,7 @@ Add only ExecPlan-specific context:
 ## Assumptions
 
 - `LLM_PROVIDER=anthropic` is the only supported v0 provider value.
-- `LLM_MODEL` defaults to `claude-haiku-4-5`.
+- `LLM_MODEL` defaults to `claude-3-5-haiku-20241022`.
 - `LLM_API_KEY` is required when using Anthropic.
 - Planning verification found `github.com/anthropics/anthropic-sdk-go` as the official Go SDK; implementation must re-check suitability at execution time.
 

@@ -27,9 +27,8 @@ This task includes:
 - Gateway background dispatcher for pending terminal notification rows.
 - Telegram send-message integration for terminal replies.
 - Reply targeting using `jobs.telegram_chat_id` and `jobs.telegram_message_id`.
-- Success reply content loaded from the deterministic article summary artifact path when summary artifacts exist.
-- Deterministic snapshot-complete success text for snapshot-only succeeded jobs only until downstream extraction/summarization supersedes that bridge.
-- Summary-based success notification remains owned by `SUMGEN-005` once summary generation is implemented.
+- Dispatcher infrastructure for succeeded-job notifications without final success content selection.
+- Summary-based success notification content remains owned by `SUMGEN-005`.
 - Failure reply content loaded from `jobs.error_message`.
 - ARC-coded article-processing failure replies preserve `jobs.error_message` unchanged except for deterministic Telegram length truncation.
 - Deterministic Telegram message length truncation.
@@ -44,6 +43,7 @@ This task does not include:
 - Immediate queued acknowledgement dispatch.
 - Worker terminal notification writes.
 - Webhook ingestion.
+- Summary success artifact reads or success reply body construction.
 - UI notification surfaces.
 - Automatic retry behavior.
 
@@ -94,11 +94,10 @@ Do not load unrelated feature folders unless required by discovered dependencies
 ```gherkin
 Scenario: Dispatcher sends success reply
   Given a pending notification exists for a succeeded job
-  When the dispatcher sends the Telegram reply
+  When only TELING-004 has been implemented
   Then the reply target is read from the job Telegram metadata
-  And the reply body is read from the deterministic article summary artifact when it exists
-  And snapshot-only succeeded jobs without a summary artifact receive deterministic snapshot-complete text only before downstream processing supersedes that bridge
-  And the notification is marked sent
+  And final success reply body construction remains unavailable until SUMGEN-005
+  And the notification remains pending rather than being sent with snapshot or Markdown completion text
 
 Scenario: Dispatcher sends failure reply
   Given a pending notification exists for a failed job
@@ -131,12 +130,12 @@ Scenario: Expired sent or failed notifications are cleaned up
 ## Done When
 
 - Dispatcher sends terminal replies from pending notification rows.
-- Dispatcher supports snapshot-only success replies only until the v0 extraction/summarization feature replaces that behavior.
+- Dispatcher leaves succeeded-job success content selection to downstream feature tasks such as `SUMGEN-005`.
 - Dispatcher preserves ARC-coded article-processing failure text from `jobs.error_message`, subject only to deterministic Telegram length truncation.
 - Dispatcher never changes terminal article/job state as a side effect of Telegram delivery failure.
 - Telegram delivery failure marks the notification failed without retrying.
 - Sent or failed notifications expire after 7 days and are cleaned up by the gateway.
-- Long terminal messages are truncated deterministically to Telegram limits.
+- Long failure messages are truncated deterministically to Telegram limits.
 - Task status and `PLAN.md` are updated if the task is completed.
 - `DIARY.md` has an entry if implementation is performed.
 

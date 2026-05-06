@@ -3,7 +3,7 @@ id: UI-002
 feature: ui
 title: UI routing, design system, API base config, and auth shell
 status: blocked
-depends_on: [UI-001, AUTHN-003]
+depends_on: [UI-001, AUTHN-004]
 blocks: [UI-003]
 parallel: false
 exec_plan: ../plans/UI-002-ui-routing-design-system-api-base-auth-shell.execplan.md
@@ -52,6 +52,7 @@ This task does not include:
 Required inputs, existing files, interfaces, or decisions:
 
 - `POST /login`, `POST /logout`, and `GET /auth/session` from `authn`.
+- Validated browser auth client contract from `AUTHN-004`.
 - `VITE_API_BASE_PATH`, default `/api`.
 - `docs/design/DESIGN.md`
 - `docs/design/login.png`
@@ -87,6 +88,7 @@ Read before execution:
 - `docs/conventions/GENERAL.md`
 - `docs/conventions/UI.md`
 - `docs/specs/authn/SPEC.md`
+- `docs/specs/authn/tasks/AUTHN-004-protect-ui-api-and-validate-auth-client-contract.md`
 - `docs/design/DESIGN.md`
 
 Do not load unrelated feature folders unless listed here or required by dependencies.
@@ -139,7 +141,7 @@ Manual validation:
 Depends on:
 
 - `UI-001`
-- `AUTHN-003`
+- `AUTHN-004`
 
 Blocks:
 

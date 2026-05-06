@@ -45,15 +45,15 @@ UIEND-001 -> UIEND-003
 | ID | Task | Status | Depends On | Blocks | Parallel | ExecPlan |
 |---|---|---|---|---|---|---|
 | `UIEND-001` | Create canonical artifacts | done | - | `UIEND-002`, `UIEND-003` | no | - |
-| `UIEND-002` | Gateway article read API | blocked | `UIEND-001`, `AUTHN-003`, `TELING-001`, `SUMGEN-005` | - | yes | `plans/UIEND-002-gateway-article-read-api.execplan.md` |
-| `UIEND-003` | Gateway article delete API | blocked | `UIEND-001`, `AUTHN-003`, `TELING-001` | - | yes | `plans/UIEND-003-gateway-article-delete-api.execplan.md` |
+| `UIEND-002` | Gateway article read API | blocked | `UIEND-001`, `AUTHN-003`, `TELING-001`, `SUMGEN-005` | `UI-003` | no | `plans/UIEND-002-gateway-article-read-api.execplan.md` |
+| `UIEND-003` | Gateway article delete API | blocked | `UIEND-001`, `AUTHN-003`, `TELING-001` | `UI-003` | no | `plans/UIEND-003-gateway-article-delete-api.execplan.md` |
 
 ---
 
 ## Concurrency Rules
 
-- `UIEND-002` and `UIEND-003` may run in parallel after dependencies if they do not modify the same Gateway route or DI registration files concurrently.
-- Article API route registration, shared DTOs, shared repository interfaces, and shared artifact abstractions must be coordinated.
+- `UIEND-002` and `UIEND-003` must not run concurrently because they share Gateway article route registration, DTOs, repository interfaces, artifact abstractions, and tests.
+- If both tasks are active, sequence them explicitly and preserve the shared route/DTO contract.
 - Delete behavior must not weaken the read-only artifact abstraction used by detail and notification dispatch.
 
 ---

@@ -119,7 +119,7 @@ Scenario: Durable contracts are promoted
 ## Done When
 
 - Feature folder and task artifacts exist.
-- `SUMGEN-003` and `SUMGEN-004` have linked ExecPlans.
+- `SUMGEN-003`, `SUMGEN-004`, and `SUMGEN-005` have linked ExecPlans.
 - `docs/specs/INDEX.md` includes `summary-generation`.
 - `docs/conventions/ARTIFACTS.md` defines `summary.md` as the v0 summary artifact.
 - `docs/conventions/ERRORS.md` includes summary ARC codes.

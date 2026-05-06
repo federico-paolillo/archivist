@@ -1,7 +1,7 @@
 ---
 id: MDEXT-004-PLAN
 task: ../tasks/MDEXT-004-worker-jina-reader-fallback.md
-status: proposed
+status: accepted
 canonical: true
 ---
 

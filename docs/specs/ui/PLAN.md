@@ -16,7 +16,7 @@ This file is the feature-level implementation control board for the final Preact
 
 ```text
 UI-001 -> UI-002 -> UI-003 -> UI-004
-AUTHN-003 -> UI-002
+AUTHN-004 -> UI-002
 UIEND-002 -> UI-003
 UIEND-003 -> UI-003
 ```
@@ -48,7 +48,7 @@ UIEND-003 -> UI-003
 | ID | Task | Status | Depends On | Blocks | Parallel | ExecPlan |
 |---|---|---|---|---|---|---|
 | `UI-001` | Create canonical UI artifacts | done | - | `UI-002` | no | - |
-| `UI-002` | UI routing, design system, API base config, and auth shell | blocked | `UI-001`, `AUTHN-003` | `UI-003` | no | `plans/UI-002-ui-routing-design-system-api-base-auth-shell.execplan.md` |
+| `UI-002` | UI routing, design system, API base config, and auth shell | blocked | `UI-001`, `AUTHN-004` | `UI-003` | no | `plans/UI-002-ui-routing-design-system-api-base-auth-shell.execplan.md` |
 | `UI-003` | Article master-detail view and delete workflow | blocked | `UI-002`, `UIEND-002`, `UIEND-003` | `UI-004` | no | `plans/UI-003-article-master-detail-and-delete-workflow.execplan.md` |
 | `UI-004` | Final UI validation pass | blocked | `UI-003` | - | no | - |
 
@@ -57,7 +57,7 @@ UIEND-003 -> UI-003
 ## Concurrency Rules
 
 - UI implementation tasks are sequenced because they share the router, composition root, API client, global styles, and top-level application shell.
-- `UI-002` must wait for `AUTHN-003` because it consumes the canonical auth endpoint and cookie behavior.
+- `UI-002` must wait for `AUTHN-004` because it consumes the validated auth endpoint and client contract.
 - `UI-003` must wait for `UIEND-002` and `UIEND-003` because it consumes the article read/delete contracts.
 - `UI-004` runs after the UI is feature-complete.
 

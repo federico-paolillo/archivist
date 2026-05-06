@@ -38,7 +38,7 @@ Frontend code lives under `src/ui/` and targets Preact with Tailwind CSS.
 
 ## Testing
 
-- Frontend tests are colocated as `ui/src/**/*.test.{ts,tsx}`.
+- Frontend tests are colocated as `src/ui/src/**/*.test.{ts,tsx}`.
 - Use Vitest, jsdom, React Testing Library, and `@testing-library/user-event`.
 - Prefer assertions on user-visible behavior over component internals.
 - Leverage Vitest `setupFiles` for common, repeated initialization during tests.

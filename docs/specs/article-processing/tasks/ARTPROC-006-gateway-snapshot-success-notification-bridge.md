@@ -14,7 +14,7 @@ canonical: true
 
 ## Objective
 
-Update Gateway terminal notification dispatch so succeeded snapshot-only jobs produce a deterministic success reply when summary artifacts do not yet exist.
+Document that the historical snapshot-stage success notification bridge is skipped and must not be implemented for final v0.
 
 ## Skip Rationale
 
@@ -22,22 +22,21 @@ This task is skipped because downstream processing supersedes snapshot-only term
 
 ## Story / Context
 
-As the authorized Telegram user, I need a terminal reply after snapshot processing succeeds even though extraction and summarization are specified in a later v0 feature.
+As the authorized Telegram user, I need the final success reply to represent completed summary generation, not an intermediate snapshot stage.
 
 ## Scope
 
 This task includes:
 
-- Success notification content selection for succeeded jobs without summary artifacts.
-- Deterministic snapshot-complete Telegram reply text.
-- Tests covering snapshot-only success notification.
-- Documentation that this bridge must be superseded by the later v0 extraction/summarization feature.
+- Documentation that this historical bridge remains skipped.
+- Confirmation that final v0 success notification work is owned by `SUMGEN-005`.
 
 ## Out of Scope
 
 This task does not include:
 
 - Worker processing.
+- Snapshot-stage success notification content.
 - Summary generation.
 - Summary artifact rendering.
 - Telegram retry behavior.
@@ -56,8 +55,7 @@ Required inputs, existing files, interfaces, or decisions:
 
 Expected outputs, files, behavior, or interfaces:
 
-- Gateway dispatcher success branch for snapshot-only completed jobs.
-- Gateway tests for snapshot-only success and ARC-coded failure notification behavior.
+- No production outputs while skipped.
 
 ## Expected Affected Areas
 
@@ -81,13 +79,12 @@ Do not load unrelated feature folders unless listed here or required by dependen
 ## Acceptance Criteria
 
 ```gherkin
-Scenario: Snapshot-only success notification is sent
-  Given a pending notification exists for a succeeded job
-  And the article has snapshot.html
-  And no summary artifact exists
-  When the Gateway dispatcher sends the terminal reply
-  Then it sends deterministic snapshot-complete success text
-  And marks the notification sent if Telegram accepts the reply
+Scenario: Snapshot-stage success notification is superseded
+  Given a job has produced snapshot.html
+  And Markdown extraction and summary generation are part of final v0 processing
+  When this task is evaluated for implementation
+  Then implementation is skipped
+  And summary notification behavior is handled by SUMGEN-005
 
 Scenario: ARC-coded failure notification is sent
   Given a pending notification exists for a failed job
@@ -99,10 +96,9 @@ Scenario: ARC-coded failure notification is sent
 
 ## Done When
 
-- Snapshot-only success notifications are supported.
-- Missing summary artifacts for snapshot-only completed jobs do not fail notification delivery.
-- Failure notifications preserve ARC-coded job error text.
-- Tests cover snapshot-only success and ARC-coded failure.
+- Task remains skipped unless explicitly revived by a new canonical decision.
+- Summary-complete success notifications are implemented by `SUMGEN-005`.
+- Failure notification preservation remains covered by `TELING-004` and `SUMGEN-005`.
 - Task status and `PLAN.md` are updated if the task is completed.
 - `DIARY.md` has an entry if implementation is performed.
 
@@ -145,4 +141,4 @@ null
 
 ## Notes
 
-- Skipped because `summary-generation` supersedes snapshot-only terminal success with summary-complete success before this bridge is implemented.
+- Skipped because `summary-generation` supersedes snapshot-stage terminal success with summary-complete success before this bridge is implemented.

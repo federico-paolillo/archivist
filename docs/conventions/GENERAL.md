@@ -21,7 +21,7 @@ Exact language versions, package managers, linters, and formatters are specified
 
 Production source layout is module-specific and documented in the relevant file under `docs/conventions/`.
 
-Canonical rebuild artifacts remain under `docs/` and `docs/specs/` according to `docs/REBUILD.md`. Feature planning tasks must create feature folders under `docs/specs/<feature-slug>/` and update `docs/specs/INDEX.md`.
+Canonical rebuild artifacts remain under `AGENTS.md`, `docs/`, and `docs/specs/` according to `docs/REBUILD.md`. Feature planning tasks must create feature folders under `docs/specs/<feature-slug>/` and update `docs/specs/INDEX.md`.
 
 Runtime artifact paths are defined in `docs/conventions/ARTIFACTS.md`.
 
@@ -80,11 +80,14 @@ LLM_API_KEY
 LLM_MODEL
 JINA_ENABLED
 JINA_API_KEY
+VITE_API_BASE_PATH
 ```
 
 `AUTH_BOOTSTRAP_PASSWORD` is required only when initializing a missing personal-user password hash. It must be exactly 2048 printable ASCII characters and must be treated as secret material.
 
 `JINA_API_KEY` is optional configuration for authenticated Jina Reader requests. It must be treated as a secret when supplied.
+
+`VITE_API_BASE_PATH` is UI build-time configuration. It defaults to `/api` and is not secret material.
 
 Feature specs or tasks that add configuration keys must update this file or the relevant module convention file, plus any affected architecture or design decisions.
 

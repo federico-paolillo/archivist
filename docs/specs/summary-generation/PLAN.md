@@ -52,7 +52,7 @@ TELING-004 -> SUMGEN-005
 | `SUMGEN-002` | Worker summary artifact access | blocked | `SUMGEN-001`, `MDEXT-005` | `SUMGEN-004` | yes | - |
 | `SUMGEN-003` | Summarizer provider adapter | ready | `SUMGEN-001` | `SUMGEN-004` | yes | `plans/SUMGEN-003-summarizer-provider-adapter.execplan.md` |
 | `SUMGEN-004` | Worker summary pipeline integration | blocked | `SUMGEN-002`, `SUMGEN-003` | `SUMGEN-005` | no | `plans/SUMGEN-004-worker-summary-pipeline-integration.execplan.md` |
-| `SUMGEN-005` | Gateway summary notification | blocked | `SUMGEN-004`, `TELING-004` | - | no | - |
+| `SUMGEN-005` | Gateway summary notification | blocked | `SUMGEN-004`, `TELING-004` | - | no | `plans/SUMGEN-005-gateway-summary-notification.execplan.md` |
 
 ---
 

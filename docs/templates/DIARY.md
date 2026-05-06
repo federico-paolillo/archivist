@@ -36,26 +36,3 @@ Canonical Updates:
 ---
 
 ## Log
-
-## YYYY-MM-DD — <TASK-ID>: <Task Title>
-
-Status:
-- TODO
-
-Summary:
-- TODO
-
-Changes:
-- TODO
-
-Decisions:
-- TODO
-
-Validation:
-- TODO
-
-Follow-ups:
-- TODO
-
-Canonical Updates:
-- TODO

@@ -4,7 +4,7 @@ feature: authn
 title: Gateway opaque session cookie authentication
 status: blocked
 depends_on: [AUTHN-002]
-blocks: [AUTHN-004]
+blocks: [AUTHN-004, UIEND-002, UIEND-003]
 parallel: false
 exec_plan: ../plans/AUTHN-003-gateway-cookie-authentication.execplan.md
 canonical: true

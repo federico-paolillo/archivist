@@ -9,7 +9,7 @@ canonical: true
 
 ## Objective
 
-Integrate Markdown extraction into the Worker orchestration slice so article-processing jobs succeed only after `content.md` is atomically written, or fail with ARC-coded errors when local extraction and Jina fallback cannot produce Markdown.
+Integrate Markdown extraction into the Worker orchestration slice so `content.md` is atomically written before final v0 processing continues to summary generation, or fails with ARC-coded errors when local extraction and Jina fallback cannot produce Markdown.
 
 ## Linked Task
 
@@ -37,7 +37,7 @@ Add only ExecPlan-specific context:
 - `MDEXT-002` provides atomic `content.md` writes.
 - `MDEXT-003` provides a local go-readability `MarkdownExtractor`.
 - `MDEXT-004` provides a Jina Reader `MarkdownExtractor` with ARC-coded failure mapping.
-- Markdown success is the terminal completion point only until `summary-generation` supersedes it.
+- Markdown success is an intermediate stage in final v0 because summary generation is part of the canonical pipeline.
 
 ## Non-Goals
 
@@ -57,13 +57,12 @@ Add only ExecPlan-specific context:
 6. On local unreadable or local extraction failure, log the fallback reason and call the Jina `MarkdownExtractor` when enabled.
 7. On Jina success, retain the Markdown and selected provider metadata.
 8. On Jina failure, map the terminal public error to the Jina ARC code; use `ARC-011` for insufficient balance.
-9. Atomically write `content.md` before opening the terminal success transaction.
-10. If summary generation is not yet implemented, persist Markdown success in one transaction: set article `ready`, clear article error, mark job `succeeded`, set completion/TTL fields, and insert one pending notification.
-11. If summary generation is implemented, hand off to the summary stage after `content.md` is promoted and do not mark the article/job succeeded at the Markdown boundary.
-12. Persist Markdown failure in one transaction: set article `failed`, set ARC-coded `articles.error_message`, mark job `failed`, persist job error context, set completion/TTL fields, and insert one pending notification.
-13. Add structured logs for provider attempts, fallback reason, selected provider, `article_id`, `job_id`, canonical URL, duration, ARC code, and artifact write result.
-14. Add tests for local success, local unreadable plus Jina success, local failure plus Jina success, Jina general failure, Jina insufficient balance, Markdown write failure, notification creation, abstraction boundaries, and rollback behavior.
-15. Update task status, `PLAN.md`, and `DIARY.md` after validation if implementation is completed.
+9. Atomically write `content.md` before any downstream summary-generation handoff.
+10. Hand off to the summary stage after `content.md` is promoted and do not mark the article/job succeeded at the Markdown boundary.
+11. Persist Markdown failure in one transaction: set article `failed`, set ARC-coded `articles.error_message`, mark job `failed`, persist job error context, set completion/TTL fields, and insert one pending notification.
+12. Add structured logs for provider attempts, fallback reason, selected provider, `article_id`, `job_id`, canonical URL, duration, ARC code, and artifact write result.
+13. Add tests for local success handoff, local unreadable plus Jina success handoff, local failure plus Jina success handoff, Jina general failure, Jina insufficient balance, Markdown write failure, failure notification creation, abstraction boundaries, and rollback behavior.
+14. Update task status, `PLAN.md`, and `DIARY.md` after validation if implementation is completed.
 
 ## Validation Plan
 
@@ -77,7 +76,7 @@ cd src/worker && go tool lefthook run test
 Manual checks:
 
 - Inspect one local successful fixture run to confirm `snapshot.html` and `content.md` exist and no summary artifacts exist.
-- Inspect SQLite state for article/job/notification atomic success and failure transitions.
+- Inspect SQLite state to confirm Markdown success is non-terminal and failures atomically update article/job/notification state.
 - Inspect captured logs for provider attempt, fallback decision, selected provider, and artifact write result fields.
 
 ## Documentation Updates Required
@@ -89,11 +88,11 @@ Manual checks:
 
 ## Risks
 
-- Committing job success before `content.md` rename would create false success.
+- Advancing the pipeline before `content.md` rename would create an invalid downstream handoff.
 - Missing fallback logs would make provider decisions hard to diagnose.
 - Mapping Jina balance errors to generic failures would hide the operator action required to restore processing.
 - Persisting raw provider details in `articles.error_message` would violate the ARC convention.
-- Gateway notification dispatch must no longer treat snapshot-only completion as final success once this task is complete.
+- Gateway notification dispatch must not treat snapshot or Markdown completion as final success once this task is complete.
 
 ## Rollback / Recovery Notes
 
@@ -104,8 +103,8 @@ Manual checks:
 
 ## Completion Criteria
 
-- Worker tests cover Markdown success and ARC-coded provider/artifact failures.
-- Terminal article/job/notification state changes are atomic.
+- Worker tests cover Markdown success handoff and ARC-coded provider/artifact failures.
+- Terminal failure article/job/notification state changes are atomic.
 - Critical extraction decisions are logged.
 - Worker validation passes.
 - No summary or retry behavior is introduced.

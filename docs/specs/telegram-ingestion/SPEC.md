@@ -162,9 +162,9 @@ Scenario: Job fails
 
 Scenario: Gateway sends success notification
   Given a pending notification exists for a succeeded job
-  When the gateway dispatches the notification
-  Then the gateway replies to the original Telegram message with summary text when summary generation is implemented
-  And any snapshot-only fallback is used only before downstream processing supersedes it
+  And summary generation has implemented success notification content
+  When the gateway dispatches the notification through the summary-generation success branch
+  Then the gateway replies to the original Telegram message with summary text
   And the notification is marked "sent"
 
 Scenario: Gateway sends failure notification
@@ -265,7 +265,7 @@ Notifications are gateway delivery records. They do not copy article IDs, Telegr
 - SQLite user contract: gateway ensures the personal user row exists for accepted authorized Telegram messages.
 - SQLite queue contract: gateway inserts article and queued job records; worker claims queued jobs atomically with `UPDATE ... RETURNING`.
 - SQLite notification contract: worker inserts one pending notification when a job reaches `succeeded` or `failed`; gateway dispatches pending notifications.
-- Filesystem artifact contract: worker writes deterministic article artifacts under `DATA_DIR`; gateway reads the summary artifact for success replies and UI APIs.
+- Filesystem artifact contract: worker writes deterministic article artifacts under `DATA_DIR`; summary-generation owns Gateway summary artifact reads for success replies, and UI endpoints own UI artifact reads.
 - Error convention contract: `docs/conventions/ERRORS.md` defines ARC-coded public article-processing failures that Telegram notification dispatch must preserve when transported through `jobs.error_message`.
 - Configuration:
   - `DATA_DIR`
@@ -279,8 +279,9 @@ Notifications are gateway delivery records. They do not copy article IDs, Telegr
 Depends on:
 
 - `docs/ARCHITECTURE.md` gateway, worker, SQLite, filesystem, and Telegram boundaries.
-- `docs/DESIGN.md` decisions DSGN-002, DSGN-003, DSGN-005, DSGN-008, and DSGN-011.
+- `docs/DESIGN.md` decisions DSGN-002, DSGN-003, DSGN-005, DSGN-011, and DSGN-014.
 - `docs/conventions/ERRORS.md` for ARC-coded public article-processing failure text transported by terminal Telegram notifications.
+- `docs/conventions/ARTIFACTS.md` for deterministic article artifact paths used by downstream success notification features.
 
 Impacts:
 

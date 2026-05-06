@@ -49,7 +49,7 @@ TELING-004 -> ARTPROC-006
 ### Phase 3: Processing And Notifications
 
 - `ARTPROC-005` implements Worker orchestration and transactional terminal state changes.
-- `ARTPROC-006` remains skipped because downstream features supersede snapshot-complete success; final v0 success notification is owned by `SUMGEN-005`.
+- `ARTPROC-006` remains skipped because downstream features supersede snapshot-stage success; final v0 success notification is owned by `SUMGEN-005`.
 
 ---
 
@@ -92,8 +92,7 @@ TELING-004 -> ARTPROC-006
 2. Run Worker filesystem artifact tests.
 3. Run Worker fetcher tests.
 4. Run Worker pipeline transaction tests.
-5. Run Gateway notification bridge tests.
-6. Run complete Worker and Gateway verification.
+5. Run complete Worker and Gateway verification.
 
 Validation commands:
 

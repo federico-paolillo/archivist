@@ -52,6 +52,7 @@ Required inputs, existing files, interfaces, or decisions:
 - `../PLAN.md`
 - `docs/ARCHITECTURE.md`
 - `docs/DESIGN.md`
+- `docs/conventions/ARTIFACTS.md`
 - `docs/conventions/GENERAL.md`
 - `docs/conventions/GATEWAY.md`
 - `docs/conventions/WORKER.md`
@@ -83,6 +84,7 @@ Read before execution:
 - `../PLAN.md`
 - `docs/ARCHITECTURE.md`
 - `docs/DESIGN.md`
+- `docs/conventions/ARTIFACTS.md`
 - `docs/conventions/GENERAL.md`
 - `docs/conventions/GATEWAY.md`
 - `docs/conventions/WORKER.md`

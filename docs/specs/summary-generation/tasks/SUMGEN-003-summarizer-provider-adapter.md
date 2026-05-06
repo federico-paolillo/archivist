@@ -29,7 +29,7 @@ This task includes:
 - Using `github.com/anthropics/anthropic-sdk-go` in Go if it remains suitable at implementation time.
 - Supporting `LLM_PROVIDER=anthropic`.
 - Supporting required `LLM_API_KEY` for Anthropic.
-- Supporting default `LLM_MODEL=claude-haiku-4-5`.
+- Supporting default `LLM_MODEL=claude-3-5-haiku-20241022`.
 - Sending Markdown source with a fixed system prompt requesting text-only output.
 - Mapping Anthropic billing failures to `ARC-015`.
 - Mapping request-too-large or context overflow failures to `ARC-014`.

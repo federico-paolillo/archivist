@@ -31,7 +31,7 @@ Add only ExecPlan-specific context:
 
 ## Assumptions
 
-- `AUTHN-003` has implemented the Gateway auth endpoints and cookie behavior.
+- `AUTHN-004` has validated the Gateway auth endpoint contract consumed by the UI.
 - `VITE_API_BASE_PATH` defaults to `/api` and is same-origin.
 - The reverse proxy strips the public `/api` prefix before forwarding to Gateway.
 

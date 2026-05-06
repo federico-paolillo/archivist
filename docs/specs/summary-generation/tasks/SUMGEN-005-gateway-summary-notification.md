@@ -6,7 +6,7 @@ status: blocked
 depends_on: [SUMGEN-004, TELING-004]
 blocks: []
 parallel: false
-exec_plan: null
+exec_plan: ../plans/SUMGEN-005-gateway-summary-notification.execplan.md
 canonical: true
 ---
 
@@ -79,6 +79,7 @@ Read before execution:
 - `docs/specs/telegram-ingestion/PLAN.md`
 - `docs/specs/telegram-ingestion/tasks/TELING-004-telegram-notification-dispatcher.md`
 - `./SUMGEN-004-worker-summary-pipeline-integration.md`
+- `../plans/SUMGEN-005-gateway-summary-notification.execplan.md`
 
 Do not load unrelated feature folders unless listed here or required by dependencies.
 
@@ -147,7 +148,7 @@ Blocks:
 ExecPlan:
 
 ```text
-null
+../plans/SUMGEN-005-gateway-summary-notification.execplan.md
 ```
 
 ## Open Questions

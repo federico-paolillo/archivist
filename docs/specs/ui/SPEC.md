@@ -75,9 +75,9 @@ Not included:
 - REQ-022: Detail loading must call `GET ${apiBasePath}/articles/{id}`.
 - REQ-023: A failed detail load must show the error message in red, centered in the detail pane.
 - REQ-024: A ready article detail must show title, summary markdown, content markdown, and the original/canonical link using the screenshot layout as the target.
-- REQ-025: For original-link behavior, use `canonical_url` when present, otherwise `original_url`; open the URL in a new tab or window with `noopener` and `noreferrer`.
+- REQ-025: For original-link behavior, use `canonicalUrl` when present, otherwise `originalUrl`; open the URL in a new tab or window with `noopener` and `noreferrer`.
 - REQ-026: A queued article, or any non-ready/non-failed article state, must show centered white text exactly `Come back later.` in the detail pane.
-- REQ-027: A failed article must show the persisted `error_message` in red, centered in the detail pane.
+- REQ-027: A failed article must show the persisted `errorMessage` in red, centered in the detail pane.
 - REQ-028: The detail view for a selected article must expose `Delete` whenever article metadata is available, including ready, queued, and failed states.
 - REQ-029: The detail view must expose `Original` when an original or canonical URL is available.
 - REQ-030: `Retry` must not be implemented or displayed in v0.
@@ -179,11 +179,11 @@ Article list rows consume the `ui-endpoints` metadata contract:
 
 - `id`
 - `title`
-- `original_url`
-- `canonical_url`
+- `originalUrl`
+- `canonicalUrl`
 - `status`
-- `error_message`
-- `created_at`
+- `errorMessage`
+- `createdAt`
 
 Article detail consumes the list metadata plus:
 

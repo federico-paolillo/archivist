@@ -44,3 +44,38 @@ Canonical Updates:
 - `docs/specs/authn/PLAN.md`
 - `docs/specs/authn/tasks/AUTHN-004-protect-ui-api-and-validate-auth-client-contract.md`
 - `docs/specs/ui-endpoints/SPEC.md`
+
+## 2026-05-06 - DOCS-SANITY: UI Rebuild And DTO Correction
+
+Status:
+- completed
+
+Summary:
+- Corrected UI docs to consume explicit lower-camel article API DTOs and canonical design assets.
+
+Changes:
+- Updated `SPEC.md`, `PLAN.md`, `UI-002`, `UI-003`, and their ExecPlans.
+- Added `AUTHN-004` as a dependency of `UI-002`.
+- Fixed the UI test glob and ensured `VITE_API_BASE_PATH` is part of canonical configuration.
+
+Decisions:
+- `docs/design/DESIGN.md`, `docs/design/login.png`, and `docs/design/view.png` are canonical rebuild inputs.
+- UI consumes `originalUrl`, `canonicalUrl`, `errorMessage`, and `createdAt` over the JSON wire.
+
+Validation:
+- Structural docs check passed for task/PLAN drift, dependency drift, ExecPlan links, required context, Markdown links, and canonical TODOs.
+- Targeted repository searches found no snake_case UI/UI endpoint wire field names.
+- Production build/test validation was not required because this was a docs-only correction.
+
+Follow-ups:
+- Implement UI routing after `AUTHN-004`; implement article views after UI endpoints are complete.
+
+Canonical Updates:
+- `docs/specs/ui/SPEC.md`
+- `docs/specs/ui/PLAN.md`
+- `docs/specs/ui/tasks/UI-002-ui-routing-design-system-api-base-auth-shell.md`
+- `docs/specs/ui/tasks/UI-003-article-master-detail-and-delete-workflow.md`
+- `docs/specs/ui/plans/UI-002-ui-routing-design-system-api-base-auth-shell.execplan.md`
+- `docs/specs/ui/plans/UI-003-article-master-detail-and-delete-workflow.execplan.md`
+- `docs/conventions/UI.md`
+- `docs/REBUILD.md`

@@ -9,7 +9,7 @@ canonical: true
 
 ## Objective
 
-Implement the Worker orchestration slice that claims article-processing jobs, fetches HTML, stores `snapshot.html`, and commits terminal article/job/notification state transactionally.
+Implement the Worker orchestration slice that claims article-processing jobs, fetches HTML, stores `snapshot.html`, updates canonical URL, and hands off to downstream Markdown extraction while keeping failures terminal.
 
 ## Linked Task
 
@@ -25,6 +25,7 @@ Add only ExecPlan-specific context:
 
 - `docs/ARCHITECTURE.md`
 - `docs/DESIGN.md`
+- `docs/conventions/ARTIFACTS.md`
 - `docs/conventions/ERRORS.md`
 - `docs/conventions/WORKER.md`
 - `docs/specs/telegram-ingestion/tasks/TELING-001-persistence-contracts.md`
@@ -35,7 +36,7 @@ Add only ExecPlan-specific context:
 - `TELING-001` has provided the shared SQLite schema and repository contracts.
 - `TELING-003` has provided or defined atomic terminal job transitions and notification insertion.
 - `ARTPROC-004` provides a fetch result containing final URL and HTML bytes, or an ARC-coded public failure.
-- Snapshot success is an interim completion point until the v0 extraction/summarization feature supersedes it.
+- Snapshot success is an intermediate stage in final v0 because Markdown extraction and summary generation are part of the canonical pipeline.
 
 ## Non-Goals
 
@@ -52,13 +53,12 @@ Add only ExecPlan-specific context:
 4. Call the `ARTPROC-004` resolver/fetcher.
 5. On fetch success, call the `ARTPROC-003` artifact layer to atomically write `snapshot.html`.
 6. Keep extraction and rating as explicit no-op stages with no side effects.
-7. If no downstream pipeline is implemented, persist snapshot success in one transaction: update `articles.canonical_url`, set article `ready`, clear article error, mark job `succeeded`, set completion/TTL fields, and insert one pending notification.
-8. If Markdown extraction or summary generation is implemented, update the canonical URL and continue to the next pipeline stage without marking article/job success or inserting a success notification at the snapshot boundary.
-9. On any ARC-coded fetch or snapshot failure, persist failure in one transaction: set article `failed`, set ARC-coded `articles.error_message`, mark job `failed`, persist job error context, set completion/TTL fields, and insert one pending notification.
-10. On unknown implementation failures, map public article error to `ARC-999` while logging operational details.
-11. Add structured logs for `article_id`, `job_id`, original URL, final URL when available, status, duration, and ARC code.
-12. Add tests for success, downstream handoff, fetch failures, snapshot failure, notification creation, canonical URL update, and rollback behavior.
-13. Update task status, `PLAN.md`, and `DIARY.md` after validation if implementation is completed.
+7. Update the canonical URL and continue to the Markdown extraction stage without marking article/job success or inserting a success notification at the snapshot boundary.
+8. On any ARC-coded fetch or snapshot failure, persist failure in one transaction: set article `failed`, set ARC-coded `articles.error_message`, mark job `failed`, persist job error context, set completion/TTL fields, and insert one pending notification.
+9. On unknown implementation failures, map public article error to `ARC-999` while logging operational details.
+10. Add structured logs for `article_id`, `job_id`, original URL, final URL when available, status, duration, and ARC code.
+11. Add tests for snapshot handoff, fetch failures, snapshot failure, failure notification creation, canonical URL update, and rollback behavior.
+12. Update task status, `PLAN.md`, and `DIARY.md` after validation if implementation is completed.
 
 ## Validation Plan
 
@@ -72,7 +72,7 @@ cd src/worker && go tool lefthook run test
 Manual checks:
 
 - Inspect one local successful fixture run to confirm `snapshot.html` exists and no placeholder artifacts exist.
-- Inspect SQLite state for article/job/notification atomic success and failure transitions.
+- Inspect SQLite state to confirm snapshot success is non-terminal and failures atomically update article/job/notification state.
 
 ## Documentation Updates Required
 
@@ -86,7 +86,7 @@ Manual checks:
 - Committing article/job state before snapshot rename would create false success; snapshot write must complete before terminal success transaction.
 - Missing transaction boundaries could create a terminal job without a notification row.
 - Persisting raw HTTP details in `articles.error_message` would violate the ARC convention.
-- Gateway notification dispatch must handle snapshot-only success only if `ARTPROC-006` is explicitly revived before downstream features; otherwise summary-complete notification is owned by `SUMGEN-005`.
+- Gateway success notification dispatch is summary-complete in final v0 and owned by `SUMGEN-005`.
 
 ## Rollback / Recovery Notes
 
@@ -96,7 +96,7 @@ Manual checks:
 
 ## Completion Criteria
 
-- Worker tests cover successful snapshot processing and ARC-coded failures.
-- Terminal article/job/notification state changes are atomic.
+- Worker tests cover successful snapshot handoff and ARC-coded failures.
+- Terminal failure article/job/notification state changes are atomic.
 - Worker validation passes.
 - No extraction, scoring, Markdown, summary, or retry behavior is introduced.
