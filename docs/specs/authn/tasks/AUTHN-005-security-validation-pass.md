@@ -25,7 +25,7 @@ This task includes:
 - Login throttling verification.
 - Protected endpoint unauthenticated `401`.
 - Same-origin unsafe request rejection.
-- Gateway and UI validation commands.
+- Gateway validation commands.
 
 ## Out of Scope
 
@@ -43,7 +43,6 @@ Read before execution:
 - `../PLAN.md`
 - `docs/conventions/GENERAL.md`
 - `docs/conventions/GATEWAY.md`
-- `docs/conventions/UI.md`
 
 ## Acceptance Criteria
 
@@ -65,10 +64,6 @@ Required checks:
 cd src/gateway && dotnet format
 cd src/gateway && dotnet build
 cd src/gateway && dotnet test
-cd src/ui && npm run format
-cd src/ui && npm run lint
-cd src/ui && npm run build
-cd src/ui && npm run test
 ```
 
 ## Dependencies

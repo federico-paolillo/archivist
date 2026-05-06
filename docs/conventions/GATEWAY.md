@@ -50,9 +50,11 @@ Conventions:
 
 ## Artifact Reads
 
-Gateway may read article artifacts under `DATA_DIR` through a read-only artifact abstraction. This abstraction must not expose write, create, rename, or delete operations. Gateway code must not mutate `/data` artifacts; Worker owns artifact production and deletion behavior defined by feature specs.
+Gateway may read article artifacts under `DATA_DIR` through a read-only artifact abstraction. This abstraction must not expose write, create, rename, or delete operations. Outside the UI article hard-delete path, Gateway code must not mutate `/data` artifacts; Worker owns artifact production and deletion behavior defined by feature specs.
 
 Terminal success notification dispatch reads `{DATA_DIR}/articles/{article_id}/summary.md` once summary generation is implemented. Missing or unreadable summary artifacts fail notification delivery without changing terminal article or job state.
+
+Article hard delete is the only v0 Gateway exception to read-only artifact access. It must use a separate admin-delete cleanup abstraction scoped to deleting `{DATA_DIR}/articles/{article_id}/` for a validated article ULID after authenticated ownership and running-job checks. Do not add general write, create, rename, or arbitrary delete operations to the read-only artifact abstraction.
 
 ## Testing
 

@@ -33,6 +33,7 @@ In scope:
 - Protection of UI-facing API endpoints.
 - In-memory login throttling for the single gateway instance.
 - Basic same-origin defenses for unsafe methods.
+- Auth endpoint/session contracts consumed by the final browser UI.
 
 ## Out of Scope
 
@@ -44,6 +45,7 @@ Not included:
 - Custom HMAC cookies, random cookie names, or user-id hash cookie payloads.
 - Sliding expiry, refresh tokens, multiple concurrent sessions per user, or revocation lists beyond plain session entry removal.
 - Encryption, signing, MACs, or other cryptographic transforms over the cookie value.
+- Final Preact browser login rendering, login-failure route, article shell, and logout menu, which are owned by the `ui` feature.
 
 ## Users / Actors
 
@@ -54,7 +56,7 @@ Not included:
 
 ## Requirements
 
-- REQ-001: The login screen must ask only for `password`.
+- REQ-001: `POST /login` must accept only the `password` credential in the request body.
 - REQ-002: The accepted login secret must be exactly 2048 printable ASCII characters.
 - REQ-003: The gateway must reject malformed or oversized login requests before Argon2id verification.
 - REQ-004: The `users` table must contain `password_hash` as an Argon2id PHC string containing algorithm, parameters, salt, and hash.
@@ -83,7 +85,7 @@ Not included:
 - REQ-027: UI-facing API endpoints must require the auth cookie and must return `401` or `403`, not HTML login redirects.
 - REQ-028: Unsafe cross-site requests must be rejected using same-origin request checks. State-changing `GET` endpoints are prohibited.
 - REQ-029: Cookie values, passwords, and `Set-Cookie` headers must not be logged.
-- REQ-030: The UI must support pasting the 2048-character secret, show an authenticated state after login, handle `401`, and provide logout.
+- REQ-030: Final browser rendering for login, login failure, protected routes, and logout belongs to the `ui` feature and must consume these auth endpoints without changing their contracts.
 
 ## Acceptance Criteria
 
@@ -231,7 +233,7 @@ Impacts:
 
 - Gateway API authentication middleware and endpoint mapping.
 - Gateway persistence initialization for the `users` table.
-- UI application shell and auth API client.
+- UI auth API client contract.
 - Telegram ingestion user-table expectations.
 
 ## Rebuild Notes
@@ -241,6 +243,7 @@ Impacts:
 - Do not add sliding expiry, refresh tokens, multiple concurrent sessions per user, or revocation lists beyond session entry removal.
 - Do not encrypt, sign, MAC, or otherwise transform the cookie value.
 - Gateway restart invalidating cookies is intentional in v0.
+- Do not implement final Preact login page rendering in this feature; `docs/specs/ui/SPEC.md` owns browser UI routes and rendering behavior.
 
 ## Security / Privacy Notes
 

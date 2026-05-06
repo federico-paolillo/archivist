@@ -31,9 +31,9 @@ AUTHN-001 -> AUTHN-002 -> AUTHN-003 -> AUTHN-004 -> AUTHN-005
 - `AUTHN-002` defines password persistence, bootstrap behavior, and Argon2id verification.
 - `AUTHN-003` implements opaque session cookie endpoints, `ISessionStore`, the custom `"app-cookie"` authentication handler, throttling, and same-origin checks.
 
-### Phase 3: UI Integration And Validation
+### Phase 3: UI API Protection And Validation
 
-- `AUTHN-004` integrates login/session/logout behavior in the Preact UI and protects UI-facing gateway endpoints.
+- `AUTHN-004` validates protected UI-facing gateway endpoint behavior and preserves the auth endpoint contract consumed by the final UI.
 - `AUTHN-005` performs the security validation pass and records completion.
 
 ---
@@ -45,14 +45,14 @@ AUTHN-001 -> AUTHN-002 -> AUTHN-003 -> AUTHN-004 -> AUTHN-005
 | `AUTHN-001` | Authn canonical docs and design decisions | done | - | `AUTHN-002` | no | - |
 | `AUTHN-002` | Password persistence and bootstrap | blocked | `AUTHN-001`, `TELING-001` | `AUTHN-003` | no | `plans/AUTHN-002-password-persistence-and-bootstrap.execplan.md` |
 | `AUTHN-003` | Gateway opaque session cookie authentication | blocked | `AUTHN-002` | `AUTHN-004` | no | `plans/AUTHN-003-gateway-cookie-authentication.execplan.md` |
-| `AUTHN-004` | Protect UI API and integrate login UI | blocked | `AUTHN-003` | `AUTHN-005` | no | - |
+| `AUTHN-004` | Protect UI API and validate auth client contract | blocked | `AUTHN-003` | `AUTHN-005` | no | - |
 | `AUTHN-005` | Security validation pass | blocked | `AUTHN-004` | - | no | - |
 
 ---
 
 ## Concurrency Rules
 
-- Auth implementation tasks are sequenced because they modify the same schema, auth middleware, API routes, and UI shell.
+- Auth implementation tasks are sequenced because they modify the same schema, auth middleware, and API routes.
 - `AUTHN-002` must wait for `TELING-001` unless the implementer explicitly updates the shared persistence foundation first.
 - Future UI API feature tasks must treat `AUTHN-003` as a blocking gateway contract.
 - Future Telegram persistence work must preserve `users.password_hash` and nullable-at-rest `users.telegram_user_id`.
@@ -76,9 +76,7 @@ AUTHN-001 -> AUTHN-002 -> AUTHN-003 -> AUTHN-004 -> AUTHN-005
 
 1. Run gateway auth bootstrap and endpoint tests.
 2. Run gateway build and full test suite.
-3. Run UI auth flow tests.
-4. Run UI lint, build, and tests.
-5. Verify cookie attributes, session rotation, server-side expiry, logout store removal, oversized login rejection, throttling, protected endpoint `401`, and same-origin rejection.
+3. Verify cookie attributes, session rotation, server-side expiry, logout store removal, oversized login rejection, throttling, protected endpoint `401`, and same-origin rejection.
 
 Validation commands:
 
@@ -86,10 +84,6 @@ Validation commands:
 cd src/gateway && dotnet format
 cd src/gateway && dotnet build
 cd src/gateway && dotnet test
-cd src/ui && npm run format
-cd src/ui && npm run lint
-cd src/ui && npm run build
-cd src/ui && npm run test
 ```
 
 ---

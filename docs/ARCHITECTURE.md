@@ -63,10 +63,21 @@ The system favors a small, rebuildable deployment over horizontal scale. SQLite 
 
 - Runtime/tooling: Preact with Vite.
 - Responsibilities:
+  - expose browser routes `/login`, `/login/failed`, `/articles`, and `/articles/{article_id}`;
+  - authenticate through the Gateway auth endpoints;
   - show the article list;
   - show article detail;
-  - display summary, key points, tags, Markdown content, original link, and failure messages;
+  - display title, summary Markdown, content Markdown, original link, progress/failure states, and failure messages;
   - expose delete actions.
+
+### Public Browser/API Routing
+
+The browser UI owns page routes such as `/login` and `/articles`. To avoid collisions with Gateway's intentionally unprefixed API routes, the UI calls Gateway through a configured same-origin API base path.
+
+- Default public UI API base: `/api`.
+- Vite build-time configuration: `VITE_API_BASE_PATH`, default `/api`.
+- Reverse proxy behavior: public `/api/*` requests are forwarded to Gateway with the `/api` prefix stripped.
+- Gateway route contracts remain unprefixed, for example `POST /login`, `GET /articles`, and `DELETE /articles/{id}`.
 
 ## Data Storage
 
@@ -144,7 +155,7 @@ In final v0 processing, `articles.status = ready`, `jobs.status = succeeded`, an
 
 The gateway and worker communicate through SQLite, not direct RPC.
 
-The UI communicates only with the gateway API. It must not read SQLite or filesystem artifacts directly.
+The UI communicates only with the gateway API through the configured API base path. It must not read SQLite or filesystem artifacts directly.
 
 The worker owns processing jobs, filesystem artifact production, final article/job state, and creation of terminal notification rows. The gateway owns request authentication, article/job creation, Telegram API calls, terminal notification dispatch, UI-facing API behavior, and admin actions.
 
@@ -232,6 +243,8 @@ JINA_API_KEY
 `JINA_API_KEY` is optional configuration for authenticated Jina Reader requests and must be treated as secret material when supplied.
 
 `AUTH_BOOTSTRAP_PASSWORD` is required only before the personal user's `password_hash` has been initialized. It must be exactly 2048 printable ASCII characters and must be treated as secret material.
+
+The UI build uses `VITE_API_BASE_PATH` to choose the same-origin public API base. It defaults to `/api` and is not secret material.
 
 ## Key Constraints
 

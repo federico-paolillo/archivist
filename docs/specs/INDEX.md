@@ -15,6 +15,8 @@ This file prevents scattered feature folders from becoming unmanageable.
 | `article-processing` | URL-To-Article Processing Pipeline | draft | `telegram-ingestion` | [`SPEC.md`](./article-processing/SPEC.md) | [`PLAN.md`](./article-processing/PLAN.md) |
 | `markdown-extraction` | Markdown Extraction With Fallbacks | draft | `article-processing` | [`SPEC.md`](./markdown-extraction/SPEC.md) | [`PLAN.md`](./markdown-extraction/PLAN.md) |
 | `summary-generation` | Summary Generation | draft | `markdown-extraction` | [`SPEC.md`](./summary-generation/SPEC.md) | [`PLAN.md`](./summary-generation/PLAN.md) |
+| `ui-endpoints` | UI Article Endpoints | draft | `authn`, `telegram-ingestion`, `summary-generation` | [`SPEC.md`](./ui-endpoints/SPEC.md) | [`PLAN.md`](./ui-endpoints/PLAN.md) |
+| `ui` | Final Browser UI | draft | `authn`, `ui-endpoints` | [`SPEC.md`](./ui/SPEC.md) | [`PLAN.md`](./ui/PLAN.md) |
 
 Status values: `draft` \| `in_progress` \| `done` \| `blocked` \| `skipped`
 
