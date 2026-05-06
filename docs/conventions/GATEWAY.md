@@ -20,6 +20,7 @@ Conventions:
 - Application code can loosely follow the Transaction Script patter by making an `xxxHandler` class for every use case.
 - Always use file scoped namespace declarations.
 - Prefer sealing classes and records.
+- Use Entity Framework Core to access the database. You have `dotnet-ef` tool available
 
 ## Minimal APIs
 
