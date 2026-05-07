@@ -2,7 +2,7 @@
 id: MDEXT-003
 feature: markdown-extraction
 title: Worker Go-Readability Extraction
-status: ready
+status: done
 depends_on: [MDEXT-001]
 blocks: [MDEXT-005]
 parallel: true
