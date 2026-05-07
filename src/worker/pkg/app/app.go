@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"codeberg.org/federico-paolillo/archivist/internal/summary"
 	"codeberg.org/federico-paolillo/archivist/pkg/app/artifacts"
 	"codeberg.org/federico-paolillo/archivist/pkg/app/config"
 	"codeberg.org/federico-paolillo/archivist/pkg/app/persistence"
@@ -19,6 +20,7 @@ type App struct {
 	DB            *sql.DB
 	Jobs          *persistence.Repository
 	ArtifactPaths *artifacts.ArticlePaths
+	Summarizer    summary.SummarizerService
 }
 
 func NewApp(ctx context.Context, logger *slog.Logger, logLevel *slog.LevelVar, cfg *config.Root) (*App, error) {
@@ -46,6 +48,11 @@ func NewApp(ctx context.Context, logger *slog.Logger, logLevel *slog.LevelVar, c
 		jobs = persistence.NewRepository(db, persistence.SystemIDGenerator{})
 	}
 
+	summarizer, err := createSummarizer(cfg, logger)
+	if err != nil {
+		return nil, fmt.Errorf("app: create summarizer: %w", err)
+	}
+
 	app := &App{
 		Logger:        logger,
 		LogLevel:      logLevel,
@@ -53,9 +60,18 @@ func NewApp(ctx context.Context, logger *slog.Logger, logLevel *slog.LevelVar, c
 		DB:            db,
 		Jobs:          jobs,
 		ArtifactPaths: artifacts.NewArticlePaths(cfg.Artifacts.DataDir),
+		Summarizer:    summarizer,
 	}
 
 	return app, nil
+}
+
+func createSummarizer(cfg *config.Root, logger *slog.Logger) (*summary.AnthropicAdapter, error) {
+	if cfg.LLM.Provider != "anthropic" {
+		return nil, fmt.Errorf("unsupported LLM provider: %q", cfg.LLM.Provider)
+	}
+
+	return summary.NewAnthropicAdapter(cfg.LLM.APIKey, cfg.LLM.Model, logger), nil
 }
 
 // Close releases any resources held by the App (os.Root handles, etc.).

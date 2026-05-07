@@ -30,6 +30,7 @@ func TestNewAppReturnsApp(t *testing.T) {
 	require.NotNil(t, application.ArtifactPaths)
 	require.Nil(t, application.DB)
 	require.Nil(t, application.Jobs)
+	require.NotNil(t, application.Summarizer)
 }
 
 func TestNewAppCreatesPersistenceWhenSQLitePathIsConfigured(t *testing.T) {
@@ -46,4 +47,15 @@ func TestNewAppCreatesPersistenceWhenSQLitePathIsConfigured(t *testing.T) {
 
 	require.NotNil(t, application.DB)
 	require.NotNil(t, application.Jobs)
+}
+
+func TestNewAppFailsWhenLLMProviderIsUnsupported(t *testing.T) {
+	logger := slogt.New(t)
+	logLevel := new(slog.LevelVar)
+	cfg := config.Default()
+	cfg.LLM.Provider = "openai"
+
+	_, err := app.NewApp(t.Context(), logger, logLevel, cfg)
+
+	require.Error(t, err)
 }

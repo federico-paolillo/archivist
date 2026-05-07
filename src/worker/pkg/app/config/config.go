@@ -5,6 +5,7 @@ type Root struct {
 	App         App
 	Persistence Persistence
 	Artifacts   Artifacts
+	LLM         LLM
 	Debug       bool
 }
 
@@ -21,6 +22,14 @@ type Artifacts struct {
 	DataDir string `config:"DATA_DIR"`
 }
 
+// LLM holds configuration for the summarizer LLM provider.
+// APIKey must not be logged.
+type LLM struct {
+	Provider string
+	Model    string
+	APIKey   string
+}
+
 func Default() *Root {
 	return &Root{
 		App: App{
@@ -28,6 +37,10 @@ func Default() *Root {
 		},
 		Artifacts: Artifacts{
 			DataDir: "/data",
+		},
+		LLM: LLM{
+			Provider: "anthropic",
+			Model:    "claude-3-5-haiku-20241022",
 		},
 		Debug: true,
 	}
