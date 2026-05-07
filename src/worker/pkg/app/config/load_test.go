@@ -23,6 +23,7 @@ func TestConfigurationDefaults(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, "archivist-worker", cfg.App.Name)
+	require.Equal(t, "/data", cfg.Artifacts.DataDir)
 	require.True(t, cfg.Debug)
 }
 

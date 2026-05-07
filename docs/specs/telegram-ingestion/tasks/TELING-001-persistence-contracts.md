@@ -2,7 +2,7 @@
 id: TELING-001
 feature: telegram-ingestion
 title: Persistence contracts
-status: ready
+status: done
 depends_on: []
 blocks: [TELING-002, TELING-003]
 parallel: false

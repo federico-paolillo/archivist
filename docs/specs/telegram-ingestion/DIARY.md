@@ -37,6 +37,41 @@ Canonical Updates:
 
 ## Log
 
+## 2026-05-07 — TELING-001: Persistence Contracts
+
+Status:
+- completed
+
+Summary:
+- Implemented the shared SQLite persistence foundation for Telegram ingestion and Worker terminal transitions.
+
+Changes:
+- Added Gateway EF Core SQLite entities, schema constraints, Telegram ingestion repository contract, idempotent enqueue repository, ULID generation, and deterministic article artifact path resolver.
+- Added Worker pure-Go SQLite persistence using `modernc.org/sqlite`, schema initialization, atomic `UPDATE ... RETURNING` job claim, terminal success/failure transitions, pending notification creation, TTL cleanup eligibility queries, and deterministic artifact path resolver.
+- Added Gateway and Worker tests for enqueue atomicity, duplicate Telegram update idempotency, auth password hash preservation, canonical schema shape, artifact path derivation, worker claim, terminal notification creation, and cleanup eligibility.
+
+Decisions:
+- No new durable product decisions were made; implementation follows `SPEC.md`, `PLAN.md`, `ARTIFACTS.md`, `ARCHITECTURE.md`, and DSGN-011/DSGN-014.
+
+Validation:
+- `cd src/gateway && dotnet format`
+- `cd src/gateway && dotnet build`
+- `cd src/gateway && dotnet test`
+- `cd src/worker && go tool lefthook run build`
+- `cd src/worker && go tool lefthook run format`
+- `cd src/worker && go tool lefthook run lint`
+- `cd src/worker && go tool lefthook run test`
+- Validation setup: ran `npm ci` in `src/ui` because root lefthook build/format/lint/test hooks include UI commands even when invoked from `src/worker`.
+
+Follow-ups:
+- `TELING-002` can consume Gateway persistence for webhook ingestion.
+- `TELING-003` can consume Worker queue and terminal persistence for processing completion.
+
+Canonical Updates:
+- `docs/specs/telegram-ingestion/tasks/TELING-001-persistence-contracts.md`
+- `docs/specs/telegram-ingestion/PLAN.md`
+- `docs/specs/telegram-ingestion/plans/TELING-001-persistence-contracts.execplan.md`
+
 ## 2026-05-04 — TELING-DOC: ARC Error Convention Alignment
 
 Status:
