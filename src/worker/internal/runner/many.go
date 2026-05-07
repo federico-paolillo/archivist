@@ -43,7 +43,7 @@ func RunMany(
 		logLevel.Set(slog.LevelDebug)
 	}
 
-	appRoot, err := app.NewApp(logger, logLevel, cfg)
+	appRoot, err := app.NewApp(ctx, logger, logLevel, cfg)
 	if err != nil {
 		logger.Error(
 			"runner: failed to create app",
