@@ -35,3 +35,29 @@ func TestConfigurationLoadsNewFieldsFromEnvVars(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, cfg.Debug)
 }
+
+func TestConfigurationJinaDefaultsToDisabled(t *testing.T) {
+	cfg, err := config.Load()
+
+	require.NoError(t, err)
+	require.False(t, cfg.Jina.Enabled)
+	require.Empty(t, cfg.Jina.APIKey)
+}
+
+func TestConfigurationLoadsJinaEnabledFromEnvVar(t *testing.T) {
+	t.Setenv("APP_JINA_JINA__ENABLED", "true")
+
+	cfg, err := config.Load()
+
+	require.NoError(t, err)
+	require.True(t, cfg.Jina.Enabled)
+}
+
+func TestConfigurationLoadsJinaAPIKeyFromEnvVar(t *testing.T) {
+	t.Setenv("APP_JINA_JINA__API__KEY", "test-api-key")
+
+	cfg, err := config.Load()
+
+	require.NoError(t, err)
+	require.Equal(t, "test-api-key", cfg.Jina.APIKey)
+}

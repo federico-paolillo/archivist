@@ -147,3 +147,46 @@ Follow-ups:
 Canonical Updates:
 - `docs/specs/markdown-extraction/PLAN.md`
 - `docs/specs/markdown-extraction/tasks/MDEXT-003-worker-go-readability-extraction.md`
+
+## 2026-05-07 — MDEXT-004: Worker Jina Reader Fallback
+
+Status:
+- completed
+
+Summary:
+- Implemented Jina Reader fallback extractor behind the `MarkdownExtractor` interface using a small internal HTTP adapter.
+- Added `JINA_ENABLED` and `JINA_API_KEY` configuration fields.
+- Wired `JinaExtractor` into the composition root.
+
+Changes:
+- Added `src/worker/internal/markdown/jina.go`: `JinaExtractor` implementing `MarkdownExtractor` with internal HTTP adapter for `https://r.jina.ai/<url>`.
+- Added `src/worker/internal/markdown/jina_test.go`: tests for disabled fallback, successful extraction, API key passthrough, no-key path, general failure (ARC-010), transport failure (ARC-010), insufficient balance (ARC-011), and Accept header.
+- Extended `src/worker/pkg/app/config/config.go` with `Jina` struct (`Enabled bool`, `APIKey string`) loaded from `APP_JINA_JINA__ENABLED` and `APP_JINA_JINA__API__KEY` env vars (configuro double-underscore convention for underscored tag names).
+- Extended `src/worker/pkg/app/config/load_test.go` with Jina default and env var loading tests.
+- Extended `src/worker/pkg/app/app.go` to construct and expose `JinaExtractor` in the composition root.
+- Extended `src/worker/pkg/app/app_test.go` with tests verifying `JinaExtractor` is created and defaults to disabled.
+
+Decisions:
+- SDK selection: No official Jina Reader Go SDK exists as of 2026-05-07. The Jina AI GitHub organization provides TypeScript and Python implementations only. The `github.com/jina-ai/client-go` repo targets older Jina client semantics and is not a Reader API SDK. A small internal HTTP adapter was implemented using only the Go standard library (`net/http`, `io`), satisfying REQ-009 through REQ-011.
+- The `JinaExtractor.baseURL` field is exported only within the package to allow test injection via `httptest.Server` without exposing it publicly.
+- HTTP 402 (Payment Required) is mapped to ARC-011 (insufficient balance). All other non-200 responses and transport errors map to ARC-010.
+- The `Accept: text/plain` header is sent to request Markdown output from Jina Reader.
+- `Authorization: Bearer <key>` is only sent when `APIKey` is non-empty, preserving unauthenticated free-tier usage.
+- The disabled path returns a `ResultStatusFailure` result with `ARC-010` rather than panicking or silently succeeding, so callers can observe disabled-extractor behavior consistently.
+
+Validation:
+- `cd src/worker && go build ./...` passed.
+- `cd src/worker && go test ./...` passed (all 9 packages).
+- `cd src/worker && go tool golangci-lint run ./internal/markdown/... ./pkg/app/...` passed (no issues in changed files).
+- `cd src/worker && gofmt -l ...` passed (no formatting issues).
+- Lefthook `build` step: Go and dotnet passed; npm failed with `tsc: command not found` (pre-existing UI toolchain issue, unrelated to this task).
+- Lefthook `format` step: dotnet passed; biome failed with `command not found` (pre-existing UI toolchain issue); golangci errors reference `w1-integration` worktree file not present in this worktree (pre-existing, unrelated to this task).
+- Lefthook `test` step: Go and dotnet passed; vitest failed with `command not found` (pre-existing UI toolchain issue).
+
+Follow-ups:
+- `MDEXT-005` should select between `GoReadabilityExtractor` and `JinaExtractor` at pipeline orchestration level without importing either concrete type directly (use `MarkdownExtractor` interface).
+
+Canonical Updates:
+- `docs/specs/markdown-extraction/PLAN.md`
+- `docs/specs/markdown-extraction/tasks/MDEXT-004-worker-jina-reader-fallback.md`
+- `docs/specs/markdown-extraction/plans/MDEXT-004-worker-jina-reader-fallback.execplan.md`
