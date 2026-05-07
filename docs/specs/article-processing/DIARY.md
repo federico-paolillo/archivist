@@ -169,3 +169,32 @@ Canonical Updates:
 - `docs/specs/article-processing/tasks/ARTPROC-005-worker-snapshot-pipeline-orchestration.md`
 - `docs/specs/article-processing/tasks/ARTPROC-006-gateway-snapshot-success-notification-bridge.md`
 - `docs/specs/article-processing/plans/ARTPROC-005-worker-snapshot-pipeline-orchestration.execplan.md`
+
+## 2026-05-07 - ARTPROC-003: Worker Filesystem Artifact Access Layer
+
+Status:
+- completed
+
+Summary:
+- Implemented a reusable Worker artifact store for deterministic `snapshot.html` writes under `DATA_DIR`.
+
+Changes:
+- Added `src/worker/internal/artifacts.Store`.
+- Added tests for deterministic snapshot paths, atomic temp-file promotion, cleanup on failed promotion, empty `DATA_DIR`, and traversal-style invalid article IDs.
+
+Decisions:
+- Article IDs are validated as strict uppercase ULID-style identifiers before any artifact path is derived.
+- Snapshot writes use `os.Root` scoped to `DATA_DIR`, create `articles/{article_id}/` on demand, write a `.snapshot.html.*.tmp` file, and rename it to `snapshot.html`.
+
+Validation:
+- `cd src/worker && go tool lefthook run build`
+- `cd src/worker && go tool lefthook run format`
+- `cd src/worker && go tool lefthook run lint`
+- `cd src/worker && go tool lefthook run test`
+
+Follow-ups:
+- `ARTPROC-004` can consume the artifact store after fetch succeeds.
+
+Canonical Updates:
+- `docs/specs/article-processing/PLAN.md`
+- `docs/specs/article-processing/tasks/ARTPROC-003-worker-filesystem-artifact-access-layer.md`
