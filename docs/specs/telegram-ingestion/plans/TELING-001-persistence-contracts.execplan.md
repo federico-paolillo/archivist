@@ -1,7 +1,7 @@
 ---
 id: TELING-001-PLAN
 task: ../tasks/TELING-001-persistence-contracts.md
-status: accepted
+status: completed
 canonical: true
 ---
 
