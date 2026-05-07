@@ -8,25 +8,22 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
+
+	appartifacts "codeberg.org/federico-paolillo/archivist/pkg/app/artifacts"
 )
 
 const (
-	articlesDir         = "articles"
-	snapshotFilename    = "snapshot.html"
 	tempSnapshotPrefix  = ".snapshot.html."
 	tempSnapshotSuffix  = ".tmp"
 	tempNameRandomBytes = 8
 	maxTempNameAttempts = 16
 	articleDirPerm      = 0o700
 	snapshotFilePerm    = 0o600
-	ulidLength          = 26
-	ulidAlphabet        = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 )
 
 var (
 	ErrEmptyDataDir     = errors.New("artifacts: data dir is empty")
-	ErrInvalidArticleID = errors.New("artifacts: invalid article id")
+	ErrInvalidArticleID = appartifacts.ErrInvalidArticleID
 )
 
 // Store provides traversal-resistant access to article artifacts under DATA_DIR.
@@ -75,12 +72,17 @@ func (s *Store) Close() error {
 }
 
 func (s *Store) SnapshotPath(articleID string) (string, error) {
-	err := validateArticleID(articleID)
+	err := appartifacts.ValidateArticleID(articleID)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("artifacts: validate snapshot article id: %w", err)
 	}
 
-	return filepath.Join(s.dataDir, articlesDir, articleID, snapshotFilename), nil
+	return filepath.Join(
+		s.dataDir,
+		appartifacts.ArticlesDirectoryName,
+		articleID,
+		appartifacts.SnapshotHTMLFilename,
+	), nil
 }
 
 func (s *Store) WriteSnapshot(articleID string, html []byte) error {
@@ -99,7 +101,7 @@ func (s *Store) WriteSnapshot(articleID string, html []byte) error {
 		return err
 	}
 
-	finalPath := filepath.Join(articleDir, snapshotFilename)
+	finalPath := filepath.Join(articleDir, appartifacts.SnapshotHTMLFilename)
 
 	committed := false
 	defer func() {
@@ -164,32 +166,10 @@ func tempSnapshotPath(articleDir string) (string, error) {
 }
 
 func articleDir(articleID string) (string, error) {
-	err := validateArticleID(articleID)
+	err := appartifacts.ValidateArticleID(articleID)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("artifacts: validate article dir id: %w", err)
 	}
 
-	return filepath.Join(articlesDir, articleID), nil
-}
-
-func validateArticleID(articleID string) error {
-	if len(articleID) != ulidLength {
-		return fmt.Errorf("%w: must be a 26-character ULID", ErrInvalidArticleID)
-	}
-
-	if articleID[0] > '7' {
-		return fmt.Errorf("%w: must fit within the ULID 128-bit range", ErrInvalidArticleID)
-	}
-
-	for _, char := range articleID {
-		if !isULIDChar(char) {
-			return fmt.Errorf("%w: must contain only Crockford base32 uppercase characters", ErrInvalidArticleID)
-		}
-	}
-
-	return nil
-}
-
-func isULIDChar(char rune) bool {
-	return strings.ContainsRune(ulidAlphabet, char)
+	return filepath.Join(appartifacts.ArticlesDirectoryName, articleID), nil
 }

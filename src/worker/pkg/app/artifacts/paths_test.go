@@ -34,5 +34,20 @@ func TestArticlePathsRejectTraversalSegments(t *testing.T) {
 
 	_, err := paths.ArticleDirectory("../escape")
 
-	require.Error(t, err)
+	require.ErrorIs(t, err, artifacts.ErrInvalidArticleID)
+}
+
+func TestArticlePathsRejectInvalidULIDSegments(t *testing.T) {
+	paths := artifacts.NewArticlePaths("/data")
+	invalidIDs := []string{
+		"01ASB2XFCZJY7WHZ2FNRTMQJCI",
+		"81ASB2XFCZJY7WHZ2FNRTMQJCT",
+		"01ASB2XFCZJY7WHZ2FNRTMQJC",
+	}
+
+	for _, articleID := range invalidIDs {
+		_, err := paths.ArticleDirectory(articleID)
+
+		require.ErrorIs(t, err, artifacts.ErrInvalidArticleID)
+	}
 }
