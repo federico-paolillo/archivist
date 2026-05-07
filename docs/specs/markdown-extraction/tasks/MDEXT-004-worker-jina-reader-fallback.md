@@ -2,7 +2,7 @@
 id: MDEXT-004
 feature: markdown-extraction
 title: Worker Jina Reader Fallback
-status: ready
+status: done
 depends_on: [MDEXT-001]
 blocks: [MDEXT-005]
 parallel: true

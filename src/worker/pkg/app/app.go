@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"codeberg.org/federico-paolillo/archivist/internal/markdown"
 	"codeberg.org/federico-paolillo/archivist/pkg/app/artifacts"
 	"codeberg.org/federico-paolillo/archivist/pkg/app/config"
 	"codeberg.org/federico-paolillo/archivist/pkg/app/persistence"
@@ -19,6 +20,7 @@ type App struct {
 	DB            *sql.DB
 	Jobs          *persistence.Repository
 	ArtifactPaths *artifacts.ArticlePaths
+	JinaExtractor *markdown.JinaExtractor
 }
 
 func NewApp(ctx context.Context, logger *slog.Logger, logLevel *slog.LevelVar, cfg *config.Root) (*App, error) {
@@ -53,6 +55,7 @@ func NewApp(ctx context.Context, logger *slog.Logger, logLevel *slog.LevelVar, c
 		DB:            db,
 		Jobs:          jobs,
 		ArtifactPaths: artifacts.NewArticlePaths(cfg.Artifacts.DataDir),
+		JinaExtractor: markdown.NewJinaExtractor(cfg.Jina.Enabled, cfg.Jina.APIKey),
 	}
 
 	return app, nil
