@@ -1,7 +1,7 @@
 ---
 id: SUMGEN-003-PLAN
 task: ../tasks/SUMGEN-003-summarizer-provider-adapter.md
-status: accepted
+status: completed
 canonical: true
 ---
 

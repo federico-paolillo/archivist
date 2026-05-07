@@ -2,7 +2,7 @@
 id: SUMGEN-003
 feature: summary-generation
 title: Summarizer Provider Adapter
-status: ready
+status: done
 depends_on: [SUMGEN-001]
 blocks: [SUMGEN-004]
 parallel: true

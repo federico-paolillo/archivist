@@ -30,6 +30,32 @@ func TestNewAppReturnsApp(t *testing.T) {
 	require.NotNil(t, application.ArtifactPaths)
 	require.Nil(t, application.DB)
 	require.Nil(t, application.Jobs)
+	require.NotNil(t, application.Summarizer)
+}
+
+func TestNewAppCreatesJinaExtractor(t *testing.T) {
+	logger := slogt.New(t)
+	logLevel := new(slog.LevelVar)
+	cfg := config.Default()
+
+	application, err := app.NewApp(t.Context(), logger, logLevel, cfg)
+	require.NoError(t, err)
+
+	require.NotNil(t, application.JinaExtractor)
+}
+
+func TestNewAppCreatesJinaExtractorDisabledByDefault(t *testing.T) {
+	logger := slogt.New(t)
+	logLevel := new(slog.LevelVar)
+	cfg := config.Default()
+
+	require.False(t, cfg.Jina.Enabled)
+
+	application, err := app.NewApp(t.Context(), logger, logLevel, cfg)
+	require.NoError(t, err)
+
+	// JinaExtractor is always constructed; the disabled flag is checked at call time.
+	require.NotNil(t, application.JinaExtractor)
 }
 
 func TestNewAppCreatesPersistenceWhenSQLitePathIsConfigured(t *testing.T) {
@@ -46,4 +72,15 @@ func TestNewAppCreatesPersistenceWhenSQLitePathIsConfigured(t *testing.T) {
 
 	require.NotNil(t, application.DB)
 	require.NotNil(t, application.Jobs)
+}
+
+func TestNewAppFailsWhenLLMProviderIsUnsupported(t *testing.T) {
+	logger := slogt.New(t)
+	logLevel := new(slog.LevelVar)
+	cfg := config.Default()
+	cfg.LLM.Provider = "openai"
+
+	_, err := app.NewApp(t.Context(), logger, logLevel, cfg)
+
+	require.Error(t, err)
 }
