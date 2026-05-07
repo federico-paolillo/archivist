@@ -113,3 +113,37 @@ Canonical Updates:
 - `docs/specs/markdown-extraction/tasks/MDEXT-006-gateway-markdown-success-notification.md`
 - `docs/specs/markdown-extraction/plans/MDEXT-004-worker-jina-reader-fallback.execplan.md`
 - `docs/specs/markdown-extraction/plans/MDEXT-005-worker-markdown-pipeline-integration.execplan.md`
+
+## 2026-05-07 — MDEXT-003: Worker Go-Readability Extraction
+
+Status:
+- completed
+
+Summary:
+- Added a Worker-owned `MarkdownExtractor` contract and local go-readability extractor implementation.
+- Added local HTML-to-Markdown conversion and typed local unreadable classification.
+
+Changes:
+- Added `src/worker/internal/markdown` with neutral extraction input/result types.
+- Implemented local extraction with `codeberg.org/readeck/go-readability/v2`, `CheckDocument()`, and `github.com/JohannesKaufmann/html-to-markdown/v2`.
+- Mapped local parse, extraction, conversion, and empty Markdown failures to `ARC-009`.
+- Added tests for readable HTML, unreadable HTML, parse failure, and conversion failure.
+- Added task-owned Worker dependencies required by the local extractor.
+
+Decisions:
+- Local unreadable results are non-terminal provider results so later Jina fallback can attach without changing the local extractor.
+- Local extractor failures carry `ARC-009` and a diagnostic reason for logs, while the shared result model avoids provider library types.
+
+Validation:
+- `cd src/worker && go tool lefthook run build` passed.
+- `cd src/worker && go tool lefthook run format` passed.
+- `cd src/worker && go tool lefthook run lint` passed.
+- `cd src/worker && go tool lefthook run test` passed.
+
+Follow-ups:
+- `MDEXT-004` should attach Jina behind the same `MarkdownExtractor` contract.
+- `MDEXT-005` should integrate provider selection and artifact writes without importing provider-specific types.
+
+Canonical Updates:
+- `docs/specs/markdown-extraction/PLAN.md`
+- `docs/specs/markdown-extraction/tasks/MDEXT-003-worker-go-readability-extraction.md`
