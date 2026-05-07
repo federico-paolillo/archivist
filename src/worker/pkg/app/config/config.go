@@ -6,6 +6,7 @@ type Root struct {
 	Persistence Persistence
 	Artifacts   Artifacts
 	Jina        Jina
+	LLM         LLM
 	Debug       bool
 }
 
@@ -29,6 +30,14 @@ type Jina struct {
 	APIKey  string `config:"JINA_API_KEY"`
 }
 
+// LLM holds configuration for the summarizer LLM provider.
+// APIKey must not be logged.
+type LLM struct {
+	Provider string
+	Model    string
+	APIKey   string
+}
+
 func Default() *Root {
 	return &Root{
 		App: App{
@@ -39,6 +48,10 @@ func Default() *Root {
 		},
 		Jina: Jina{
 			Enabled: false,
+		},
+		LLM: LLM{
+			Provider: "anthropic",
+			Model:    "claude-3-5-haiku-20241022",
 		},
 		Debug: true,
 	}
