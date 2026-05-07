@@ -2,7 +2,7 @@
 id: ARTPROC-003
 feature: article-processing
 title: Worker Filesystem Artifact Access Layer
-status: ready
+status: done
 depends_on: [ARTPROC-001]
 blocks: [ARTPROC-004]
 parallel: true
