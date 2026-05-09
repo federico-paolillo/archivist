@@ -43,7 +43,7 @@ AUTHN-001 -> AUTHN-002 -> AUTHN-003 -> AUTHN-004 -> AUTHN-005
 | ID | Task | Status | Depends On | Blocks | Parallel | ExecPlan |
 |---|---|---|---|---|---|---|
 | `AUTHN-001` | Authn canonical docs and design decisions | done | - | `AUTHN-002` | no | - |
-| `AUTHN-002` | Password persistence and bootstrap | blocked | `AUTHN-001`, `TELING-001` | `AUTHN-003` | no | `plans/AUTHN-002-password-persistence-and-bootstrap.execplan.md` |
+| `AUTHN-002` | Password persistence and bootstrap | done | `AUTHN-001`, `TELING-001` | `AUTHN-003` | no | `plans/AUTHN-002-password-persistence-and-bootstrap.execplan.md` |
 | `AUTHN-003` | Gateway opaque session cookie authentication | blocked | `AUTHN-002` | `AUTHN-004`, `UIEND-002`, `UIEND-003` | no | `plans/AUTHN-003-gateway-cookie-authentication.execplan.md` |
 | `AUTHN-004` | Protect UI API and validate auth client contract | blocked | `AUTHN-003` | `AUTHN-005`, `UI-002` | no | - |
 | `AUTHN-005` | Security validation pass | blocked | `AUTHN-004` | - | no | - |

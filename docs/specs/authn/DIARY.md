@@ -82,6 +82,53 @@ Canonical Updates:
 - `docs/specs/authn/plans/AUTHN-002-password-persistence-and-bootstrap.execplan.md`
 - `docs/specs/authn/plans/AUTHN-003-gateway-cookie-authentication.execplan.md`
 
+## 2026-05-09 — AUTHN-002: Password persistence and bootstrap
+
+Status:
+- Completed.
+
+Summary:
+- Implemented gateway auth bootstrap: `users` table schema initialization, personal user row seeding, Argon2id PHC password hashing, and bootstrap logic.
+- All acceptance criteria satisfied and 27 tests pass.
+
+Changes:
+- `Archivist.Gateway.Application/Auth/Options/AuthOptions.cs`: Typed options for `SQLITE_PATH` and `AUTH_BOOTSTRAP_PASSWORD`.
+- `Archivist.Gateway.Application/Auth/Services/IPasswordValidator.cs`: Interface for 2048-char printable ASCII validation.
+- `Archivist.Gateway.Application/Auth/Services/IPasswordHasher.cs`: Interface for Argon2id PHC hashing and verification.
+- `Archivist.Gateway.Application/Auth/Services/IAuthBootstrapService.cs`: Interface for auth storage initialization.
+- `Archivist.Gateway.Application/Auth/Services/Defaults/PasswordValidator.cs`: Validates exactly 2048 printable ASCII characters (0x20–0x7E).
+- `Archivist.Gateway.Application/Auth/Services/Defaults/Argon2idPasswordHasher.cs`: Argon2id PHC hasher with m=19456,t=2,p=1 and 16-byte salt. Constant-time verification via `CryptographicOperations.FixedTimeEquals`.
+- `Archivist.Gateway.Application/Auth/Services/Defaults/AuthBootstrapService.cs`: Creates `users` table if absent, inserts personal user row if absent, hashes and stores bootstrap password only when `password_hash` is NULL. Existing hashes are preserved; bootstrap password is never logged.
+- `Archivist.Gateway.Application/Auth/Extensions/ServiceCollectionExtensions.cs`: `AddAuth()` registers all auth services and options.
+- `Archivist.Gateway.Api/Program.cs`: Calls `AddAuth()` and awaits `IAuthBootstrapService.InitializeAsync()` before accepting requests.
+- `Archivist.Gateway.Tests/Auth/PasswordValidatorTest.cs`: Unit tests covering all validator boundary conditions.
+- `Archivist.Gateway.Tests/Auth/Argon2idPasswordHasherTest.cs`: Unit tests covering hash format, salt uniqueness, and verification.
+- `Archivist.Gateway.Tests/Auth/AuthBootstrapServiceTest.cs`: Integration tests covering bootstrap of missing hash, skip-when-present, validation failure, idempotent second call, and verification.
+- `Archivist.Gateway.Tests/IntegrationTest.cs`: Updated integration test base to register a no-op `IAuthBootstrapService` stub by default, so API integration tests do not need a database.
+- Added NuGet packages: `Konscious.Security.Cryptography.Argon2 1.3.1`, `Microsoft.Data.Sqlite 10.0.7`, `Microsoft.Extensions.Logging.Abstractions 10.0.0`.
+
+Decisions:
+- Used `Microsoft.Data.Sqlite` directly for bootstrap rather than EF Core: bootstrap runs before the full application stack is initialized and only needs minimal SQL. EF Core entity configuration belongs to future persistence tasks.
+- `CREATE TABLE IF NOT EXISTS` used for schema initialization: this is safe and idempotent when TELING-001 has already created the table with the same schema. The column set matches the TELING-001 contract exactly (`id`, nullable `telegram_user_id`, nullable `password_hash`).
+- PHC string format implemented manually: Konscious library provides raw Argon2id computation; the PHC string encoding (`$argon2id$v=19$m=...$salt$hash`) is constructed in the hasher.
+- Integration test base class now stubs `IAuthBootstrapService` by default to isolate non-auth integration tests from database requirements. Auth-specific tests call the real service directly.
+- `app.Run()` changed to `await app.RunAsync()` to satisfy CA1849 (analyzer enforces non-blocking async host startup).
+
+Validation:
+- `dotnet format`: no changes required.
+- `dotnet build`: 0 warnings, 0 errors.
+- `dotnet test`: 27 passed, 0 failed, 0 skipped.
+- Test coverage: bootstrap of missing hash, existing hash preservation, skip without bootstrap password when hash exists, invalid password rejection (too short), missing SQLITE_PATH rejection, stored hash verifies against bootstrap password, idempotent second call.
+
+Follow-ups:
+- A 2048-character password is a potential CPU-amplification vector if requests are not throttled at the gateway layer. This risk must be addressed in AUTHN-003 (login throttling before Argon2id verification). This was noted as a risk in the ExecPlan and is mitigated by AUTHN-003 throttling.
+- AUTHN-003 now unblocks.
+
+Canonical Updates:
+- `docs/specs/authn/tasks/AUTHN-002-password-persistence-and-bootstrap.md` (status: done)
+- `docs/specs/authn/PLAN.md` (AUTHN-002 row: done)
+- `docs/specs/authn/plans/AUTHN-002-password-persistence-and-bootstrap.execplan.md` (status: completed)
+
 ## 2026-05-06 — DOCS-SANITY: UI Auth Dependency Correction
 
 Status:
