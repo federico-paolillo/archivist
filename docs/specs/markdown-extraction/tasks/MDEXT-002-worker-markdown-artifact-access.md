@@ -2,7 +2,7 @@
 id: MDEXT-002
 feature: markdown-extraction
 title: Worker Markdown Artifact Access
-status: blocked
+status: done
 depends_on: [MDEXT-001, ARTPROC-003]
 blocks: [MDEXT-005]
 parallel: true

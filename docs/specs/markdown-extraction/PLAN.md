@@ -52,7 +52,7 @@ MDEXT-005 -> SUMGEN-002
 | ID | Task | Status | Depends On | Blocks | Parallel | ExecPlan |
 |---|---|---|---|---|---|---|
 | `MDEXT-001` | Create feature artifacts and contracts | done | - | `MDEXT-002`, `MDEXT-003`, `MDEXT-004` | no | - |
-| `MDEXT-002` | Worker Markdown artifact access | blocked | `MDEXT-001`, `ARTPROC-003` | `MDEXT-005` | yes | - |
+| `MDEXT-002` | Worker Markdown artifact access | done | `MDEXT-001`, `ARTPROC-003` | `MDEXT-005` | yes | - |
 | `MDEXT-003` | Worker go-readability extraction | done | `MDEXT-001` | `MDEXT-005` | yes | - |
 | `MDEXT-004` | Worker Jina Reader fallback | done | `MDEXT-001` | `MDEXT-005` | yes | `plans/MDEXT-004-worker-jina-reader-fallback.execplan.md` |
 | `MDEXT-005` | Worker Markdown pipeline integration | blocked | `ARTPROC-005`, `MDEXT-002`, `MDEXT-003`, `MDEXT-004` | `SUMGEN-002` | no | `plans/MDEXT-005-worker-markdown-pipeline-integration.execplan.md` |
