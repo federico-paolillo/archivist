@@ -46,8 +46,8 @@ It is not listed in `docs/REBUILD.md` and is not authoritative by itself. If thi
 - [`TELING-002`](./specs/telegram-ingestion/tasks/TELING-002-telegram-webhook-ingestion.md) - Telegram webhook ingestion. Feature: [`telegram-ingestion`](./specs/telegram-ingestion/SPEC.md). Status: `done`.
 - [`TELING-003`](./specs/telegram-ingestion/tasks/TELING-003-worker-terminal-notification-contract.md) - Worker terminal notification contract. Feature: [`telegram-ingestion`](./specs/telegram-ingestion/SPEC.md). Status: `done`.
 - [`AUTHN-002`](./specs/authn/tasks/AUTHN-002-password-persistence-and-bootstrap.md) - Password persistence and bootstrap. Feature: [`authn`](./specs/authn/SPEC.md). Status: `done`. ExecPlan: [`completed`](./specs/authn/plans/AUTHN-002-password-persistence-and-bootstrap.execplan.md).
-- [`ARTPROC-004`](./specs/article-processing/tasks/ARTPROC-004-worker-url-resolver-and-html-fetcher.md) - Worker URL resolver and HTML fetcher. Feature: [`article-processing`](./specs/article-processing/SPEC.md). Status: `blocked`.
-- [`MDEXT-002`](./specs/markdown-extraction/tasks/MDEXT-002-worker-markdown-artifact-access.md) - Worker Markdown artifact access. Feature: [`markdown-extraction`](./specs/markdown-extraction/SPEC.md). Status: `blocked`.
+- [`ARTPROC-004`](./specs/article-processing/tasks/ARTPROC-004-worker-url-resolver-and-html-fetcher.md) - Worker URL resolver and HTML fetcher. Feature: [`article-processing`](./specs/article-processing/SPEC.md). Status: `done`.
+- [`MDEXT-002`](./specs/markdown-extraction/tasks/MDEXT-002-worker-markdown-artifact-access.md) - Worker Markdown artifact access. Feature: [`markdown-extraction`](./specs/markdown-extraction/SPEC.md). Status: `done`.
 
 ### Wave 3 - Gateway Dispatch, Auth Sessions, Snapshot Orchestration
 
@@ -114,17 +114,17 @@ flowchart TD
   subgraph article_processing["article-processing"]
     ARTPROC_001["ARTPROC-001<br/>Create feature spec and plan artifacts<br/>done"]
     ARTPROC_002["ARTPROC-002<br/>Define shared ARC error-code convention<br/>done"]
-    ARTPROC_003["ARTPROC-003<br/>Worker filesystem artifact access layer<br/>ready"]
-    ARTPROC_004["ARTPROC-004<br/>Worker URL resolver and HTML fetcher<br/>blocked"]
+    ARTPROC_003["ARTPROC-003<br/>Worker filesystem artifact access layer<br/>done"]
+    ARTPROC_004["ARTPROC-004<br/>Worker URL resolver and HTML fetcher<br/>done"]
     ARTPROC_005["ARTPROC-005<br/>Worker snapshot pipeline orchestration<br/>blocked"]
     ARTPROC_006["ARTPROC-006<br/>Gateway snapshot success notification bridge<br/>skipped"]
   end
 
   subgraph markdown_extraction["markdown-extraction"]
     MDEXT_001["MDEXT-001<br/>Create feature artifacts and contracts<br/>done"]
-    MDEXT_002["MDEXT-002<br/>Worker Markdown artifact access<br/>blocked"]
-    MDEXT_003["MDEXT-003<br/>Worker go-readability extraction<br/>ready"]
-    MDEXT_004["MDEXT-004<br/>Worker Jina Reader fallback<br/>ready"]
+    MDEXT_002["MDEXT-002<br/>Worker Markdown artifact access<br/>done"]
+    MDEXT_003["MDEXT-003<br/>Worker go-readability extraction<br/>done"]
+    MDEXT_004["MDEXT-004<br/>Worker Jina Reader fallback<br/>done"]
     MDEXT_005["MDEXT-005<br/>Worker Markdown pipeline integration<br/>blocked"]
     MDEXT_006["MDEXT-006<br/>Gateway Markdown success notification<br/>skipped"]
   end
@@ -132,7 +132,7 @@ flowchart TD
   subgraph summary_generation["summary-generation"]
     SUMGEN_001["SUMGEN-001<br/>Create feature artifacts and contracts<br/>done"]
     SUMGEN_002["SUMGEN-002<br/>Worker summary artifact access<br/>blocked"]
-    SUMGEN_003["SUMGEN-003<br/>Summarizer provider adapter<br/>ready"]
+    SUMGEN_003["SUMGEN-003<br/>Summarizer provider adapter<br/>done"]
     SUMGEN_004["SUMGEN-004<br/>Worker summary pipeline integration<br/>blocked"]
     SUMGEN_005["SUMGEN-005<br/>Gateway summary notification<br/>blocked"]
   end
@@ -210,9 +210,8 @@ flowchart TD
   classDef blocked fill:#fef3c7,stroke:#b45309,color:#111827
   classDef skipped fill:#e5e7eb,stroke:#6b7280,color:#374151,stroke-dasharray: 4 4
 
-  class AUTHN_001,ARTPROC_001,ARTPROC_002,MDEXT_001,SUMGEN_001,UIEND_001,UI_001,MDEXT_004,SUMGEN_003,TELING_001,TELING_002,TELING_003,AUTHN_002 done
-  class ARTPROC_003,MDEXT_003 ready
-  class TELING_004,AUTHN_003,AUTHN_004,AUTHN_005,ARTPROC_004,ARTPROC_005,MDEXT_002,MDEXT_005,SUMGEN_002,SUMGEN_004,SUMGEN_005,UIEND_002,UIEND_003,UI_002,UI_003,UI_004 blocked
+  class AUTHN_001,ARTPROC_001,ARTPROC_002,MDEXT_001,SUMGEN_001,UIEND_001,UI_001,MDEXT_004,SUMGEN_003,TELING_001,TELING_002,TELING_003,AUTHN_002,ARTPROC_003,MDEXT_003,ARTPROC_004,MDEXT_002 done
+  class TELING_004,AUTHN_003,AUTHN_004,AUTHN_005,ARTPROC_005,MDEXT_005,SUMGEN_002,SUMGEN_004,SUMGEN_005,UIEND_002,UIEND_003,UI_002,UI_003,UI_004 blocked
   class ARTPROC_006,MDEXT_006 skipped
 
   click TELING_001 "./specs/telegram-ingestion/SPEC.md" "telegram-ingestion SPEC"
