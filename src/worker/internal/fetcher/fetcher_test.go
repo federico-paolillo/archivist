@@ -9,15 +9,12 @@ import (
 	"time"
 
 	"codeberg.org/federico-paolillo/archivist/internal/fetcher"
+	"github.com/imroc/req/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 const minimalHTML = `<!DOCTYPE html><html><body>Hello</body></html>`
-
-func newFetcher() *fetcher.Fetcher {
-	return fetcher.New()
-}
 
 func TestFetchSuccessWithRedirect(t *testing.T) {
 	var finalServer *httptest.Server
@@ -40,7 +37,7 @@ func TestFetchSuccessWithRedirect(t *testing.T) {
 	}))
 	defer finalServer.Close()
 
-	f := newFetcher()
+	f := fetcher.New(req.NewClient())
 
 	result, err := f.Fetch(t.Context(), redirectServer.URL)
 
@@ -59,7 +56,7 @@ func TestFetchHTMLSuccess(t *testing.T) {
 	}))
 	defer server.Close()
 
-	f := newFetcher()
+	f := fetcher.New(req.NewClient())
 
 	result, err := f.Fetch(t.Context(), server.URL)
 
@@ -76,7 +73,7 @@ func TestFetchXHTMLSuccess(t *testing.T) {
 	}))
 	defer server.Close()
 
-	f := newFetcher()
+	f := fetcher.New(req.NewClient())
 
 	result, err := f.Fetch(t.Context(), server.URL)
 
@@ -90,7 +87,7 @@ func TestFetch401ReturnsARC002(t *testing.T) {
 	}))
 	defer server.Close()
 
-	f := newFetcher()
+	f := fetcher.New(req.NewClient())
 
 	_, err := f.Fetch(t.Context(), server.URL)
 
@@ -103,7 +100,7 @@ func TestFetch403ReturnsARC002(t *testing.T) {
 	}))
 	defer server.Close()
 
-	f := newFetcher()
+	f := fetcher.New(req.NewClient())
 
 	_, err := f.Fetch(t.Context(), server.URL)
 
@@ -116,7 +113,7 @@ func TestFetch404ReturnsARC003(t *testing.T) {
 	}))
 	defer server.Close()
 
-	f := newFetcher()
+	f := fetcher.New(req.NewClient())
 
 	_, err := f.Fetch(t.Context(), server.URL)
 
@@ -131,7 +128,7 @@ func TestFetchNonHTMLContentTypeReturnsARC005(t *testing.T) {
 	}))
 	defer server.Close()
 
-	f := newFetcher()
+	f := fetcher.New(req.NewClient())
 
 	_, err := f.Fetch(t.Context(), server.URL)
 
@@ -139,8 +136,6 @@ func TestFetchNonHTMLContentTypeReturnsARC005(t *testing.T) {
 }
 
 func TestFetchOversizedBodyReturnsARC006(t *testing.T) {
-	// Build a body that is maxBodyBytes + 1 bytes large (10 MiB + 1).
-	// We stream it directly so we do not allocate a full 10 MiB in the test process.
 	const oversizedBodySize = 10*1024*1024 + 1
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -166,7 +161,7 @@ func TestFetchOversizedBodyReturnsARC006(t *testing.T) {
 	}))
 	defer server.Close()
 
-	f := newFetcher()
+	f := fetcher.New(req.NewClient())
 
 	_, err := f.Fetch(t.Context(), server.URL)
 
@@ -181,7 +176,7 @@ func TestFetchTimeoutReturnsARC004(t *testing.T) {
 	}))
 	defer server.Close()
 
-	f := newFetcher()
+	f := fetcher.New(req.NewClient())
 
 	ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
 	defer cancel()
@@ -192,7 +187,7 @@ func TestFetchTimeoutReturnsARC004(t *testing.T) {
 }
 
 func TestFetchFTPSchemeReturnsARC001(t *testing.T) {
-	f := newFetcher()
+	f := fetcher.New(req.NewClient())
 
 	_, err := f.Fetch(t.Context(), "ftp://example.com/file.txt")
 
@@ -200,7 +195,7 @@ func TestFetchFTPSchemeReturnsARC001(t *testing.T) {
 }
 
 func TestFetchFileSchemeReturnsARC001(t *testing.T) {
-	f := newFetcher()
+	f := fetcher.New(req.NewClient())
 
 	_, err := f.Fetch(t.Context(), "file:///etc/passwd")
 
@@ -208,7 +203,7 @@ func TestFetchFileSchemeReturnsARC001(t *testing.T) {
 }
 
 func TestFetchEmptySchemeReturnsARC001(t *testing.T) {
-	f := newFetcher()
+	f := fetcher.New(req.NewClient())
 
 	_, err := f.Fetch(t.Context(), "not-a-url")
 
@@ -221,7 +216,7 @@ func TestFetch5xxReturnsARC004(t *testing.T) {
 	}))
 	defer server.Close()
 
-	f := newFetcher()
+	f := fetcher.New(req.NewClient())
 
 	_, err := f.Fetch(t.Context(), server.URL)
 

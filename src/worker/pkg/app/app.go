@@ -4,10 +4,13 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"time"
 
+	"codeberg.org/federico-paolillo/archivist/internal/fetcher"
 	"codeberg.org/federico-paolillo/archivist/pkg/app/config"
 	"codeberg.org/federico-paolillo/archivist/pkg/db"
 	"codeberg.org/federico-paolillo/archivist/pkg/jobs"
+	"github.com/imroc/req/v3"
 )
 
 // App is the composition root. Add your application's dependencies as fields.
@@ -16,8 +19,9 @@ type App struct {
 	LogLevel *slog.LevelVar
 	Config   *config.Root
 
-	DB   *sql.DB
-	Jobs jobs.Repository
+	DB      *sql.DB
+	Jobs    jobs.Repository
+	Fetcher *fetcher.Fetcher
 }
 
 func NewApp(logger *slog.Logger, logLevel *slog.LevelVar, cfg *config.Root) (*App, error) {
@@ -26,6 +30,13 @@ func NewApp(logger *slog.Logger, logLevel *slog.LevelVar, cfg *config.Root) (*Ap
 		LogLevel: logLevel,
 		Config:   cfg,
 	}
+
+	httpClient := req.NewClient().
+		SetRedirectPolicy(req.MaxRedirectPolicy(10)).
+		SetTimeout(20 * time.Second).
+		DisableForceHttpVersion()
+
+	application.Fetcher = fetcher.New(httpClient)
 
 	if cfg.SqlitePath != "" {
 		database, err := createDB(cfg.SqlitePath)

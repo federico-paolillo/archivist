@@ -339,3 +339,53 @@ Follow-ups:
 Canonical Updates:
 - `docs/specs/article-processing/tasks/ARTPROC-004-worker-url-resolver-and-html-fetcher.md` status: blocked → done.
 - `docs/specs/article-processing/PLAN.md` ARTPROC-004 row: blocked → done.
+
+---
+
+## 2026-05-09 — ARTPROC-004: Post-Review Corrective Fixes (Phase C)
+
+Status:
+- completed (correction, not a new feature)
+
+Summary:
+- Addressed all 7 reviewer findings for ARTPROC-004 identified after Wave 2 integration. The fetcher package now conforms to the WORKER.md `*req.Client` injection convention, exposes a proper per-package `errors.go`, and has a clean test file.
+
+Changes:
+
+Finding 1 — MAJOR: `New()` global client removed. `fetcher.New()` now accepts `*req.Client` and stores it; all client configuration (`SetRedirectPolicy`, `SetTimeout`, `DisableForceHttpVersion`) moved to `app.go`.
+- `src/worker/internal/fetcher/fetcher.go` line 39: `func New(client *req.Client) *Fetcher`
+
+Finding 2 — MAJOR: Fetcher wired into composition root. `App` gains a `Fetcher *fetcher.Fetcher` field. `NewApp` constructs a single shared `*req.Client` and calls `fetcher.New(httpClient)` unconditionally (not gated on `SqlitePath`).
+- `src/worker/pkg/app/app.go`: added `fetcher` and `req` imports, `Fetcher` field, `httpClient` construction, `fetcher.New` call.
+- `src/worker/pkg/app/app_test.go`: added `require.NotNil(t, application.Fetcher)` assertion.
+
+Finding 3 — MAJOR: Per-package `errors.go` created. All 6 `Err*` sentinel vars and the `classifyHTTPStatus` / `classifyRequestError` functions moved from `fetcher.go` to a new `src/worker/internal/fetcher/errors.go`.
+- New file: `src/worker/internal/fetcher/errors.go`
+- Removed from: `src/worker/internal/fetcher/fetcher.go`
+
+Finding 4 — MINOR: Dead branches in `classifyRequestError` collapsed. All three branches returned `ErrTransientFailure`; the function now has a single unconditional return and uses `_ error` to signal the parameter is intentionally unused.
+- `src/worker/internal/fetcher/errors.go`: `func classifyRequestError(_ error) error { return ErrTransientFailure }`
+
+Finding 5 — MINOR: Superfluous `newFetcher()` test helper removed. All call sites replaced with `fetcher.New(req.NewClient())` inline; `github.com/imroc/req/v3` import added to the test file.
+- `src/worker/internal/fetcher/fetcher_test.go`: removed helper, added import, inlined calls.
+
+Finding 6 — MINOR: Misleading comment at `TestFetchOversizedBodyReturnsARC006` deleted. The comment ("We stream it directly so we do not allocate a full 10 MiB in the test process") was inaccurate; the test name is self-describing.
+- `src/worker/internal/fetcher/fetcher_test.go`: comment removed.
+
+Finding 7 — NIT: Package docstring trimmed to a single concise line per the project's "no comment unless WHY is non-obvious" policy.
+- `src/worker/internal/fetcher/fetcher.go` line 1: `// Package fetcher fetches bounded HTML content and maps failures to ARC error codes.`
+
+Decisions:
+- No new durable decisions. All fixes apply existing WORKER.md conventions.
+
+Validation:
+- `cd src/worker && go tool lefthook run build` — gobuild ✔, dotnet ✔ (npm pre-existing failure unrelated).
+- `cd src/worker && go tool lefthook run format` — golangci ✔, dotnet ✔ (biome pre-existing failure unrelated).
+- `cd src/worker && go tool lefthook run lint` — golangci ✔, dotnet ✔.
+- `cd src/worker && go tool lefthook run test` — gotest ✔ (all packages), dotnet ✔ (vitest pre-existing failure unrelated).
+
+Follow-ups:
+- No outstanding ARTPROC-004 corrective items remain.
+
+Canonical Updates:
+- None. All changes are corrections to existing implementation; no durable decisions changed.
