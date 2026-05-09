@@ -10,6 +10,7 @@ import (
 
 const (
 	tempSnapshotPattern = ".snapshot.html.*.tmp"
+	tempContentPattern  = ".content.md.*.tmp"
 	articleDirPerm      = 0o700
 )
 
@@ -71,6 +72,19 @@ func (s *Store) OpenSnapshot(articleID string) (io.ReadCloser, error) {
 // Replaces any existing snapshot.
 func (s *Store) WriteSnapshot(articleID string, html io.Reader) error {
 	return s.writeArtifact(articleID, SnapshotHTMLFilename, tempSnapshotPattern, html)
+}
+
+// OpenMarkdown returns a reader over the persisted Markdown content for articleID.
+// Caller must Close the returned ReadCloser.
+// Returns a fs.ErrNotExist-wrapping error if the content has not been written yet.
+func (s *Store) OpenMarkdown(articleID string) (io.ReadCloser, error) {
+	return s.openArtifact(articleID, ContentMDFilename)
+}
+
+// WriteMarkdown streams markdown to the content.md file for articleID, atomically.
+// Replaces any existing content.md.
+func (s *Store) WriteMarkdown(articleID string, markdown io.Reader) error {
+	return s.writeArtifact(articleID, ContentMDFilename, tempContentPattern, markdown)
 }
 
 func (s *Store) openArtifact(articleID, filename string) (io.ReadCloser, error) {

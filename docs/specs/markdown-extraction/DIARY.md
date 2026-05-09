@@ -250,3 +250,36 @@ Follow-ups:
 
 Canonical Updates:
 - None. No new durable decisions were made; existing conventions cover all changes.
+
+---
+
+## 2026-05-09 — MDEXT-002: Worker Markdown Artifact Access
+
+Status:
+- done
+
+Summary:
+- Extended the Worker artifact-store package with atomic, traversal-resistant `content.md` write and read support.
+
+Changes:
+- Added `tempContentPattern = ".content.md.*.tmp"` constant to `src/worker/internal/artifacts/store.go`.
+- Added `OpenMarkdown` and `WriteMarkdown` methods to `Store`, reusing the existing generic `writeArtifact`/`openArtifact` helpers.
+- Extended `src/worker/internal/artifacts/store_test.go` with 7 new Markdown tests: round-trip, deterministic path, atomic promotion, temp-file cleanup on promotion failure, temp-file cleanup on src failure, not-exist error, and extended traversal test covering all four methods.
+
+Decisions:
+- The same generic `writeArtifact` helper (accepting `io.Reader`) is reused for both snapshot and Markdown writes, matching the v0 refactored pattern.
+- Markdown temp file pattern is `.content.md.*.tmp` for consistency with `.snapshot.html.*.tmp` and to aid cleanup identification.
+- No new `go.mod` dependencies introduced; the artifacts package uses only the standard library.
+
+Validation:
+- `cd src/worker && go tool lefthook run build` — gobuild pass, dotnet pass.
+- `cd src/worker && go tool lefthook run format` — golangci pass, dotnet pass.
+- `cd src/worker && go tool lefthook run lint` — golangci pass, dotnet pass.
+- `cd src/worker && go tool lefthook run test` — all artifact tests pass including all MDEXT-002 acceptance criteria scenarios.
+
+Follow-ups:
+- MDEXT-005 can now proceed once ARTPROC-005, MDEXT-003, and MDEXT-004 are done (MDEXT-003 and MDEXT-004 already done).
+
+Canonical Updates:
+- `docs/specs/markdown-extraction/tasks/MDEXT-002-worker-markdown-artifact-access.md` (status: done)
+- `docs/specs/markdown-extraction/PLAN.md` (MDEXT-002 row: done)

@@ -2,7 +2,7 @@
 id: ARTPROC-004
 feature: article-processing
 title: Worker URL Resolver And HTML Fetcher
-status: blocked
+status: done
 depends_on: [ARTPROC-002, ARTPROC-003]
 blocks: [ARTPROC-005]
 parallel: false
