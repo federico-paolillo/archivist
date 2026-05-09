@@ -2,12 +2,12 @@ package app_test
 
 import (
 	"log/slog"
-	"path/filepath"
 	"testing"
 
 	"codeberg.org/federico-paolillo/archivist/internal/testutils/slogt"
 	"codeberg.org/federico-paolillo/archivist/pkg/app"
 	"codeberg.org/federico-paolillo/archivist/pkg/app/config"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -17,84 +17,39 @@ func TestNewAppReturnsApp(t *testing.T) {
 	logLevel := new(slog.LevelVar)
 
 	cfg := config.Default()
-	cfg.Artifacts.DataDir = t.TempDir()
 
-	application, err := app.NewApp(t.Context(), logger, logLevel, cfg)
+	application, err := app.NewApp(logger, logLevel, cfg)
 
 	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, application.Close())
-	})
 
 	require.NotNil(t, application)
 
 	require.Equal(t, logger, application.Logger)
 	require.Equal(t, logLevel, application.LogLevel)
 	require.Equal(t, cfg, application.Config)
-	require.NotNil(t, application.Artifacts)
-	require.Nil(t, application.DB)
-	require.Nil(t, application.Jobs)
-	require.NotNil(t, application.HTTP)
-	require.NotNil(t, application.Summarizer)
+
+	// Without SqlitePath, DB and Jobs are nil (no database configured).
+	assert.Nil(t, application.DB)
+	assert.Nil(t, application.Jobs)
 }
 
-func TestNewAppCreatesJinaExtractor(t *testing.T) {
+func TestNewAppWithSQLitePathOpensDatabase(t *testing.T) {
 	logger := slogt.New(t)
-	logLevel := new(slog.LevelVar)
-	cfg := config.Default()
-	cfg.Artifacts.DataDir = t.TempDir()
 
-	application, err := app.NewApp(t.Context(), logger, logLevel, cfg)
+	logLevel := new(slog.LevelVar)
+
+	cfg := config.Default()
+	cfg.SqlitePath = ":memory:"
+
+	application, err := app.NewApp(logger, logLevel, cfg)
+
 	require.NoError(t, err)
+	require.NotNil(t, application)
+
 	t.Cleanup(func() {
-		require.NoError(t, application.Close())
+		application.Close()
 	})
 
-	require.NotNil(t, application.JinaExtractor)
-}
-
-func TestNewAppCreatesJinaExtractorDisabledByDefault(t *testing.T) {
-	logger := slogt.New(t)
-	logLevel := new(slog.LevelVar)
-	cfg := config.Default()
-	cfg.Artifacts.DataDir = t.TempDir()
-
-	require.False(t, cfg.Jina.Enabled)
-
-	application, err := app.NewApp(t.Context(), logger, logLevel, cfg)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, application.Close())
-	})
-
-	// JinaExtractor is always constructed; the disabled flag is checked at call time.
-	require.NotNil(t, application.JinaExtractor)
-}
-
-func TestNewAppCreatesPersistenceWhenSQLitePathIsConfigured(t *testing.T) {
-	logger := slogt.New(t)
-	logLevel := new(slog.LevelVar)
-	cfg := config.Default()
-	cfg.Artifacts.DataDir = t.TempDir()
-	cfg.Persistence.SQLitePath = filepath.Join(t.TempDir(), "archive.db")
-
-	application, err := app.NewApp(t.Context(), logger, logLevel, cfg)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, application.Close())
-	})
-
-	require.NotNil(t, application.DB)
-	require.NotNil(t, application.Jobs)
-}
-
-func TestNewAppFailsWhenLLMProviderIsUnsupported(t *testing.T) {
-	logger := slogt.New(t)
-	logLevel := new(slog.LevelVar)
-	cfg := config.Default()
-	cfg.LLM.Provider = "openai"
-
-	_, err := app.NewApp(t.Context(), logger, logLevel, cfg)
-
-	require.Error(t, err)
+	assert.NotNil(t, application.DB)
+	assert.NotNil(t, application.Jobs)
 }

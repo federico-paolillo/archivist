@@ -16,8 +16,10 @@ tool (
 
 require (
 	codeberg.org/readeck/go-readability/v2 v2.1.1
-	github.com/JohannesKaufmann/html-to-markdown/v2 v2.5.0
+	github.com/JohannesKaufmann/html-to-markdown/v2 v2.5.1
 	github.com/anthropics/anthropic-sdk-go v1.38.0
+	github.com/imroc/req/v3 v3.57.0
+	github.com/oklog/ulid/v2 v2.1.1
 	github.com/sherifabdlnaby/configuro v0.0.3
 	github.com/stretchr/testify v1.11.1
 	github.com/urfave/cli/v3 v3.8.0
@@ -154,7 +156,6 @@ require (
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/hexops/gotextdiff v1.0.3 // indirect
 	github.com/icholy/digest v1.1.0 // indirect
-	github.com/imroc/req/v3 v3.57.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/invopop/jsonschema v0.13.0 // indirect
 	github.com/jgautheron/goconst v1.10.0 // indirect
@@ -195,7 +196,7 @@ require (
 	github.com/maratori/testpackage v1.1.2 // indirect
 	github.com/matoous/godox v1.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
-	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/mattn/go-isatty v0.0.22 // indirect
 	github.com/mattn/go-runewidth v0.0.23 // indirect
 	github.com/mattn/go-tty v0.0.7 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
