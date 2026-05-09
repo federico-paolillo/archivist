@@ -232,3 +232,47 @@ Follow-ups:
 Canonical Updates:
 - `docs/specs/telegram-ingestion/tasks/TELING-003-worker-terminal-notification-contract.md` (status: done)
 - `docs/specs/telegram-ingestion/PLAN.md` (TELING-003 row: done)
+
+## 2026-05-09 — TELING-002: Telegram Webhook Ingestion
+
+Status:
+- completed
+
+Summary:
+- Implemented `POST /telegram/webhook` gateway endpoint with webhook secret validation, allowed-user authorization, strict http/https URL-only validation, atomic persistence via the TELING-001 contract, idempotent duplicate update_id handling, and immediate Telegram reply for both valid and invalid authorized messages. Integration tests cover all acceptance criteria paths.
+
+Changes:
+- `src/gateway/Archivist.Gateway.Api/Telegram/Endpoints.cs` — route group mapping POST /telegram/webhook
+- `src/gateway/Archivist.Gateway.Api/Telegram/Handlers.cs` — static handler extracting secret header and building TelegramWebhookCommand
+- `src/gateway/Archivist.Gateway.Api/Telegram/Models/TelegramUpdateDto.cs` — DTOs for update, message, chat, user
+- `src/gateway/Archivist.Gateway.Application/Telegram/ITelegramClient.cs` — interface for sending Telegram replies
+- `src/gateway/Archivist.Gateway.Application/Telegram/TelegramOptions.cs` — options for bot token, webhook secret, allowed user id
+- `src/gateway/Archivist.Gateway.Application/Telegram/TelegramWebhookCommand.cs` — handler input record
+- `src/gateway/Archivist.Gateway.Application/Telegram/TelegramWebhookHandler.cs` — application service implementing all validation and persistence logic
+- `src/gateway/Archivist.Gateway.Application/Telegram/TelegramWebhookResult.cs` — outcome enum and result record
+- `src/gateway/Archivist.Gateway.Application/Telegram/Defaults/HttpTelegramClient.cs` — HTTP Bot API client implementation
+- `src/gateway/Archivist.Gateway.Application/Telegram/Extensions/ServiceCollectionExtensions.cs` — AddTelegram DI registration
+- `src/gateway/Archivist.Gateway.Api/Program.cs` — updated to register and map Telegram conditionally on SQLITE_PATH
+- `src/gateway/Archivist.Gateway.Application/Archivist.Gateway.Application.csproj` — added Microsoft.Extensions.Http package
+- `src/gateway/Archivist.Gateway.Tests/Api/TelegramWebhookEndpointTest.cs` — 13 integration tests covering bad secret, missing secret, unauthorized sender, invalid URL (4 variants), valid URL, sender ID vs chat ID distinctness, duplicate update, acknowledgement failure, and no-message update
+- Also included TELING-001 persistence foundation files (entities, DbContext, repository, extensions, constants) which were missing from the worktree starting checkpoint.
+
+Decisions:
+- Telegram and persistence registration are conditional on SQLITE_PATH to avoid DI validation failures in environments without SQLite.
+- `TelegramWebhookHandler` is a sealed partial class to support LoggerMessage source generation.
+- CA1031 (catch general Exception) is suppressed with explanation at the acknowledgement-failure catch site and fire-and-forget reply helper, because the spec requires acknowledgement failure to not roll back ingestion.
+- The API `Handlers` and `Endpoints` classes are `internal` to avoid CA1724 type-name conflicts with .NET framework namespace names.
+- `SenderUserId` is read from `message.from.id`, not from `message.chat.id`, as required by the spec (telegram_user_id is sender identity metadata, not reply-target metadata).
+
+Validation:
+- `cd src/gateway && dotnet format` — passed, reformatted some files.
+- `cd src/gateway && dotnet build` — passed, 0 warnings, 0 errors.
+- `cd src/gateway && dotnet test` — passed, 18/18 tests (1 ping, 4 persistence, 13 webhook integration).
+
+Follow-ups:
+- TELING-004 (notification dispatcher) can now proceed as TELING-002 is done.
+- TELING-003 (worker terminal notification contract) is independent and can proceed concurrently.
+
+Canonical Updates:
+- `docs/specs/telegram-ingestion/tasks/TELING-002-telegram-webhook-ingestion.md` — status: done
+- `docs/specs/telegram-ingestion/PLAN.md` — TELING-002 status: done
