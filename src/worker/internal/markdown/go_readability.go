@@ -108,11 +108,3 @@ func convertArticleNode(ctx context.Context, articleNode *html.Node, pageURL *ur
 	return string(markdownBytes), nil
 }
 
-func localFailure(reason string) ExtractResult {
-	return ExtractResult{
-		Status:        ResultStatusFailure,
-		Provider:      ProviderGoReadability,
-		ErrorCode:     ErrorCodeLocalExtractionFailed,
-		FailureReason: reason,
-	}
-}

@@ -17,19 +17,24 @@ func TestNewAppReturnsApp(t *testing.T) {
 	logLevel := new(slog.LevelVar)
 
 	cfg := config.Default()
+	cfg.Artifacts.DataDir = t.TempDir()
 
 	application, err := app.NewApp(t.Context(), logger, logLevel, cfg)
 
 	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, application.Close())
+	})
 
 	require.NotNil(t, application)
 
 	require.Equal(t, logger, application.Logger)
 	require.Equal(t, logLevel, application.LogLevel)
 	require.Equal(t, cfg, application.Config)
-	require.NotNil(t, application.ArtifactPaths)
+	require.NotNil(t, application.Artifacts)
 	require.Nil(t, application.DB)
 	require.Nil(t, application.Jobs)
+	require.NotNil(t, application.HTTP)
 	require.NotNil(t, application.Summarizer)
 }
 
@@ -37,9 +42,13 @@ func TestNewAppCreatesJinaExtractor(t *testing.T) {
 	logger := slogt.New(t)
 	logLevel := new(slog.LevelVar)
 	cfg := config.Default()
+	cfg.Artifacts.DataDir = t.TempDir()
 
 	application, err := app.NewApp(t.Context(), logger, logLevel, cfg)
 	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, application.Close())
+	})
 
 	require.NotNil(t, application.JinaExtractor)
 }
@@ -48,11 +57,15 @@ func TestNewAppCreatesJinaExtractorDisabledByDefault(t *testing.T) {
 	logger := slogt.New(t)
 	logLevel := new(slog.LevelVar)
 	cfg := config.Default()
+	cfg.Artifacts.DataDir = t.TempDir()
 
 	require.False(t, cfg.Jina.Enabled)
 
 	application, err := app.NewApp(t.Context(), logger, logLevel, cfg)
 	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, application.Close())
+	})
 
 	// JinaExtractor is always constructed; the disabled flag is checked at call time.
 	require.NotNil(t, application.JinaExtractor)
@@ -62,6 +75,7 @@ func TestNewAppCreatesPersistenceWhenSQLitePathIsConfigured(t *testing.T) {
 	logger := slogt.New(t)
 	logLevel := new(slog.LevelVar)
 	cfg := config.Default()
+	cfg.Artifacts.DataDir = t.TempDir()
 	cfg.Persistence.SQLitePath = filepath.Join(t.TempDir(), "archive.db")
 
 	application, err := app.NewApp(t.Context(), logger, logLevel, cfg)

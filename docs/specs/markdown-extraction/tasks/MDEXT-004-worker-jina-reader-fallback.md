@@ -167,3 +167,4 @@ ExecPlan:
 ## Notes
 
 - Current planning verification found `github.com/jina-ai/client-go`, but it targets older Jina client semantics and is not a Reader-specific SDK.
+- `JinaExtractor` does not accept a logger and must not emit structured log entries. Structured logging for provider attempt, selected provider, ARC code, duration, and artifact write result is owned by MDEXT-005 pipeline orchestration per `docs/conventions/WORKER.md`.

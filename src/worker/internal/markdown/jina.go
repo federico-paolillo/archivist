@@ -3,17 +3,13 @@ package markdown
 import (
 	"context"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
+
+	"github.com/imroc/req/v3"
 )
 
 const (
-	ProviderJina Provider = "jina"
-
-	ErrorCodeJinaFailed             ErrorCode = "ARC-010"
-	ErrorCodeJinaInsufficientCredit ErrorCode = "ARC-011"
-
 	jinaReaderBaseURL = "https://r.jina.ai/"
 )
 
@@ -21,17 +17,17 @@ type JinaExtractor struct {
 	enabled    bool
 	apiKey     string
 	baseURL    string
-	httpClient *http.Client
+	httpClient *req.Client
 }
 
 var _ MarkdownExtractor = (*JinaExtractor)(nil)
 
-func NewJinaExtractor(enabled bool, apiKey string) *JinaExtractor {
+func NewJinaExtractor(client *req.Client, enabled bool, apiKey string) *JinaExtractor {
 	return &JinaExtractor{
 		enabled:    enabled,
 		apiKey:     apiKey,
 		baseURL:    jinaReaderBaseURL,
-		httpClient: &http.Client{},
+		httpClient: client,
 	}
 }
 
@@ -62,39 +58,24 @@ func (e *JinaExtractor) ExtractMarkdown(ctx context.Context, input ExtractInput)
 	}
 }
 
-type jinaError struct {
-	code   ErrorCode
-	reason string
-}
-
 func (e *JinaExtractor) fetch(ctx context.Context, canonicalURL string) (string, *jinaError) {
 	requestURL := e.baseURL + canonicalURL
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, http.NoBody)
-	if err != nil {
-		return "", &jinaError{
-			code:   ErrorCodeJinaFailed,
-			reason: fmt.Sprintf("build jina reader request: %v", err),
-		}
-	}
-
-	req.Header.Set("Accept", "text/plain")
+	r := e.httpClient.R().
+		SetContext(ctx).
+		SetHeader("Accept", "text/plain")
 
 	if e.apiKey != "" {
-		req.Header.Set("Authorization", "Bearer "+e.apiKey)
+		r = r.SetBearerAuthToken(e.apiKey)
 	}
 
-	resp, err := e.httpClient.Do(req)
+	resp, err := r.Get(requestURL)
 	if err != nil {
 		return "", &jinaError{
 			code:   ErrorCodeJinaFailed,
 			reason: fmt.Sprintf("jina reader request failed: %v", err),
 		}
 	}
-
-	defer func() {
-		_ = resp.Body.Close()
-	}()
 
 	if resp.StatusCode == http.StatusPaymentRequired {
 		return "", &jinaError{
@@ -110,22 +91,6 @@ func (e *JinaExtractor) fetch(ctx context.Context, canonicalURL string) (string,
 		}
 	}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", &jinaError{
-			code:   ErrorCodeJinaFailed,
-			reason: fmt.Sprintf("read jina reader response: %v", err),
-		}
-	}
-
-	return string(body), nil
+	return resp.String(), nil
 }
 
-func jinaFailure(code ErrorCode, reason string) ExtractResult {
-	return ExtractResult{
-		Status:        ResultStatusFailure,
-		Provider:      ProviderJina,
-		ErrorCode:     code,
-		FailureReason: reason,
-	}
-}

@@ -1,13 +1,14 @@
 package summary_test
 
 import (
+	"context"
 	"encoding/json"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"codeberg.org/federico-paolillo/archivist/internal/summary"
+	"github.com/imroc/req/v3"
 	"github.com/stretchr/testify/require"
 )
 
@@ -52,13 +53,11 @@ func buildAnthropicErrorResponse(errType, message string) string {
 func newTestAdapter(t *testing.T, srv *httptest.Server) *summary.AnthropicAdapter {
 	t.Helper()
 
-	logger := slog.Default()
-
 	return summary.NewAnthropicAdapterWithBaseURL(
+		req.NewClient(),
 		"test-api-key",
 		"claude-3-5-haiku-20241022",
 		srv.URL,
-		logger,
 	)
 }
 
@@ -165,4 +164,25 @@ func TestAnthropicAdapterBillingErrorIsARC015(t *testing.T) {
 	require.Equal(t, summary.ResultStatusFailure, result.Status)
 	require.Equal(t, summary.ProviderAnthropic, result.Provider)
 	require.Equal(t, summary.ErrorCodeBillingFailure, result.ErrorCode)
+}
+
+func TestAnthropicAdapterContextCancellationIsARC013(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(buildAnthropicResponse("this should not be reached")))
+	}))
+	t.Cleanup(srv.Close)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	adapter := newTestAdapter(t, srv)
+
+	result := adapter.Summarize(ctx, summary.SummarizerRequest{
+		MarkdownSource: "# Article\n\nSome content.",
+	})
+
+	require.Equal(t, summary.ResultStatusFailure, result.Status)
+	require.Equal(t, summary.ErrorCodeProviderFailure, result.ErrorCode)
 }

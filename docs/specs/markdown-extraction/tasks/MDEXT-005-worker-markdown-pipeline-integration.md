@@ -175,3 +175,4 @@ ExecPlan:
 ## Notes
 
 - The `summary-generation` feature supersedes Markdown success as the final processing completion criterion.
+- MDEXT-005 is the sole owner of structured log entries for the Markdown extraction pipeline: provider attempt, fallback reason, selected provider, ARC code on failure, `article_id`, `job_id`, canonical URL, duration (measured by orchestration around the adapter call), and artifact write result. Adapters do not log; they return result types with sufficient fields. See `docs/conventions/WORKER.md` §Structured Logging.

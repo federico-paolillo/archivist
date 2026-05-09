@@ -166,3 +166,5 @@ ExecPlan:
 ## Notes
 
 - Do not implement chunking or source truncation in this task.
+- `AnthropicAdapter` does not accept a logger and must not emit `slog.Info` or `slog.Error` calls. Structured logging for provider, model, request id, ARC code, duration, and article context is owned by SUMGEN-004 pipeline orchestration per `docs/conventions/WORKER.md`.
+- `SummarizerRequest` carries `ArticleID`, `JobID`, and `URL` metadata fields so orchestration can thread article context into log entries without a second interface change.

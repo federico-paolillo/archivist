@@ -33,9 +33,9 @@ type Jina struct {
 // LLM holds configuration for the summarizer LLM provider.
 // APIKey must not be logged.
 type LLM struct {
-	Provider string
-	Model    string
-	APIKey   string
+	Provider string `config:"LLM_PROVIDER"`
+	Model    string `config:"LLM_MODEL"`
+	APIKey   string `config:"LLM_API_KEY"`
 }
 
 func Default() *Root {

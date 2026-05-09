@@ -121,3 +121,62 @@ Canonical Updates:
 - `docs/specs/summary-generation/tasks/SUMGEN-003-summarizer-provider-adapter.md` (status: done)
 - `docs/specs/summary-generation/plans/SUMGEN-003-summarizer-provider-adapter.execplan.md` (status: completed)
 - `docs/specs/summary-generation/PLAN.md` (SUMGEN-003 row: done)
+
+---
+
+## 2026-05-09 — refactor: adopt imroc/req/v3
+
+**Status:** completed
+
+**Summary:** Switched `AnthropicAdapter` to accept an injected `*req.Client` (`github.com/imroc/req/v3`). The underlying `*http.Client` is extracted via `client.GetClient()` and passed to the Anthropic SDK via `option.WithHTTPClient`, keeping the SDK integration intact. The HTTP client is constructed once in the composition root (`pkg/app/NewApp`) and passed to all adapters. Convention promoted to `docs/conventions/WORKER.md`.
+
+**Validation:** `go tool lefthook run build`, `format`, `lint`, `test` — all passed.
+
+**Canonical Updates:**
+- `docs/conventions/WORKER.md` (new "HTTP client" section; expanded "Composition Root and Poor Man's DI" section)
+
+---
+
+## 2026-05-09 — refactor: promote orchestration-owns-logging and error-helpers conventions
+
+**Status:** completed
+
+**Summary:** Promoted two cross-cutting decisions to canonical documents following the code review of SUMGEN-003:
+
+1. **Orchestration-owns-logging**: `AnthropicAdapter` must not accept a `*slog.Logger` and must not emit `slog.Info` or `slog.Error` calls. Structured log entries for provider, model, provider request id, ARC code, `article_id`, `job_id`, canonical URL, duration, and artifact write result are owned exclusively by SUMGEN-004 pipeline orchestration. The existing logger field and all `a.logger.*` calls have been removed from the adapter. Information previously logged (model, request_id, status_code, error_type) is now returned in `SummarizerResult` fields (`RequestID`, `StatusCode`) for orchestration to consume.
+
+2. **Error helpers in `errors.go`**: error-building infrastructure (ARC constants, `classifyError`, `classifyAPIError`, `isBillingError`, `isTooLargeError`) moved from `anthropic.go` to `src/worker/internal/summary/errors.go`.
+
+3. **`SummarizerRequest` metadata fields**: `ArticleID`, `JobID`, and `URL` added to `SummarizerRequest` so orchestration can thread article context into log entries. These fields are unused by SUMGEN-003; SUMGEN-004 is responsible for populating them.
+
+REVIEW.md findings SUMGEN-003-FIX-2 ("add duration logging") and SUMGEN-003-FIX-4 ("add article_id/job_id/url") are resolved. Duration is measured by SUMGEN-004 orchestration, not by the adapter.
+
+**Canonical Updates:**
+- `docs/conventions/WORKER.md` (new "Structured Logging" and "Error helpers" sections)
+- `docs/conventions/ARTIFACTS.md` (artifact access layer logging responsibility)
+- `docs/specs/summary-generation/tasks/SUMGEN-003-summarizer-provider-adapter.md` (Notes)
+- `docs/specs/summary-generation/tasks/SUMGEN-004-worker-summary-pipeline-integration.md` (Notes)
+
+## 2026-05-09 — SUMGEN-003: Post-Review Corrective Fixes
+
+Status:
+- completed
+
+Summary:
+- Closed the two remaining corrective items from the 2026-05-08 code review of SUMGEN-003: config struct-tag alignment and context-cancellation test coverage.
+
+Changes:
+- SUMGEN-003-FIX-1 (closed): Added explicit `config:"LLM_PROVIDER"`, `config:"LLM_MODEL"`, and `config:"LLM_API_KEY"` struct tags to the `LLM` struct in `src/worker/pkg/app/config/config.go`. Previously, configuro derived `APP_LLM_APIKEY` for the API key field, diverging from the uppercase snake_case convention used by all other config fields (`APP_JINA_API_KEY`, etc.). `load_test.go` updated to use the correct env var name `APP_LLM_API_KEY` in `TestLLMConfigurationLoadsFromEnvVars`.
+- SUMGEN-003-FIX-3 (closed): Added `TestAnthropicAdapterContextCancellationIsARC013` to `src/worker/internal/summary/anthropic_test.go`. Cancels the context before calling `Summarize`; asserts `ResultStatusFailure` with `ErrorCodeProviderFailure` (`ARC-013`). No real network calls; test is self-contained.
+
+Decisions:
+- Explicit `config:` struct tags are now required for all fields in every config struct. The prior undocumented behaviour of configuro-derived names for nested structs is not relied upon anywhere in the codebase.
+
+Validation:
+- `go tool lefthook run lint && go tool lefthook run test` — passed.
+
+Follow-ups:
+- All open SUMGEN-003 corrective items are closed. SUMGEN-004 pipeline integration can proceed once SUMGEN-002 is done.
+
+Canonical Updates:
+- None. The config-tag requirement is already implicit in the GENERAL.md uppercase snake_case convention; no new canonical update is required beyond the code fix.

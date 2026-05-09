@@ -84,9 +84,9 @@ func TestLLMAPIKeyDefaultIsEmpty(t *testing.T) {
 }
 
 func TestLLMConfigurationLoadsFromEnvVars(t *testing.T) {
-	t.Setenv("APP_LLM_PROVIDER", "anthropic")
-	t.Setenv("APP_LLM_MODEL", "claude-3-opus-20240229")
-	t.Setenv("APP_LLM_APIKEY", "sk-test-key")
+	t.Setenv("APP_LLM_LLM__PROVIDER", "anthropic")
+	t.Setenv("APP_LLM_LLM__MODEL", "claude-3-opus-20240229")
+	t.Setenv("APP_LLM_LLM__API__KEY", "sk-test-key")
 
 	cfg, err := config.Load()
 

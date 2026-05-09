@@ -49,7 +49,9 @@ When possible and functionally correct, use `Root` or `OpenInRoot` to handle fil
 
 ## Composition root
 
-Anytime you add a new service to the composition root you must test that it is created correctly (or not, depending on the logic) in `app_test.go`. 
+See the **Composition Root and Poor Man's DI** section above for the full rationale and rules.
+
+Anytime you add a new service to the composition root you must test that it is created correctly (or not, depending on the logic) in `app_test.go`.
 
 `NewApp()` is the constructor of the composition root and can be optionally partitioned into multiple `createXxx()` factory functions that take care of complex initialization logic. These functions are not necessary if constructing a service is trivial.
 
@@ -73,6 +75,25 @@ Whenever you introduce a worker configuration key, document it in `docs/conventi
 
 Always extend worker configuration tests to assert default values, required values, and environment variable loading.
 
+## Composition Root and Poor Man's DI
+
+The Worker uses *Pure DI* (also called *Poor Man's DI*), as described by Mark Seemann and Steven van Deursen in *Dependency Injection Principles, Practices, and Patterns*. This means: explicit constructor injection, no IoC container, no service locator, no globals.
+
+### Composition Root
+
+A **Composition Root** is the single location where the entire object graph is wired. It is the only place that knows how concrete types map to each other. For the Worker this is `pkg/app/NewApp`, called from `cmd/worker/main.go`. Nothing else in the codebase assembles services; adapters and services only receive collaborators through constructor parameters.
+
+### Poor Man's DI (Pure DI)
+
+Each `NewXxx(dep1, dep2, …)` constructor takes its collaborators as explicit arguments. `NewApp` calls these constructors in dependency order, passing already-constructed values down the call chain. Optional `createXxx` factory functions partition complex sub-graphs but remain internal to the composition root.
+
+Rules:
+
+- Every collaborator a service needs must be a constructor parameter — never read from a global, never resolved at call time.
+- Long-lived singletons (DB, HTTP client, loggers, service adapters) live as fields of `App`. Per-request objects are created inside the call that needs them.
+- The composition root (`pkg/app`) may import any internal package. No other package may import a sibling package solely to wire it.
+- Every field added to `App` must be covered by a test in `app_test.go` (this restates the existing rule from the section below; it is listed here because it is a consequence of Pure DI: the root is the only wiring point and its tests are the only integration tests for wiring).
+
 ## Provider Boundaries
 
 Worker pipeline orchestration must depend on Archivist-owned interfaces for external or replaceable processing providers.
@@ -83,13 +104,68 @@ Summary generation uses a Worker-owned `SummarizerService` abstraction. Claude/A
 
 Snapshot and Markdown stages are intermediate pipeline stages once summary generation is implemented. Final Worker success for v0 means `summary.md` has been atomically promoted and the article/job/notification terminal state has been committed.
 
+## HTTP client
+
+All outbound HTTP calls from Worker code must go through `github.com/imroc/req/v3`.
+
+- Direct use of `net/http` for *outbound* requests is forbidden. `net/http` remains acceptable inside test files (`httptest.NewServer`, `http.HandlerFunc`, status code constants) and when an external SDK requires a plain `*http.Client` parameter — in that case call `reqClient.GetClient()` to obtain the underlying standard-library client.
+- Never use the package-level global client (`req.C()`). Always construct an owned `*req.Client` with `req.NewClient()` inside the composition root and inject it into every adapter that needs it.
+- The composition root owns and configures shared concerns — user-agent, timeout, and any future middleware. Adapters receive a pre-configured client; they must not mutate it or set global options.
+- Tests construct their own isolated `*req.Client` instances (typically `req.NewClient()` pointing at an `httptest.Server`). Tests must not share or mutate a client owned by another test.
+
+## Structured Logging
+
+v0 logs to stdout using Go's `log/slog` package. Structured logs are required for all observable pipeline events.
+
+### Logging ownership
+
+**Pipeline orchestration owns all structured log entries** for article-processing stages (ARTPROC-005, MDEXT-005, SUMGEN-004). Provider adapters (`go_readability.go`, `jina.go`, `anthropic.go`, and any future adapter) must not accept a `*slog.Logger` and must not emit `slog.Info` or `slog.Error` calls. Adapters return data; orchestration logs decisions.
+
+This rule keeps adapter constructors small, adapter tests free of logger mocks, and the log field schema in one place (the orchestration layer).
+
+**Carve-out**: an adapter may emit `slog.Debug` for low-value diagnostics that orchestration cannot observe (e.g. internal retry counts). This is the only permitted adapter-level logging. API keys must never appear in any log entry, at any level.
+
+### Adapter result-type contract
+
+Every adapter result type (`ExtractResult`, `SummarizerResult`, and equivalents) must carry enough data for orchestration to emit a complete log entry without making a second call. Required fields:
+
+- `Status` / `ResultStatus` — success or failure kind
+- `ErrorCode` — ARC code when applicable
+- `FailureReason` — short human-readable failure description when applicable
+- Provider request id (e.g. `RequestID string`) — when the external provider returns one
+
+### Orchestration log field set
+
+Orchestration must log the following fields when available. Cross-module field names follow `docs/conventions/GENERAL.md`:
+
+- `article_id`, `job_id`, `url` — article context, threaded via request types
+- `provider` — which adapter was called
+- `duration` — measured by orchestration around the adapter call with `time.Since`
+- `arc_code` — ARC error code on failure
+- `fallback_reason` — when a secondary provider is invoked
+- `artifact_result` — success or failure of the artifact write
+- model, provider request id — for LLM providers when available
+
+Markdown extraction orchestration must additionally log: provider attempt, fallback reason, selected provider.
+
+Logs must never include API keys or full article/summary content.
+
+## Error helpers
+
+All error-building infrastructure for a package must live in `<package>/errors.go`. This includes:
+
+- ARC error code constants
+- Sentinel error values
+- Error type definitions
+- Error constructor and classification helpers (e.g. `jinaFailure`, `classifyError`, `isBillingError`)
+
+This keeps primary implementation files (`jina.go`, `anthropic.go`, `go_readability.go`, etc.) focused on adapter behavior rather than error plumbing.
+
+When a package is modified, migrate any existing error helpers from implementation files into `errors.go` as part of that change.
+
 ## Error wrapping
 
 Persisted user-facing article-processing failures must use ARC codes from `docs/conventions/ERRORS.md`. Store a short public message on `articles.error_message`, and keep detailed HTTP, filesystem, library, or stack diagnostics in logs or job diagnostic context.
-
-Markdown extraction must log critical provider decisions. At minimum, log the local go-readability attempt, fallback from go-readability to Jina with reason, selected provider on success, ARC code on failure, `article_id`, `job_id`, canonical URL, duration, and artifact write result when available.
-
-Summary generation must log summarizer provider, model, provider request identifier when available, ARC code on failure, `article_id`, `job_id`, canonical URL, duration, and artifact write result when available. Logs must not include API keys or full article/summary content.
 
 When adding additional context to an error, either with fmt.Errorf or by implementing a custom type, you need to decide whether the new error should wrap the original. There is no single answer to this question; it depends on the context in which the new error is created. Wrap an error to expose it to callers. Do not wrap an error when doing so would expose implementation details.
 

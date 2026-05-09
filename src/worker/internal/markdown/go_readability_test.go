@@ -77,6 +77,36 @@ func TestGoReadabilityExtractorMapsConversionFailureToARC009(t *testing.T) {
 	require.Contains(t, result.FailureReason, "convert readable HTML to Markdown")
 }
 
+func TestGoReadabilityExtractorRejectsInvalidCanonicalURL(t *testing.T) {
+	extractor := NewGoReadabilityExtractor()
+
+	result := extractor.ExtractMarkdown(t.Context(), ExtractInput{
+		HTML:         []byte(readableHTML),
+		CanonicalURL: ":bad-url",
+	})
+
+	require.Equal(t, ResultStatusFailure, result.Status)
+	require.Equal(t, ErrorCodeLocalExtractionFailed, result.ErrorCode)
+	require.NotEmpty(t, result.FailureReason)
+}
+
+func TestGoReadabilityExtractorRejectsEmptyMarkdown(t *testing.T) {
+	extractor := &GoReadabilityExtractor{
+		parseDocument: parseHTMLDocument,
+		convert: func(_ context.Context, _ *html.Node, _ *url.URL) (string, error) {
+			return "", nil
+		},
+	}
+
+	result := extractor.ExtractMarkdown(t.Context(), ExtractInput{
+		HTML:         []byte(readableHTML),
+		CanonicalURL: "https://example.com/articles/readable",
+	})
+
+	require.Equal(t, ResultStatusFailure, result.Status)
+	require.Equal(t, ErrorCodeLocalExtractionFailed, result.ErrorCode)
+}
+
 const readableHTML = `<!doctype html>
 <html>
 <head>

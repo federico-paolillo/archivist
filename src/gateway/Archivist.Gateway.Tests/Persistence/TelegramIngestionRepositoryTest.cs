@@ -69,6 +69,9 @@ public sealed class TelegramIngestionRepositoryTest
         Assert.Equal(first.JobId, second.JobId);
         Assert.Equal(1, await db.Articles.CountAsync(CancellationToken.None));
         Assert.Equal(1, await db.Jobs.CountAsync(CancellationToken.None));
+
+        var user = await db.Users.SingleAsync(CancellationToken.None);
+        Assert.Equal(command.TelegramUserId, user.TelegramUserId);
     }
 
     [Fact]

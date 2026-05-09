@@ -54,4 +54,14 @@ public static class PersistenceConstants
     /// Notification status used before gateway dispatch.
     /// </summary>
     public const string NotificationPending = "pending";
+
+    /// <summary>
+    /// Notification status used after successful dispatch.
+    /// </summary>
+    public const string NotificationSent = "sent";
+
+    /// <summary>
+    /// Notification status used after failed dispatch.
+    /// </summary>
+    public const string NotificationFailed = "failed";
 }

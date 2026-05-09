@@ -190,3 +190,63 @@ Canonical Updates:
 - `docs/specs/markdown-extraction/PLAN.md`
 - `docs/specs/markdown-extraction/tasks/MDEXT-004-worker-jina-reader-fallback.md`
 - `docs/specs/markdown-extraction/plans/MDEXT-004-worker-jina-reader-fallback.execplan.md`
+
+---
+
+## 2026-05-09 — refactor: adopt imroc/req/v3
+
+**Status:** completed
+
+**Summary:** Switched `JinaExtractor` from a bare `*http.Client` to an injected `*req.Client` (`github.com/imroc/req/v3`). The HTTP client is now constructed once in the composition root (`pkg/app/NewApp`) and injected via the updated `NewJinaExtractor(client *req.Client, ...)` constructor. The convention mandating this approach for all Worker outbound HTTP has been promoted to `docs/conventions/WORKER.md` (new "HTTP client" section).
+
+**Validation:** `go tool lefthook run build`, `format`, `lint`, `test` — all passed.
+
+**Canonical Updates:**
+- `docs/conventions/WORKER.md` (new "HTTP client" section; expanded "Composition Root and Poor Man's DI" section)
+
+---
+
+## 2026-05-09 — refactor: promote orchestration-owns-logging and error-helpers conventions
+
+**Status:** completed
+
+**Summary:** Promoted two cross-cutting decisions to canonical documents following the code review of MDEXT-003 and MDEXT-004:
+
+1. **Orchestration-owns-logging**: `GoReadabilityExtractor` and `JinaExtractor` must not accept a `*slog.Logger` and must not emit `slog.Info` or `slog.Error` calls. Structured log entries for provider attempt, fallback reason, selected provider, ARC code, `article_id`, `job_id`, canonical URL, duration, and artifact write result are owned exclusively by MDEXT-005 pipeline orchestration. Adapters return result types (`ExtractResult`) with sufficient fields for orchestration to log everything.
+
+2. **Error helpers in `errors.go`**: all error-building infrastructure for a package (ARC constants, error constructors, classification helpers) must live in `<package>/errors.go`. Applied to `src/worker/internal/markdown/errors.go`: error helpers from `jina.go` and `go_readability.go` moved there.
+
+The REVIEW.md finding MDEXT-003-FIX-3 ("document logging deferral") is resolved by this diary entry and the canonical convention update. MDEXT-004-FIX-2 ("inject logger into Jina") is superseded — no logger injection is required.
+
+**Canonical Updates:**
+- `docs/conventions/WORKER.md` (new "Structured Logging" and "Error helpers" sections)
+- `docs/conventions/ARTIFACTS.md` (artifact access layer logging responsibility)
+- `docs/specs/markdown-extraction/tasks/MDEXT-003-worker-go-readability-extraction.md` (Notes)
+- `docs/specs/markdown-extraction/tasks/MDEXT-004-worker-jina-reader-fallback.md` (Notes)
+- `docs/specs/markdown-extraction/tasks/MDEXT-005-worker-markdown-pipeline-integration.md` (Notes)
+
+## 2026-05-09 — MDEXT-003, MDEXT-004: Post-Review Corrective Fixes
+
+Status:
+- completed
+
+Summary:
+- Closed corrective test-coverage items for MDEXT-003 and MDEXT-004 identified during the 2026-05-08 code review. MDEXT-004-FIX-1 (HTTP timeout) was resolved by a prior refactor and required no further change.
+
+Changes:
+- MDEXT-003-FIX-1 (closed): Added `TestGoReadabilityExtractorRejectsInvalidCanonicalURL` to `src/worker/internal/markdown/go_readability_test.go`. Passes an unparseable URL string and asserts `ResultStatusFailure` with `ErrorCodeLocalExtractionFailed`, covering the `url.ParseRequestURI` failure branch at `go_readability.go:35-37`.
+- MDEXT-003-FIX-2 (closed): Added `TestGoReadabilityExtractorRejectsEmptyMarkdown` to `src/worker/internal/markdown/go_readability_test.go`. Injects a `convert` function returning `("", nil)` and asserts `ResultStatusFailure` with `ErrorCodeLocalExtractionFailed`, covering the empty-Markdown guard at `go_readability.go:77-79`.
+- MDEXT-004-FIX-1 (already resolved): HTTP timeout is satisfied by the shared `*req.Client` constructed with `SetTimeout(30s)` in `app.go` and injected into `JinaExtractor`. No change to `jina.go` was needed.
+- MDEXT-004-FIX-3 (closed): Added `TestJinaExtractorEmptyResponseMapsToARC010` to `src/worker/internal/markdown/jina_test.go`. Uses `httptest.NewServer` returning 200 OK with an empty body; asserts `result.Status == ResultStatusFailure` and `result.ErrorCode == ErrorCodeJinaFailed`, covering the empty-body path at `jina.go:53-56`.
+
+Decisions:
+- HTTP timeout for `JinaExtractor` is governed by the shared `*req.Client` in the composition root, not by a per-extractor timeout field. This is consistent with the WORKER.md "HTTP client" convention: the client is constructed once in `NewApp` and injected into all adapters.
+
+Validation:
+- `go tool lefthook run lint && go tool lefthook run test` — passed.
+
+Follow-ups:
+- All open MDEXT-003 and MDEXT-004 corrective items are closed. MDEXT-005 pipeline integration can proceed.
+
+Canonical Updates:
+- None. No new durable decisions were made; existing conventions cover all changes.

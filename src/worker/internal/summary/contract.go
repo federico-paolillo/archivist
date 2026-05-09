@@ -31,18 +31,29 @@ const (
 	ErrorCodeBillingFailure ErrorCode = "ARC-015"
 )
 
-// SummarizerRequest carries the Markdown source to summarize.
+// SummarizerRequest carries the Markdown source to summarize and optional
+// article context metadata that orchestration uses for structured logging.
 type SummarizerRequest struct {
 	MarkdownSource string
+
+	// Optional metadata for orchestration logging. Populated by the caller;
+	// ignored by the adapter.
+	ArticleID string
+	JobID     string
+	URL       string
 }
 
 // SummarizerResult holds the outcome of a summarization attempt.
+// Optional fields (RequestID, StatusCode) are set when the provider returns them
+// so orchestration can include them in structured log entries.
 type SummarizerResult struct {
 	Status        ResultStatus
 	Provider      Provider
 	Summary       string
 	ErrorCode     ErrorCode
 	FailureReason string
+	RequestID     string
+	StatusCode    int
 }
 
 // SummarizerService is the provider-neutral summarization contract.

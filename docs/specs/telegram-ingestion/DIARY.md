@@ -158,3 +158,34 @@ Canonical Updates:
 - `docs/specs/telegram-ingestion/tasks/TELING-004-telegram-notification-dispatcher.md`
 - `docs/specs/telegram-ingestion/plans/TELING-001-persistence-contracts.execplan.md`
 - `docs/specs/telegram-ingestion/plans/TELING-004-telegram-notification-dispatcher.execplan.md`
+
+## 2026-05-09 — TELING-001: Post-Review Corrective Fixes
+
+Status:
+- completed
+
+Summary:
+- Applied four corrective fixes identified during the 2026-05-08 code review of TELING-001.
+
+Changes:
+- FIX-1: Changed `NotificationEntity.ExpiresAt` from `DateTimeOffset?` to non-nullable `DateTimeOffset` in `src/gateway/Archivist.Gateway.Application/Persistence/Entities/NotificationEntity.cs:41`. Matches spec intent; fails fast at insertion if the value is omitted rather than silently accepting null.
+- FIX-2: Extended `PersistenceConstants` with `NotificationSent = "sent"` and `NotificationFailed = "failed"` in `src/gateway/Archivist.Gateway.Application/Persistence/PersistenceConstants.cs`. Pre-defines the values needed by TELING-004 so no magic strings are required in the next task.
+- FIX-3: Updated `docs/specs/INDEX.md` `telegram-ingestion` status from `draft` to `in_progress`. TELING-001 is done; the feature is actively being implemented.
+- FIX-4: Strengthened the duplicate-update idempotency test in `TelegramIngestionRepositoryTest` to assert that the personal user row (`telegram_user_id`) is not mutated on a duplicate enqueue. A regression that overwrites the user row on the idempotent path would now be caught.
+
+Decisions:
+- `NotificationEntity.ExpiresAt` is non-nullable by spec; nullability was an accidental omission, not a deliberate design choice.
+- `NotificationSent` and `NotificationFailed` constants are added now to unblock TELING-004 without requiring a separate bookkeeping task.
+
+Validation:
+- `cd src/gateway && dotnet format`
+- `cd src/gateway && dotnet build`
+- `cd src/gateway && dotnet test`
+- `go tool lefthook run lint && go tool lefthook run test` (Worker, unchanged by these fixes)
+
+Follow-ups:
+- TELING-002 can proceed; all TELING-001 corrective items are closed.
+- TELING-004 can reference `PersistenceConstants.NotificationSent` and `PersistenceConstants.NotificationFailed` without introducing magic strings.
+
+Canonical Updates:
+- `docs/specs/INDEX.md` (telegram-ingestion status: draft → in_progress)

@@ -155,3 +155,4 @@ null
 ## Notes
 
 - Do not add scoring or quality thresholds in this task.
+- `GoReadabilityExtractor` does not accept a logger and must not emit structured log entries. Structured logging for provider attempt, selected provider, ARC code, duration, and artifact write result is owned by MDEXT-005 pipeline orchestration per `docs/conventions/WORKER.md`.

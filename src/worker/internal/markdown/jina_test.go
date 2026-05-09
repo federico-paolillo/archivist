@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/imroc/req/v3"
 	"github.com/stretchr/testify/require"
 )
 
@@ -13,13 +14,13 @@ import (
 var _ MarkdownExtractor = (*JinaExtractor)(nil)
 
 func TestJinaExtractorIsMarkdownExtractor(t *testing.T) {
-	var extractor MarkdownExtractor = NewJinaExtractor(false, "")
+	var extractor MarkdownExtractor = NewJinaExtractor(req.NewClient(), false, "")
 
 	require.NotNil(t, extractor)
 }
 
 func TestJinaExtractorDisabledReturnsFallbackFailure(t *testing.T) {
-	extractor := NewJinaExtractor(false, "")
+	extractor := NewJinaExtractor(req.NewClient(), false, "")
 
 	result := extractor.ExtractMarkdown(t.Context(), ExtractInput{
 		HTML:         []byte(`<html><body><p>some content</p></body></html>`),
@@ -183,13 +184,31 @@ func TestJinaExtractorAcceptsTextPlain(t *testing.T) {
 	require.Equal(t, "text/plain", receivedAccept)
 }
 
+func TestJinaExtractorEmptyResponseMapsToARC010(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(server.Close)
+
+	extractor := newTestJinaExtractor(true, "", server.URL+"/")
+
+	result := extractor.ExtractMarkdown(t.Context(), ExtractInput{
+		HTML:         []byte(`<html><body><p>content</p></body></html>`),
+		CanonicalURL: "https://example.com/article",
+	})
+
+	require.Equal(t, ResultStatusFailure, result.Status)
+	require.Equal(t, ProviderJina, result.Provider)
+	require.Equal(t, ErrorCodeJinaFailed, result.ErrorCode)
+}
+
 // newTestJinaExtractor creates a JinaExtractor with a custom base URL for testing.
 // It trims the trailing slash from baseURL before constructing the extractor so that
 // the concatenation baseURL+canonicalURL matches how httptest.Server routes requests.
 func newTestJinaExtractor(enabled bool, apiKey, baseURL string) *JinaExtractor {
 	baseURL = strings.TrimSuffix(baseURL, "/") + "/"
 
-	extractor := NewJinaExtractor(enabled, apiKey)
+	extractor := NewJinaExtractor(req.NewClient(), enabled, apiKey)
 	extractor.baseURL = baseURL
 
 	return extractor

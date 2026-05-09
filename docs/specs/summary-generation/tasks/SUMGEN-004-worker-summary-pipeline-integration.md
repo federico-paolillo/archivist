@@ -168,3 +168,4 @@ ExecPlan:
 ## Notes
 
 - Do not call Telegram APIs from the Worker.
+- SUMGEN-004 is the sole owner of structured log entries for the summarization pipeline: provider, model, provider request id, ARC code on failure, `article_id`, `job_id`, canonical URL, duration (measured by orchestration around the adapter call), and artifact write result. Adapters do not log. See `docs/conventions/WORKER.md` §Structured Logging.

@@ -38,5 +38,5 @@ public sealed class NotificationEntity
     /// <summary>
     /// Gets or sets the sent or failed cleanup eligibility timestamp.
     /// </summary>
-    public DateTimeOffset? ExpiresAt { get; set; }
+    public DateTimeOffset ExpiresAt { get; set; }
 }

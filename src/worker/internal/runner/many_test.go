@@ -30,6 +30,7 @@ func TestRunnerReturnsNotOkWhenProgramFails(t *testing.T) {
 
 func TestRunnerReturnsOkWhenProgramSucceeds(t *testing.T) {
 	ctx := t.Context()
+	t.Setenv("APP_ARTIFACTS_DATA__DIR", t.TempDir())
 
 	testProgram := func(
 		_ context.Context,
@@ -46,6 +47,7 @@ func TestRunnerReturnsOkWhenProgramSucceeds(t *testing.T) {
 
 func TestRunnerReturnsOkWhenAllProgramSucceeds(t *testing.T) {
 	ctx := t.Context()
+	t.Setenv("APP_ARTIFACTS_DATA__DIR", t.TempDir())
 
 	testProgram1 := func(
 		_ context.Context,

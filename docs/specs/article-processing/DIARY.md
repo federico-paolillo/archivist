@@ -198,3 +198,107 @@ Follow-ups:
 Canonical Updates:
 - `docs/specs/article-processing/PLAN.md`
 - `docs/specs/article-processing/tasks/ARTPROC-003-worker-filesystem-artifact-access-layer.md`
+
+## 2026-05-09 - ARTPROC-003: Worker Artifact Store — Operation-First Refactor
+
+Status:
+- completed (refactor of completed task)
+
+Summary:
+- Refactored `internal/artifacts.Store` to an operation-first interface.
+  Callers now name the artifact they want to open or write; the Store owns
+  all path construction, atomicity, and traversal resistance internally.
+  This change also wires the Store into the App composition root and
+  establishes the pattern for future artifact kinds.
+
+Changes:
+- Rewrote `src/worker/internal/artifacts/store.go`:
+  - Removed `SnapshotPath` (path-returning API).
+  - Changed `WriteSnapshot(articleID string, html []byte)` to
+    `WriteSnapshot(articleID string, html io.Reader)`.
+  - Added `OpenSnapshot(articleID string) (io.ReadCloser, error)`.
+  - Extracted private `writeArtifact` and `openArtifact` helpers as the
+    pattern all future artifact kinds will follow.
+  - Renamed temp-file helper to `createTempFile` with prefix/suffix params.
+- Added `src/worker/internal/artifacts/article_id.go`: moved filename
+  constants (`ArticlesDirectoryName`, `SnapshotHTMLFilename`, etc.),
+  `ValidateArticleID`, and `ErrInvalidArticleID` from
+  `pkg/app/artifacts/paths.go` into `internal/artifacts`.
+- Deleted `src/worker/pkg/app/artifacts/paths.go` and `paths_test.go`:
+  `ArticlePaths` type removed; no remaining public callers (Gateway is C#
+  and has its own `ArticleArtifactPaths.cs`).
+- Updated `src/worker/pkg/app/app.go`:
+  - Replaced `ArtifactPaths *artifacts.ArticlePaths` with
+    `Artifacts *artifacts.Store`.
+  - Wired `artifacts.NewStore(cfg.Artifacts.DataDir)` into `NewApp`.
+  - Extended `App.Close()` to close the Store alongside SQLite.
+- Updated test files accordingly; added round-trip, not-found, and
+  mid-stream-error-cleanup test cases.
+- Set `cfg.Artifacts.DataDir = t.TempDir()` where tests previously relied
+  on the default `/data` path that is unavailable in CI.
+
+Decisions:
+- `io.Reader` in / `io.ReadCloser` out is the artifact I/O idiom.
+  Streams directly to the temp file without buffering; composes with
+  `http.Response.Body`, `strings.NewReader`, `bytes.Buffer`. Future
+  artifact kinds follow the same two-method pattern over the shared private
+  helpers.
+- Filename constants and `ValidateArticleID` live in `internal/artifacts`,
+  not in a public package, because no other Go consumer needs them.
+- Atomic write (temp file + rename + cleanup on failure) remains a private
+  implementation detail; callers never coordinate temp files or renames.
+
+Validation:
+- `cd src/worker && go tool lefthook run build`
+- `cd src/worker && go tool lefthook run format`
+- `cd src/worker && go tool lefthook run lint`
+- `cd src/worker && go tool lefthook run test`
+
+Follow-ups:
+- ARTPROC-004 can consume `App.Artifacts.WriteSnapshot` after fetch
+  succeeds.
+- Future tasks adding `content.md`, `summary.md`, `summary.json`, and
+  `metadata.json` each add two one-liner public methods over
+  `openArtifact` / `writeArtifact`.
+
+Canonical Updates:
+- `docs/conventions/ARTIFACTS.md` — added "Access Interface" section
+  establishing the operation-first contract as a binding convention.
+
+---
+
+## 2026-05-09 — refactor: promote orchestration-owns-logging convention
+
+**Status:** completed
+
+**Summary:** The orchestration-owns-logging decision (see markdown-extraction and summary-generation diary entries of the same date) applies equally to ARTPROC-005. Any provider adapter introduced under article processing must follow the same rules: no logger parameter, no `slog.Info`/`slog.Error` calls, sufficient result fields for orchestration to log. The artifact access layer must not log write results; it must return enough data for the pipeline stage to emit an artifact write result log entry.
+
+**Canonical Updates:**
+- `docs/conventions/WORKER.md` (new "Structured Logging" and "Error helpers" sections)
+- `docs/conventions/ARTIFACTS.md` (artifact access layer logging responsibility)
+
+## 2026-05-09 — ARTPROC-003: Post-Review Corrective Fixes
+
+Status:
+- completed
+
+Summary:
+- Closed all corrective items from the 2026-05-08 code review of ARTPROC-003. No outstanding corrective items remain.
+
+Changes:
+- FIX-1 (closed): `artifacts.Store` is now wired into the composition root. `App` exposes an `Artifacts *artifacts.Store` field; `NewApp` initialises it from `cfg.Artifacts.DataDir`; `App.Close()` closes the store alongside SQLite. See the 2026-05-09 operation-first refactor entry above for full detail.
+- FIX-2 (closed): `app_test.go:34` asserts that `application.Artifacts` is non-nil after `NewApp`, satisfying the WORKER.md requirement for a composition-root test for every new service.
+- FIX-3 (N/A): `pkg/app/artifacts/paths_test.go` was deleted as part of the composition-root refactor — `ArticlePaths` and its tests were removed entirely when `ValidateArticleID` and filename constants moved to `internal/artifacts/article_id.go`. The parallel-test fix is therefore moot; the file no longer exists.
+
+Decisions:
+- No new decisions. All fixes follow the operation-first refactor design already recorded in the 2026-05-09 diary entry above.
+
+Validation:
+- `go tool lefthook run lint && go tool lefthook run test` — passed.
+
+Follow-ups:
+- No outstanding ARTPROC-003 corrective items remain.
+- ARTPROC-004 can consume `App.Artifacts.WriteSnapshot` after fetch succeeds.
+
+Canonical Updates:
+- None beyond the operation-first refactor entry above.
