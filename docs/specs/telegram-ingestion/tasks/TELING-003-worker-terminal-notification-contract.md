@@ -2,7 +2,7 @@
 id: TELING-003
 feature: telegram-ingestion
 title: Worker terminal notification contract
-status: blocked
+status: ready
 depends_on: [TELING-001]
 blocks: [TELING-004]
 parallel: true

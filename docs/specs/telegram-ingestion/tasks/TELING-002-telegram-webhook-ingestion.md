@@ -2,7 +2,7 @@
 id: TELING-002
 feature: telegram-ingestion
 title: Telegram webhook ingestion
-status: blocked
+status: ready
 depends_on: [TELING-001]
 blocks: [TELING-004]
 parallel: true

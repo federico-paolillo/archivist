@@ -35,17 +35,17 @@ It is not listed in `docs/REBUILD.md` and is not authoritative by itself. If thi
 
 ### Wave 1 - Current Ready Parallel Foundations
 
-- [`TELING-001`](./specs/telegram-ingestion/tasks/TELING-001-persistence-contracts.md) - Persistence contracts. Feature: [`telegram-ingestion`](./specs/telegram-ingestion/SPEC.md). Status: `ready`. ExecPlan: [`accepted`](./specs/telegram-ingestion/plans/TELING-001-persistence-contracts.execplan.md).
-- [`ARTPROC-003`](./specs/article-processing/tasks/ARTPROC-003-worker-filesystem-artifact-access-layer.md) - Worker filesystem artifact access layer. Feature: [`article-processing`](./specs/article-processing/SPEC.md). Status: `ready`.
-- [`MDEXT-003`](./specs/markdown-extraction/tasks/MDEXT-003-worker-go-readability-extraction.md) - Worker go-readability extraction. Feature: [`markdown-extraction`](./specs/markdown-extraction/SPEC.md). Status: `ready`.
+- [`TELING-001`](./specs/telegram-ingestion/tasks/TELING-001-persistence-contracts.md) - Persistence contracts. Feature: [`telegram-ingestion`](./specs/telegram-ingestion/SPEC.md). Status: `done`. ExecPlan: [`accepted`](./specs/telegram-ingestion/plans/TELING-001-persistence-contracts.execplan.md).
+- [`ARTPROC-003`](./specs/article-processing/tasks/ARTPROC-003-worker-filesystem-artifact-access-layer.md) - Worker filesystem artifact access layer. Feature: [`article-processing`](./specs/article-processing/SPEC.md). Status: `done`.
+- [`MDEXT-003`](./specs/markdown-extraction/tasks/MDEXT-003-worker-go-readability-extraction.md) - Worker go-readability extraction. Feature: [`markdown-extraction`](./specs/markdown-extraction/SPEC.md). Status: `done`.
 - [`MDEXT-004`](./specs/markdown-extraction/tasks/MDEXT-004-worker-jina-reader-fallback.md) - Worker Jina Reader fallback. Feature: [`markdown-extraction`](./specs/markdown-extraction/SPEC.md). Status: `done`. ExecPlan: [`accepted`](./specs/markdown-extraction/plans/MDEXT-004-worker-jina-reader-fallback.execplan.md).
 - [`SUMGEN-003`](./specs/summary-generation/tasks/SUMGEN-003-summarizer-provider-adapter.md) - Summarizer provider adapter. Feature: [`summary-generation`](./specs/summary-generation/SPEC.md). Status: `done`. ExecPlan: [`accepted`](./specs/summary-generation/plans/SUMGEN-003-summarizer-provider-adapter.execplan.md).
 
 ### Wave 2 - Ingestion, Auth Persistence, Fetch, Markdown Artifact Access
 
-- [`TELING-002`](./specs/telegram-ingestion/tasks/TELING-002-telegram-webhook-ingestion.md) - Telegram webhook ingestion. Feature: [`telegram-ingestion`](./specs/telegram-ingestion/SPEC.md). Status: `blocked`.
-- [`TELING-003`](./specs/telegram-ingestion/tasks/TELING-003-worker-terminal-notification-contract.md) - Worker terminal notification contract. Feature: [`telegram-ingestion`](./specs/telegram-ingestion/SPEC.md). Status: `blocked`.
-- [`AUTHN-002`](./specs/authn/tasks/AUTHN-002-password-persistence-and-bootstrap.md) - Password persistence and bootstrap. Feature: [`authn`](./specs/authn/SPEC.md). Status: `blocked`. ExecPlan: [`proposed`](./specs/authn/plans/AUTHN-002-password-persistence-and-bootstrap.execplan.md).
+- [`TELING-002`](./specs/telegram-ingestion/tasks/TELING-002-telegram-webhook-ingestion.md) - Telegram webhook ingestion. Feature: [`telegram-ingestion`](./specs/telegram-ingestion/SPEC.md). Status: `ready`.
+- [`TELING-003`](./specs/telegram-ingestion/tasks/TELING-003-worker-terminal-notification-contract.md) - Worker terminal notification contract. Feature: [`telegram-ingestion`](./specs/telegram-ingestion/SPEC.md). Status: `ready`.
+- [`AUTHN-002`](./specs/authn/tasks/AUTHN-002-password-persistence-and-bootstrap.md) - Password persistence and bootstrap. Feature: [`authn`](./specs/authn/SPEC.md). Status: `ready`. ExecPlan: [`accepted`](./specs/authn/plans/AUTHN-002-password-persistence-and-bootstrap.execplan.md).
 - [`ARTPROC-004`](./specs/article-processing/tasks/ARTPROC-004-worker-url-resolver-and-html-fetcher.md) - Worker URL resolver and HTML fetcher. Feature: [`article-processing`](./specs/article-processing/SPEC.md). Status: `blocked`.
 - [`MDEXT-002`](./specs/markdown-extraction/tasks/MDEXT-002-worker-markdown-artifact-access.md) - Worker Markdown artifact access. Feature: [`markdown-extraction`](./specs/markdown-extraction/SPEC.md). Status: `blocked`.
 
@@ -97,15 +97,15 @@ It is not listed in `docs/REBUILD.md` and is not authoritative by itself. If thi
 ```mermaid
 flowchart TD
   subgraph telegram_ingestion["telegram-ingestion"]
-    TELING_001["TELING-001<br/>Persistence contracts<br/>ready"]
-    TELING_002["TELING-002<br/>Telegram webhook ingestion<br/>blocked"]
-    TELING_003["TELING-003<br/>Worker terminal notification contract<br/>blocked"]
+    TELING_001["TELING-001<br/>Persistence contracts<br/>done"]
+    TELING_002["TELING-002<br/>Telegram webhook ingestion<br/>ready"]
+    TELING_003["TELING-003<br/>Worker terminal notification contract<br/>ready"]
     TELING_004["TELING-004<br/>Telegram notification dispatcher<br/>blocked"]
   end
 
   subgraph authn["authn"]
     AUTHN_001["AUTHN-001<br/>Authn canonical docs and design decisions<br/>done"]
-    AUTHN_002["AUTHN-002<br/>Password persistence and bootstrap<br/>blocked"]
+    AUTHN_002["AUTHN-002<br/>Password persistence and bootstrap<br/>ready"]
     AUTHN_003["AUTHN-003<br/>Gateway opaque session cookie authentication<br/>blocked"]
     AUTHN_004["AUTHN-004<br/>Protect UI API and validate auth client contract<br/>blocked"]
     AUTHN_005["AUTHN-005<br/>Security validation pass<br/>blocked"]
@@ -210,9 +210,9 @@ flowchart TD
   classDef blocked fill:#fef3c7,stroke:#b45309,color:#111827
   classDef skipped fill:#e5e7eb,stroke:#6b7280,color:#374151,stroke-dasharray: 4 4
 
-  class AUTHN_001,ARTPROC_001,ARTPROC_002,MDEXT_001,SUMGEN_001,UIEND_001,UI_001,MDEXT_004,SUMGEN_003 done
-  class TELING_001,ARTPROC_003,MDEXT_003 ready
-  class TELING_002,TELING_003,TELING_004,AUTHN_002,AUTHN_003,AUTHN_004,AUTHN_005,ARTPROC_004,ARTPROC_005,MDEXT_002,MDEXT_005,SUMGEN_002,SUMGEN_004,SUMGEN_005,UIEND_002,UIEND_003,UI_002,UI_003,UI_004 blocked
+  class AUTHN_001,ARTPROC_001,ARTPROC_002,MDEXT_001,SUMGEN_001,UIEND_001,UI_001,MDEXT_004,SUMGEN_003,TELING_001 done
+  class TELING_002,TELING_003,AUTHN_002,ARTPROC_003,MDEXT_003 ready
+  class TELING_004,AUTHN_003,AUTHN_004,AUTHN_005,ARTPROC_004,ARTPROC_005,MDEXT_002,MDEXT_005,SUMGEN_002,SUMGEN_004,SUMGEN_005,UIEND_002,UIEND_003,UI_002,UI_003,UI_004 blocked
   class ARTPROC_006,MDEXT_006 skipped
 
   click TELING_001 "./specs/telegram-ingestion/SPEC.md" "telegram-ingestion SPEC"

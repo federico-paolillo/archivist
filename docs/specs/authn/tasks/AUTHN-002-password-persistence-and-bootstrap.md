@@ -2,7 +2,7 @@
 id: AUTHN-002
 feature: authn
 title: Password persistence and bootstrap
-status: blocked
+status: ready
 depends_on: [AUTHN-001, TELING-001]
 blocks: [AUTHN-003]
 parallel: false
