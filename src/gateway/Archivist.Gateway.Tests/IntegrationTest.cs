@@ -1,3 +1,5 @@
+using Archivist.Gateway.Application.Auth.Services;
+
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 
@@ -39,7 +41,15 @@ public abstract class IntegrationTest(
                 builder.ConfigureLogging(l => l.AddProvider(new XUnitLoggerProvider(testOutputHelper)));
                 builder.UseEnvironment(environmentName);
                 builder.UseConfiguration(cfg);
-                builder.ConfigureTestServices(services => configureTestServices?.Invoke(services));
+                builder.ConfigureTestServices(services =>
+                {
+                    // Replace the real auth bootstrap with a no-op so integration tests
+                    // do not require a database or AUTH_BOOTSTRAP_PASSWORD by default.
+                    // Tests that specifically exercise auth must override this stub.
+                    services.AddSingleton<IAuthBootstrapService>(new NoOpAuthBootstrapService());
+
+                    configureTestServices?.Invoke(services);
+                });
             });
     }
 
@@ -51,5 +61,10 @@ public abstract class IntegrationTest(
         }
 
         return _webApplicationFactory.CreateClient();
+    }
+
+    private sealed class NoOpAuthBootstrapService : IAuthBootstrapService
+    {
+        public Task InitializeAsync(CancellationToken ct = default) => Task.CompletedTask;
     }
 }

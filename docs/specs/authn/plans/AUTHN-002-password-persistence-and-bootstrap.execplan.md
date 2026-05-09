@@ -1,7 +1,7 @@
 ---
 id: AUTHN-002-PLAN
 task: ../tasks/AUTHN-002-password-persistence-and-bootstrap.md
-status: accepted
+status: completed
 canonical: true
 ---
 
