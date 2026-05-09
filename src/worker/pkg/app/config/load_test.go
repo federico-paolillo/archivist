@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"codeberg.org/federico-paolillo/archivist/pkg/app/config"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,9 +23,10 @@ func TestConfigurationDefaults(t *testing.T) {
 	cfg, err := config.Load()
 
 	require.NoError(t, err)
-	require.Equal(t, "archivist-worker", cfg.App.Name)
-	require.Equal(t, "/data", cfg.Artifacts.DataDir)
-	require.True(t, cfg.Debug)
+	assert.Equal(t, "archivist-worker", cfg.App.Name)
+	assert.True(t, cfg.Debug)
+	assert.Equal(t, "", cfg.SqlitePath)
+	assert.Equal(t, "", cfg.DataDir)
 }
 
 func TestConfigurationLoadsNewFieldsFromEnvVars(t *testing.T) {
@@ -36,62 +38,20 @@ func TestConfigurationLoadsNewFieldsFromEnvVars(t *testing.T) {
 	require.False(t, cfg.Debug)
 }
 
-func TestConfigurationJinaDefaultsToDisabled(t *testing.T) {
+func TestConfigurationLoadsSQLitePath(t *testing.T) {
+	t.Setenv("APP_SQLITEPATH", "/data/archive.db")
+
 	cfg, err := config.Load()
 
 	require.NoError(t, err)
-	require.False(t, cfg.Jina.Enabled)
-	require.Empty(t, cfg.Jina.APIKey)
+	assert.Equal(t, "/data/archive.db", cfg.SqlitePath)
 }
 
-func TestConfigurationLoadsJinaEnabledFromEnvVar(t *testing.T) {
-	t.Setenv("APP_JINA_JINA__ENABLED", "true")
+func TestConfigurationLoadsDataDir(t *testing.T) {
+	t.Setenv("APP_DATADIR", "/data")
 
 	cfg, err := config.Load()
 
 	require.NoError(t, err)
-	require.True(t, cfg.Jina.Enabled)
-}
-
-func TestConfigurationLoadsJinaAPIKeyFromEnvVar(t *testing.T) {
-	t.Setenv("APP_JINA_JINA__API__KEY", "test-api-key")
-
-	cfg, err := config.Load()
-
-	require.NoError(t, err)
-	require.Equal(t, "test-api-key", cfg.Jina.APIKey)
-}
-
-func TestLLMProviderDefault(t *testing.T) {
-	cfg, err := config.Load()
-
-	require.NoError(t, err)
-	require.Equal(t, "anthropic", cfg.LLM.Provider)
-}
-
-func TestLLMModelDefault(t *testing.T) {
-	cfg, err := config.Load()
-
-	require.NoError(t, err)
-	require.Equal(t, "claude-3-5-haiku-20241022", cfg.LLM.Model)
-}
-
-func TestLLMAPIKeyDefaultIsEmpty(t *testing.T) {
-	cfg, err := config.Load()
-
-	require.NoError(t, err)
-	require.Empty(t, cfg.LLM.APIKey)
-}
-
-func TestLLMConfigurationLoadsFromEnvVars(t *testing.T) {
-	t.Setenv("APP_LLM_LLM__PROVIDER", "anthropic")
-	t.Setenv("APP_LLM_LLM__MODEL", "claude-3-opus-20240229")
-	t.Setenv("APP_LLM_LLM__API__KEY", "sk-test-key")
-
-	cfg, err := config.Load()
-
-	require.NoError(t, err)
-	require.Equal(t, "anthropic", cfg.LLM.Provider)
-	require.Equal(t, "claude-3-opus-20240229", cfg.LLM.Model)
-	require.Equal(t, "sk-test-key", cfg.LLM.APIKey)
+	assert.Equal(t, "/data", cfg.DataDir)
 }
