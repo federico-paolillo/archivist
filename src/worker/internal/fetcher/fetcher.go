@@ -1,61 +1,24 @@
-// Package fetcher resolves URLs and fetches HTML content with conservative limits.
-// It accepts only http and https schemes, follows at most 10 redirects, enforces
-// a 20-second total timeout, rejects bodies larger than 10 MiB, and accepts only
-// text/html and application/xhtml+xml responses.
-//
-// Every failure class maps to a public ARC error code from docs/conventions/ERRORS.md.
-// The mapping is exported so callers can inspect or present error codes without
-// depending on internal error types.
+// Package fetcher fetches bounded HTML content and maps failures to ARC error codes.
 package fetcher
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"mime"
 	"net/url"
 	"strings"
-	"time"
 
 	"github.com/imroc/req/v3"
 )
 
 const (
-	// maxRedirects is the maximum number of redirects the fetcher will follow.
-	maxRedirects = 10
-
-	// fetchTimeout is the total time budget for a single fetch operation.
-	fetchTimeout = 20 * time.Second
-
 	// maxBodyBytes is the maximum response body size accepted (10 MiB).
 	maxBodyBytes = 10 * 1024 * 1024
 )
 
 // acceptedContentTypes are the only MIME types the fetcher will process.
 var acceptedContentTypes = []string{"text/html", "application/xhtml+xml"}
-
-// Public ARC-coded sentinel errors. Callers can use errors.Is to distinguish failure
-// classes. Message text follows the format required by docs/conventions/ERRORS.md and
-// must end with a period because the persisted article error format is "[ARC-NNN] Sentence."
-
-//nolint:staticcheck // ARC error messages must end with a period per docs/conventions/ERRORS.md
-var ErrUnsupportedScheme = errors.New("[ARC-001] The URL could not be resolved.")
-
-//nolint:staticcheck // ARC error messages must end with a period per docs/conventions/ERRORS.md
-var ErrAccessDenied = errors.New("[ARC-002] The URL requires access Archivist does not have.")
-
-//nolint:staticcheck // ARC error messages must end with a period per docs/conventions/ERRORS.md
-var ErrNotFound = errors.New("[ARC-003] The URL was not found.")
-
-//nolint:staticcheck // ARC error messages must end with a period per docs/conventions/ERRORS.md
-var ErrTransientFailure = errors.New("[ARC-004] The URL could not be fetched right now.")
-
-//nolint:staticcheck // ARC error messages must end with a period per docs/conventions/ERRORS.md
-var ErrNotHTML = errors.New("[ARC-005] The URL did not return an HTML article page.")
-
-//nolint:staticcheck // ARC error messages must end with a period per docs/conventions/ERRORS.md
-var ErrBodyTooLarge = errors.New("[ARC-006] The HTML response is too large to archive.")
 
 // Result holds the outcome of a successful fetch.
 type Result struct {
@@ -71,13 +34,9 @@ type Fetcher struct {
 	client *req.Client
 }
 
-// New creates a Fetcher with the project-mandated limits applied.
-func New() *Fetcher {
-	client := req.C().
-		SetRedirectPolicy(req.MaxRedirectPolicy(maxRedirects)).
-		SetTimeout(fetchTimeout).
-		DisableForceHttpVersion()
-
+// New creates a Fetcher using the provided HTTP client.
+// The caller is responsible for configuring redirect policy, timeout, and HTTP version settings.
+func New(client *req.Client) *Fetcher {
 	return &Fetcher{client: client}
 }
 
@@ -142,22 +101,6 @@ func validateScheme(rawURL string) error {
 	return nil
 }
 
-// classifyHTTPStatus maps HTTP status codes to ARC errors.
-func classifyHTTPStatus(status int) error {
-	switch {
-	case status == 401 || status == 403:
-		return ErrAccessDenied
-	case status == 404:
-		return ErrNotFound
-	case status >= 400:
-		// 4xx errors other than 401/403/404 (e.g. 410 Gone, 429 Too Many Requests)
-		// and 5xx errors are both treated as transient.
-		return ErrTransientFailure
-	default:
-		return nil
-	}
-}
-
 // validateContentType returns ErrNotHTML when the MIME type is not an accepted HTML type.
 func validateContentType(contentType string) error {
 	if contentType == "" {
@@ -195,16 +138,3 @@ func readLimited(r io.Reader) ([]byte, error) {
 	return data, nil
 }
 
-// classifyRequestError maps low-level request errors to ARC errors.
-func classifyRequestError(err error) error {
-	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
-		return ErrTransientFailure
-	}
-
-	urlErr, ok := errors.AsType[*url.Error](err)
-	if ok && urlErr.Timeout() {
-		return ErrTransientFailure
-	}
-
-	return ErrTransientFailure
-}

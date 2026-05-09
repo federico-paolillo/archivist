@@ -283,3 +283,29 @@ Follow-ups:
 Canonical Updates:
 - `docs/specs/markdown-extraction/tasks/MDEXT-002-worker-markdown-artifact-access.md` (status: done)
 - `docs/specs/markdown-extraction/PLAN.md` (MDEXT-002 row: done)
+
+---
+
+## 2026-05-09 — MDEXT-002: Post-Review Corrective Fix (Phase C)
+
+Status:
+- completed (correction, not a new feature)
+
+Summary:
+- Addressed 1 reviewer finding for MDEXT-002 identified after Wave 2 integration.
+
+Changes:
+
+Finding 8 — NIT: `t.Parallel()` already present in `TestArtifactAccessRejectsTraversal` at `store_test.go:128`. Inspection confirmed the fix was already applied in the merged implementation. No code change was required.
+
+Decisions:
+- No new decisions.
+
+Validation:
+- `cd src/worker && go tool lefthook run test` — gotest ✔ (all artifact tests pass).
+
+Follow-ups:
+- No outstanding MDEXT-002 corrective items.
+
+Canonical Updates:
+- None.

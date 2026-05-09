@@ -31,6 +31,8 @@ func TestNewAppReturnsApp(t *testing.T) {
 	// Without SqlitePath, DB and Jobs are nil (no database configured).
 	assert.Nil(t, application.DB)
 	assert.Nil(t, application.Jobs)
+
+	require.NotNil(t, application.Fetcher)
 }
 
 func TestNewAppWithSQLitePathOpensDatabase(t *testing.T) {
