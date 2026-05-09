@@ -123,3 +123,46 @@ Canonical Updates:
 - `docs/specs/telegram-ingestion/tasks/TELING-004-telegram-notification-dispatcher.md`
 - `docs/specs/telegram-ingestion/plans/TELING-001-persistence-contracts.execplan.md`
 - `docs/specs/telegram-ingestion/plans/TELING-004-telegram-notification-dispatcher.execplan.md`
+
+## 2026-05-09 — TELING-003: Worker Terminal Notification Contract
+
+Status:
+- completed
+
+Summary:
+- Implemented worker-side SQLite persistence for atomic job claiming and terminal article/job/notification state transitions.
+
+Changes:
+- `src/worker/pkg/app/config/config.go`: Added `SqlitePath` and `DataDir` fields to Root config with empty string defaults.
+- `src/worker/pkg/app/config/load_test.go`: Added tests for default values and env-var loading of the new config fields.
+- `src/worker/pkg/app/app.go`: Added `DB *sql.DB` and `Jobs jobs.Repository` fields to App; `NewApp` conditionally opens and applies schema when `SqlitePath` is set; `Close` closes the DB.
+- `src/worker/pkg/app/app_test.go`: Added test for App with SQLite path that verifies DB and Jobs are non-nil.
+- `src/worker/pkg/db/db.go`: New package. Opens a CGO-free modernc SQLite database with WAL, foreign keys, busy timeout, single connection.
+- `src/worker/pkg/db/schema.go`: New file. `ApplySchema` idempotently creates users, articles, jobs, and notifications tables.
+- `src/worker/pkg/jobs/job.go`: New file. `Job` struct with all fields from the TELING-001 schema. `HasTelegramOrigin` returns true when both `telegram_chat_id` and `telegram_message_id` are set.
+- `src/worker/pkg/jobs/repository.go`: New file. `Repository` interface with `ClaimQueued` and `CompleteTerminal`. `SQLiteRepository` implements atomic claim via `UPDATE...RETURNING` and atomic terminal transition via a single transaction (article update + job update + conditional notification insert).
+- `src/worker/pkg/jobs/repository_test.go`: New file. Tests for ClaimQueued (success, no rows, Telegram fields), CompleteTerminal success and failure for Telegram jobs, ARC-coded error preservation, and non-Telegram jobs (no notification).
+- `src/worker/go.mod` / `src/worker/go.sum`: Added `modernc.org/sqlite` and `github.com/oklog/ulid/v2`.
+
+Decisions:
+- Used `modernc.org/sqlite` (CGO-free) to satisfy `CGO_ENABLED=0` requirement.
+- `ClaimQueued` uses `UPDATE...RETURNING` with a subquery to atomically select and claim one queued job.
+- `HasTelegramOrigin` checks for both `telegram_chat_id` and `telegram_message_id` (the reply-target fields), not `telegram_user_id` alone.
+- Notification `expires_at` set to 7 days (REQ-029). Job `expires_at` set to 14 days (REQ-028).
+- ARC-coded error text written verbatim to both `articles.error_message` and `jobs.error_message` without modification (REQ-024A).
+- Schema is inline DDL using `CREATE TABLE IF NOT EXISTS` — idempotent, no migration tool for v0.
+- Config fields use configuro struct-field naming: `SqlitePath` maps to env `APP_SQLITEPATH`, `DataDir` maps to `APP_DATADIR`.
+
+Validation:
+- `go build ./...` passed.
+- `go tool golangci-lint run` passed (all linters clean).
+- `go tool golangci-lint run --fix` passed (no formatting changes needed).
+- `go test -race -shuffle=on ./...` passed (all packages).
+
+Follow-ups:
+- Gateway implementation of TELING-001 must use the same schema DDL or a compatible migration.
+- TELING-004 may proceed once TELING-002 is also complete.
+
+Canonical Updates:
+- `docs/specs/telegram-ingestion/tasks/TELING-003-worker-terminal-notification-contract.md` (status: done)
+- `docs/specs/telegram-ingestion/PLAN.md` (TELING-003 row: done)

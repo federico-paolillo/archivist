@@ -2,12 +2,14 @@ package config
 
 // Root is the top-level configuration structure.
 type Root struct {
-	App     App
-	Debug   bool
+	App        App
+	Debug      bool
+	SqlitePath string
+	DataDir    string
 }
 
 type App struct {
-	Name string
+	Name    string
 	Version string
 }
 
@@ -16,6 +18,8 @@ func Default() *Root {
 		App: App{
 			Name: "archivist-worker",
 		},
-		Debug: true,
+		Debug:      true,
+		SqlitePath: "",
+		DataDir:    "",
 	}
 }
