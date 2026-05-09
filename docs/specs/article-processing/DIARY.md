@@ -302,3 +302,40 @@ Follow-ups:
 
 Canonical Updates:
 - None beyond the operation-first refactor entry above.
+
+---
+
+## 2026-05-09 - ARTPROC-004: Worker URL Resolver And HTML Fetcher
+
+Status:
+- completed
+
+Summary:
+- Implemented the Worker fetcher package at `src/worker/internal/fetcher/`.
+- Added `github.com/imroc/req/v3 v3.57.0` to `src/worker/go.mod`.
+- All 13 tests pass, covering: success with redirect, 401, 403, 404, non-HTML content type, oversized body, timeout, ftp:// scheme, file:// scheme, empty scheme, and 5xx responses.
+
+Changes:
+- `src/worker/internal/fetcher/fetcher.go`: fetcher service with `New()` and `Fetch()`, ARC-coded sentinel errors, scheme validation, redirect following, content-type and body-size limits.
+- `src/worker/internal/fetcher/fetcher_test.go`: httptest-based tests for all required failure classes.
+- `src/worker/go.mod` and `src/worker/go.sum`: added `github.com/imroc/req/v3` and transitive dependencies.
+
+Decisions:
+- ARC-coded sentinel errors are exported package-level vars so callers can use `errors.Is` without depending on internal types.
+- Error message strings end with a period to satisfy `docs/conventions/ERRORS.md` message format; `//nolint:staticcheck` comments are applied per-var to suppress the staticcheck linter that normally disallows trailing punctuation in Go error strings.
+- `resp.Response.Request.URL` (the embedded `*http.Response.Request`) is used to obtain the final URL after redirect chain, because it holds the last `*http.Request` that produced the response.
+- 4xx errors other than 401/403/404 (e.g. 410 Gone, 429 Too Many Requests) map to `ARC-004` (transient) as the most reasonable fallback; this decision is local and reversible.
+- Used `errors.AsType[*url.Error]` (Go 1.26 generic form) as required by `docs/conventions/WORKER.md`.
+
+Validation:
+- `cd src/worker && go tool lefthook run build` — gobuild and dotnet pass.
+- `cd src/worker && go tool lefthook run format` — golangci and dotnet pass.
+- `cd src/worker && go tool lefthook run lint` — golangci and dotnet pass.
+- `cd src/worker && go tool lefthook run test` — gotest and dotnet pass; all 13 `internal/fetcher` tests pass.
+
+Follow-ups:
+- `ARTPROC-005` can now unblock once TELING-001 and TELING-003 are confirmed done (they are).
+
+Canonical Updates:
+- `docs/specs/article-processing/tasks/ARTPROC-004-worker-url-resolver-and-html-fetcher.md` status: blocked → done.
+- `docs/specs/article-processing/PLAN.md` ARTPROC-004 row: blocked → done.
