@@ -46,6 +46,7 @@ public sealed class AppCookieAuthenticationHandlerTest(ITestOutputHelper testOut
         PrepareEnvironment(services =>
         {
             services.AddSingleton<ISessionStore>(sessionStore);
+            services.AddSingleton<TimeProvider>(fakeTime);
         });
 
         using var client = CreateHttpClient();

@@ -19,7 +19,8 @@ public sealed class AppCookieAuthenticationHandler(
     IOptionsMonitor<AppCookieOptions> options,
     ILoggerFactory logger,
     UrlEncoder encoder,
-    ISessionStore sessionStore
+    ISessionStore sessionStore,
+    TimeProvider timeProvider
 ) : AuthenticationHandler<AppCookieOptions>(options, logger, encoder)
 {
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
@@ -36,6 +37,15 @@ public sealed class AppCookieAuthenticationHandler(
         if (entry is null)
         {
             return AuthenticateResult.Fail("Session not found or expired.");
+        }
+
+        // Defensive expiry check: prune sessions whose absolute lifetime has passed.
+        // InMemorySessionStore prunes eagerly inside GetAsync, but non-in-memory stores
+        // (e.g., a future Redis implementation) may return entries past their TTL.
+        if (timeProvider.GetUtcNow() >= entry.AbsoluteExpiresAt)
+        {
+            await sessionStore.RemoveAsync(sessionId, Context.RequestAborted);
+            return AuthenticateResult.Fail("Session expired.");
         }
 
         var claims = new[]
