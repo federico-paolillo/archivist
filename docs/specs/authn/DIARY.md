@@ -111,3 +111,65 @@ Canonical Updates:
 - `docs/specs/authn/tasks/AUTHN-004-protect-ui-api-and-validate-auth-client-contract.md`
 - `docs/ARCHITECTURE.md`
 - `docs/conventions/GENERAL.md`
+
+---
+
+## 2026-05-10 — AUTHN-003: Gateway Opaque Session Cookie Authentication
+
+Task ID: AUTHN-003
+Status: done
+Branch: agent/authn-003
+
+### Summary of Changes
+
+Implemented the full gateway session cookie authentication surface:
+
+**Application layer (`Archivist.Gateway.Application/Auth/`)**:
+- `AppCookieDefaults` — scheme name `"app-cookie"` and cookie name `"__Host-app-auth"` constants.
+- `AppCookieOptions` — extends `AuthenticationSchemeOptions`, defaults: `CookieName = "__Host-app-auth"`, `SessionLifetime = 24h`.
+- `AuthOptions` — bootstrap/SQLite options.
+- `IPasswordValidator`, `IPasswordHasher`, `IPasswordStore`, `IAuthBootstrapService` interfaces.
+- `ISessionStore` + `SessionEntry` record — per SPEC.md contract exactly.
+- `ILoginThrottle` — per-IP and global failed-attempt rate limiting interface.
+- `PasswordValidator`, `Argon2idPasswordHasher`, `AuthBootstrapService`, `SqlitePasswordStore` — implementations.
+- `InMemorySessionStore` — `ConcurrentDictionary`-backed, expired entries removed eagerly on lookup, `TimeProvider`-injected.
+- `InMemoryLoginThrottle` — per-IP limit: 10, global limit: 50.
+- `AppCookieAuthenticationHandler` — custom auth handler.
+- `AuthenticationBuilderExtensions.AddAppCookie()` — registers the scheme.
+- `ServiceCollectionExtensions.AddAuth()` — registers all auth services.
+
+**API layer (`Archivist.Gateway.Api/Auth/`)**:
+- `LoginRequest` DTO, `Handlers.PostLogin`, `Handlers.PostLogout`, `Handlers.GetSession`.
+- `SameOriginFilter` — rejects cross-origin unsafe methods with `403`.
+- `Endpoints.MapAuth()`.
+
+**Program.cs** updated: `AddAuth`, auth bootstrap, `UseAuthentication`, `UseAuthorization`, `MapAuth`.
+
+**Tests**: 44 tests covering session store, login throttle, auth handler, endpoint success/failure, cookie attributes, session rotation, logout, throttling, same-origin rejection.
+
+### Decisions
+
+1. Application project uses `<FrameworkReference Include="Microsoft.AspNetCore.App" />`.
+2. `IOptions<AppCookieOptions>` explicitly configured via `services.Configure<AppCookieOptions>(_ => { })`.
+3. `SameOriginFilter` normalizes default ports (80/HTTP, 443/HTTPS).
+4. `InMemoryLoginThrottle` global counter does not reset on `RecordSuccess` — intentional.
+
+### Validation
+
+```
+dotnet format   — clean
+dotnet build    — succeeded, 0 warnings, 0 errors
+dotnet test     — Passed: 44, Failed: 0, Skipped: 0
+```
+
+### Follow-ups
+
+- `AUTHN-004`: protect UI-facing API endpoints.
+- `AUTHN-005`: security validation pass.
+
+### Canonical Updates
+
+- `docs/specs/authn/tasks/AUTHN-003-gateway-cookie-authentication-endpoints.md` — status: done
+- `docs/specs/authn/PLAN.md` — AUTHN-003 row: done
+- `docs/specs/authn/plans/AUTHN-003-gateway-cookie-authentication.execplan.md` — status: completed
+- `docs/specs/authn/DIARY.md` — this entry
