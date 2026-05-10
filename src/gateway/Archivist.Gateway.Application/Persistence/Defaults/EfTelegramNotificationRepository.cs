@@ -71,9 +71,11 @@ public sealed class EfTelegramNotificationRepository(ArchivistDbContext db) : IT
     /// <inheritdoc />
     public async Task DeleteExpiredAsync(DateTimeOffset now, CancellationToken cancellationToken)
     {
-        // Load all non-pending notifications and filter by expiry on the client.
-        // SQLite stores DateTimeOffset as text; server-side date comparison requires
-        // format-aware SQLite functions not directly available through EF Core LINQ.
+        // Load all non-pending notifications into memory, then filter by expiry on the client side.
+        // SQLite stores DateTimeOffset values as ISO-8601 text. EF Core does not translate DateTimeOffset
+        // comparisons to SQLite-compatible string comparisons, so a server-side WHERE clause on ExpiresAt
+        // would produce incorrect or failing results. The full client-side scan is intentional: the result
+        // set is bounded by the 7-day notification retention TTL, so row counts stay small in v0.
         var terminal = await db.Notifications
             .Where(n => n.Status != PersistenceConstants.NotificationPending)
             .ToListAsync(cancellationToken)
