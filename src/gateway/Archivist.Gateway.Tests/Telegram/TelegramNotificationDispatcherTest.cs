@@ -5,6 +5,7 @@ using Archivist.Gateway.Application.Persistence.Defaults;
 using Archivist.Gateway.Application.Persistence.Entities;
 using Archivist.Gateway.Application.Telegram;
 
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
@@ -23,10 +24,10 @@ public sealed class TelegramNotificationDispatcherTest
     public async Task DispatchPending_SucceededJob_LeavesNotificationPending()
     {
         await using var db = await CreateDbAsync();
-        var (jobId, notificationId) = await SeedJobAndNotificationAsync(db, PersistenceConstants.JobSucceeded, errorMessage: null);
+        var (jobId, notificationId) = await SeedJobAndNotificationAsync(db.Context, PersistenceConstants.JobSucceeded, errorMessage: null);
 
         var client = new FakeTelegramClient();
-        var dispatcher = CreateDispatcher(db, client);
+        var dispatcher = CreateDispatcher(db.Context, client);
 
         await dispatcher.DispatchPendingAsync(CancellationToken.None);
 
@@ -44,10 +45,10 @@ public sealed class TelegramNotificationDispatcherTest
     public async Task DispatchPending_FailedJob_SendsErrorMessageAndMarksNotificationSent()
     {
         await using var db = await CreateDbAsync();
-        var (jobId, notificationId) = await SeedJobAndNotificationAsync(db, PersistenceConstants.JobFailed, errorMessage: "Something went wrong");
+        var (jobId, notificationId) = await SeedJobAndNotificationAsync(db.Context, PersistenceConstants.JobFailed, errorMessage: "Something went wrong");
 
         var client = new FakeTelegramClient();
-        var dispatcher = CreateDispatcher(db, client);
+        var dispatcher = CreateDispatcher(db.Context, client);
 
         await dispatcher.DispatchPendingAsync(CancellationToken.None);
 
@@ -72,10 +73,10 @@ public sealed class TelegramNotificationDispatcherTest
         const string arcError = "[ARC-003] The URL was not found.";
 
         await using var db = await CreateDbAsync();
-        await SeedJobAndNotificationAsync(db, PersistenceConstants.JobFailed, errorMessage: arcError);
+        await SeedJobAndNotificationAsync(db.Context, PersistenceConstants.JobFailed, errorMessage: arcError);
 
         var client = new FakeTelegramClient();
-        var dispatcher = CreateDispatcher(db, client);
+        var dispatcher = CreateDispatcher(db.Context, client);
 
         await dispatcher.DispatchPendingAsync(CancellationToken.None);
 
@@ -91,10 +92,10 @@ public sealed class TelegramNotificationDispatcherTest
     public async Task DispatchPending_TelegramDeliveryFails_MarksNotificationFailedWithError()
     {
         await using var db = await CreateDbAsync();
-        await SeedJobAndNotificationAsync(db, PersistenceConstants.JobFailed, errorMessage: "job error");
+        await SeedJobAndNotificationAsync(db.Context, PersistenceConstants.JobFailed, errorMessage: "job error");
 
         var client = new FakeTelegramClient(failSend: true);
-        var dispatcher = CreateDispatcher(db, client);
+        var dispatcher = CreateDispatcher(db.Context, client);
 
         await dispatcher.DispatchPendingAsync(CancellationToken.None);
 
@@ -109,10 +110,10 @@ public sealed class TelegramNotificationDispatcherTest
     public async Task DispatchPending_TelegramDeliveryFails_DoesNotMutateJobOrArticleState()
     {
         await using var db = await CreateDbAsync();
-        var (jobId, _) = await SeedJobAndNotificationAsync(db, PersistenceConstants.JobFailed, errorMessage: "job error");
+        var (jobId, _) = await SeedJobAndNotificationAsync(db.Context, PersistenceConstants.JobFailed, errorMessage: "job error");
 
         var client = new FakeTelegramClient(failSend: true);
-        var dispatcher = CreateDispatcher(db, client);
+        var dispatcher = CreateDispatcher(db.Context, client);
 
         await dispatcher.DispatchPendingAsync(CancellationToken.None);
 
@@ -156,10 +157,10 @@ public sealed class TelegramNotificationDispatcherTest
         var longError = new string('x', TelegramNotificationDispatcher.TelegramMessageMaxLength + 500);
 
         await using var db = await CreateDbAsync();
-        await SeedJobAndNotificationAsync(db, PersistenceConstants.JobFailed, errorMessage: longError);
+        await SeedJobAndNotificationAsync(db.Context, PersistenceConstants.JobFailed, errorMessage: longError);
 
         var client = new FakeTelegramClient();
-        var dispatcher = CreateDispatcher(db, client);
+        var dispatcher = CreateDispatcher(db.Context, client);
 
         await dispatcher.DispatchPendingAsync(CancellationToken.None);
 
@@ -176,9 +177,9 @@ public sealed class TelegramNotificationDispatcherTest
     public async Task CleanUpExpired_SentNotificationPastTtl_IsDeleted()
     {
         await using var db = await CreateDbAsync();
-        await SeedTerminalNotificationAsync(db, PersistenceConstants.NotificationSent, expiresAt: FixedNow.AddDays(-1));
+        await SeedTerminalNotificationAsync(db.Context, PersistenceConstants.NotificationSent, expiresAt: FixedNow.AddDays(-1));
 
-        var dispatcher = CreateDispatcher(db, new FakeTelegramClient());
+        var dispatcher = CreateDispatcher(db.Context, new FakeTelegramClient());
         await dispatcher.CleanUpExpiredAsync(CancellationToken.None);
 
         Assert.Equal(0, await db.Notifications.CountAsync(CancellationToken.None));
@@ -188,9 +189,9 @@ public sealed class TelegramNotificationDispatcherTest
     public async Task CleanUpExpired_FailedNotificationPastTtl_IsDeleted()
     {
         await using var db = await CreateDbAsync();
-        await SeedTerminalNotificationAsync(db, PersistenceConstants.NotificationFailed, expiresAt: FixedNow.AddDays(-1));
+        await SeedTerminalNotificationAsync(db.Context, PersistenceConstants.NotificationFailed, expiresAt: FixedNow.AddDays(-1));
 
-        var dispatcher = CreateDispatcher(db, new FakeTelegramClient());
+        var dispatcher = CreateDispatcher(db.Context, new FakeTelegramClient());
         await dispatcher.CleanUpExpiredAsync(CancellationToken.None);
 
         Assert.Equal(0, await db.Notifications.CountAsync(CancellationToken.None));
@@ -200,9 +201,9 @@ public sealed class TelegramNotificationDispatcherTest
     public async Task CleanUpExpired_SentNotificationNotYetExpired_IsRetained()
     {
         await using var db = await CreateDbAsync();
-        await SeedTerminalNotificationAsync(db, PersistenceConstants.NotificationSent, expiresAt: FixedNow.AddDays(1));
+        await SeedTerminalNotificationAsync(db.Context, PersistenceConstants.NotificationSent, expiresAt: FixedNow.AddDays(1));
 
-        var dispatcher = CreateDispatcher(db, new FakeTelegramClient());
+        var dispatcher = CreateDispatcher(db.Context, new FakeTelegramClient());
         await dispatcher.CleanUpExpiredAsync(CancellationToken.None);
 
         Assert.Equal(1, await db.Notifications.CountAsync(CancellationToken.None));
@@ -213,9 +214,9 @@ public sealed class TelegramNotificationDispatcherTest
     {
         await using var db = await CreateDbAsync();
         // Pending notifications have a far-future expires_at
-        await SeedJobAndNotificationAsync(db, PersistenceConstants.JobFailed, errorMessage: "error");
+        await SeedJobAndNotificationAsync(db.Context, PersistenceConstants.JobFailed, errorMessage: "error");
 
-        var dispatcher = CreateDispatcher(db, new FakeTelegramClient());
+        var dispatcher = CreateDispatcher(db.Context, new FakeTelegramClient());
         await dispatcher.CleanUpExpiredAsync(CancellationToken.None);
 
         Assert.Equal(1, await db.Notifications.CountAsync(CancellationToken.None));
@@ -225,15 +226,46 @@ public sealed class TelegramNotificationDispatcherTest
     // Helpers
     // -------------------------------------------------------------------------
 
-    private static async Task<ArchivistDbContext> CreateDbAsync()
+    // TestDb keeps an open SqliteConnection so the :memory: database persists
+    // across EF Core's internal open/close cycles for the test lifetime.
+    private sealed class TestDb(SqliteConnection connection, ArchivistDbContext context) : IAsyncDisposable
     {
-        var dbPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.db");
-        var options = new DbContextOptionsBuilder<ArchivistDbContext>()
-            .UseSqlite($"Data Source={dbPath}")
-            .Options;
-        var db = new ArchivistDbContext(options);
-        await db.Database.EnsureCreatedAsync(CancellationToken.None);
-        return db;
+        public ArchivistDbContext Context { get; } = context;
+        public DbSet<NotificationEntity> Notifications => Context.Notifications;
+        public DbSet<JobEntity> Jobs => Context.Jobs;
+        public DbSet<ArticleEntity> Articles => Context.Articles;
+
+        public async ValueTask DisposeAsync()
+        {
+            await Context.DisposeAsync();
+            await connection.DisposeAsync();
+        }
+    }
+
+    private static async Task<TestDb> CreateDbAsync()
+    {
+        // CA2000: ownership of both connection and db is transferred to the TestDb
+        // holder, which disposes both in DisposeAsync. The analyzer cannot follow this.
+#pragma warning disable CA2000
+        var connection = new SqliteConnection("Filename=:memory:");
+        await connection.OpenAsync(CancellationToken.None);
+        ArchivistDbContext? db = null;
+        try
+        {
+            var options = new DbContextOptionsBuilder<ArchivistDbContext>()
+                .UseSqlite(connection)
+                .Options;
+            db = new ArchivistDbContext(options);
+            await db.Database.EnsureCreatedAsync(CancellationToken.None);
+            return new TestDb(connection, db);
+        }
+        catch
+        {
+            if (db is not null) await db.DisposeAsync();
+            await connection.DisposeAsync();
+            throw;
+        }
+#pragma warning restore CA2000
     }
 
     private TelegramNotificationDispatcher CreateDispatcher(ArchivistDbContext db, FakeTelegramClient client)
