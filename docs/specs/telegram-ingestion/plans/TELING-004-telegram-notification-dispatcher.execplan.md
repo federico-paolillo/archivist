@@ -1,7 +1,7 @@
 ---
 id: TELING-004-PLAN
 task: ../tasks/TELING-004-telegram-notification-dispatcher.md
-status: proposed
+status: completed
 canonical: true
 ---
 

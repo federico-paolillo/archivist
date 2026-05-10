@@ -233,6 +233,43 @@ Canonical Updates:
 - `docs/specs/telegram-ingestion/tasks/TELING-003-worker-terminal-notification-contract.md` (status: done)
 - `docs/specs/telegram-ingestion/PLAN.md` (TELING-003 row: done)
 
+## 2026-05-10 — TELING-004: Telegram Notification Dispatcher
+
+Status:
+- completed
+
+Summary:
+- Implemented gateway-owned background dispatcher polling pending notification rows from SQLite, sending Telegram error replies for failed jobs, and cleaning up expired sent/failed notifications after 7 days.
+
+Changes:
+- `src/gateway/Archivist.Gateway.Application/Persistence/TelegramNotificationContracts.cs` — new file; `PendingNotificationRow` record and `ITelegramNotificationRepository` interface.
+- `src/gateway/Archivist.Gateway.Application/Persistence/Defaults/EfTelegramNotificationRepository.cs` — new file; EF Core implementation of `ITelegramNotificationRepository`. `GetPendingAsync` joins notifications to jobs. `MarkSentAsync`/`MarkFailedAsync` use fetch-then-update. `DeleteExpiredAsync` uses client-side filtering to avoid EF Core SQLite `DateTimeOffset` translation limits.
+- `src/gateway/Archivist.Gateway.Application/Telegram/TelegramNotificationDispatcher.cs` — new file; polls pending rows, skips succeeded-job notifications (deferred to SUMGEN-005), sends error reply for failed jobs, truncates to `TelegramMessageMaxLength = 4096`, marks sent/failed, handles delivery failure without retrying.
+- `src/gateway/Archivist.Gateway.Application/Telegram/TelegramNotificationDispatcherService.cs` — new file; `BackgroundService` that runs dispatcher every 10 seconds in a scoped DI scope.
+- `src/gateway/Archivist.Gateway.Application/Telegram/Extensions/ServiceCollectionExtensions.cs` — added TELING-004 DI registrations (`ITelegramNotificationRepository`, `TelegramNotificationDispatcher`, `TelegramNotificationDispatcherService`).
+- `src/gateway/Archivist.Gateway.Application/Archivist.Gateway.Application.csproj` — added `Microsoft.Extensions.Hosting.Abstractions 10.0.0`.
+- `src/gateway/Archivist.Gateway.Tests/Telegram/TelegramNotificationDispatcherTest.cs` — new file; 13 tests using `FakeTimeProvider`, `NullLogger`, `FakeTelegramClient`, and real `EfTelegramNotificationRepository` against in-memory SQLite.
+
+Decisions:
+- `DeleteExpiredAsync` loads non-pending notification rows into memory before filtering by `ExpiresAt` because EF Core SQLite cannot translate `DateTimeOffset` comparisons in WHERE clauses (local reversible decision).
+- `MarkSentAsync`/`MarkFailedAsync` use fetch-then-update (`FindAsync` + `SaveChangesAsync`) because `ExecuteUpdateAsync` chained `SetProperty` calls do not translate for SQLite in this version.
+- Succeeded-job notifications are left `pending` with a Debug log message; success content selection is owned by `SUMGEN-005`.
+- CA1031 is suppressed on the delivery failure catch site (REQ-026) and in the background service cycle catch.
+
+Validation:
+- `cd src/gateway && dotnet format` — passed.
+- `cd src/gateway && dotnet build` — passed, 0 warnings, 0 errors.
+- `cd src/gateway && dotnet test` — passed, 57/57 tests (all passing).
+
+Follow-ups:
+- SUMGEN-005 must implement succeeded-job success content selection and flip succeeded-job notifications from `pending` to `sent`.
+- Terminal job/notification cleanup TTLs should be verified end-to-end once SUMGEN-005 lands.
+
+Canonical Updates:
+- `docs/specs/telegram-ingestion/tasks/TELING-004-telegram-notification-dispatcher.md` (status: done)
+- `docs/specs/telegram-ingestion/PLAN.md` (TELING-004 row: done)
+- `docs/specs/telegram-ingestion/plans/TELING-004-telegram-notification-dispatcher.execplan.md` (status: completed)
+
 ## 2026-05-09 — TELING-002: Telegram Webhook Ingestion
 
 Status:
