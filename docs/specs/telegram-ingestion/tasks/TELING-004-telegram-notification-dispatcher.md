@@ -2,7 +2,7 @@
 id: TELING-004
 feature: telegram-ingestion
 title: Telegram notification dispatcher
-status: blocked
+status: done
 depends_on: [TELING-002, TELING-003]
 blocks: []
 parallel: false

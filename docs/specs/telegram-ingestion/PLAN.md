@@ -47,7 +47,7 @@ TELING-003 -> TELING-004
 | `TELING-001` | Persistence contracts | done | - | `TELING-002`, `TELING-003` | no | `plans/TELING-001-persistence-contracts.execplan.md` |
 | `TELING-002` | Telegram webhook ingestion | done | `TELING-001` | `TELING-004` | yes | - |
 | `TELING-003` | Worker terminal notification contract | done | `TELING-001` | `TELING-004` | yes | - |
-| `TELING-004` | Telegram notification dispatcher | blocked | `TELING-002`, `TELING-003` | - | no | `plans/TELING-004-telegram-notification-dispatcher.execplan.md` |
+| `TELING-004` | Telegram notification dispatcher | done | `TELING-002`, `TELING-003` | - | no | `plans/TELING-004-telegram-notification-dispatcher.execplan.md` |
 
 ---
 
