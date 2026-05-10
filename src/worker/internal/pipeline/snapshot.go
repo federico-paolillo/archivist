@@ -264,29 +264,3 @@ func (p *SnapshotPipeline) invokeMarkdownHandoff(ctx context.Context, job *jobs.
 	return ErrUnknown
 }
 
-// isARCError returns true when err carries an ARC-coded message prefix ("[ARC-").
-func isARCError(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	msg := err.Error()
-
-	return len(msg) >= 5 && msg[0] == '[' && msg[1] == 'A' && msg[2] == 'R' && msg[3] == 'C' && msg[4] == '-'
-}
-
-// arcCode extracts the ARC-NNN token from an ARC-coded error, or returns "ARC-999".
-func arcCode(err error) string {
-	if err == nil {
-		return ""
-	}
-
-	msg := err.Error()
-
-	// Expected format: "[ARC-NNN] ..." where the first 9 chars are "[ARC-NNN]".
-	if len(msg) >= 9 && msg[0] == '[' && msg[8] == ']' {
-		return msg[1:8]
-	}
-
-	return "ARC-999"
-}
