@@ -33,6 +33,12 @@ func TestNewAppReturnsApp(t *testing.T) {
 	assert.Nil(t, application.Jobs)
 
 	require.NotNil(t, application.Fetcher)
+
+	// Without DataDir, ArtifactStore is nil.
+	assert.Nil(t, application.ArtifactStore)
+
+	// Without both SqlitePath and DataDir, SnapshotPipeline is nil.
+	assert.Nil(t, application.SnapshotPipeline)
 }
 
 func TestNewAppWithSQLitePathOpensDatabase(t *testing.T) {
@@ -54,4 +60,32 @@ func TestNewAppWithSQLitePathOpensDatabase(t *testing.T) {
 
 	assert.NotNil(t, application.DB)
 	assert.NotNil(t, application.Jobs)
+
+	// DataDir not configured, so ArtifactStore and SnapshotPipeline are nil.
+	assert.Nil(t, application.ArtifactStore)
+	assert.Nil(t, application.SnapshotPipeline)
+}
+
+func TestNewAppWithSQLiteAndDataDirWiresSnapshotPipeline(t *testing.T) {
+	logger := slogt.New(t)
+
+	logLevel := new(slog.LevelVar)
+
+	cfg := config.Default()
+	cfg.SqlitePath = ":memory:"
+	cfg.DataDir = t.TempDir()
+
+	application, err := app.NewApp(logger, logLevel, cfg)
+
+	require.NoError(t, err)
+	require.NotNil(t, application)
+
+	t.Cleanup(func() {
+		application.Close()
+	})
+
+	assert.NotNil(t, application.DB)
+	assert.NotNil(t, application.Jobs)
+	assert.NotNil(t, application.ArtifactStore)
+	assert.NotNil(t, application.SnapshotPipeline)
 }

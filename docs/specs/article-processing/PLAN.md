@@ -61,7 +61,7 @@ TELING-004 -> ARTPROC-006
 | `ARTPROC-002` | Define shared ARC error-code convention | done | `ARTPROC-001` | `ARTPROC-004` | yes | - |
 | `ARTPROC-003` | Worker filesystem artifact access layer | done | `ARTPROC-001` | `ARTPROC-004` | yes | - |
 | `ARTPROC-004` | Worker URL resolver and HTML fetcher | done | `ARTPROC-002`, `ARTPROC-003` | `ARTPROC-005` | no | - |
-| `ARTPROC-005` | Worker snapshot pipeline orchestration | blocked | `ARTPROC-004`, `TELING-001`, `TELING-003` | `ARTPROC-006`, `MDEXT-005` | no | `plans/ARTPROC-005-worker-snapshot-pipeline-orchestration.execplan.md` |
+| `ARTPROC-005` | Worker snapshot pipeline orchestration | done | `ARTPROC-004`, `TELING-001`, `TELING-003` | `ARTPROC-006`, `MDEXT-005` | no | `plans/ARTPROC-005-worker-snapshot-pipeline-orchestration.execplan.md` |
 | `ARTPROC-006` | Gateway snapshot success notification bridge | skipped | `ARTPROC-005`, `TELING-004` | - | no | - |
 
 ---

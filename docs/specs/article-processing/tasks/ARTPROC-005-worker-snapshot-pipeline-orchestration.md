@@ -2,7 +2,7 @@
 id: ARTPROC-005
 feature: article-processing
 title: Worker Snapshot Pipeline Orchestration
-status: blocked
+status: done
 depends_on: [ARTPROC-004, TELING-001, TELING-003]
 blocks: [ARTPROC-006, MDEXT-005]
 parallel: false

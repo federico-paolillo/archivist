@@ -6,7 +6,9 @@ import (
 	"log/slog"
 	"time"
 
+	"codeberg.org/federico-paolillo/archivist/internal/artifacts"
 	"codeberg.org/federico-paolillo/archivist/internal/fetcher"
+	"codeberg.org/federico-paolillo/archivist/internal/pipeline"
 	"codeberg.org/federico-paolillo/archivist/pkg/app/config"
 	"codeberg.org/federico-paolillo/archivist/pkg/db"
 	"codeberg.org/federico-paolillo/archivist/pkg/jobs"
@@ -19,9 +21,11 @@ type App struct {
 	LogLevel *slog.LevelVar
 	Config   *config.Root
 
-	DB      *sql.DB
-	Jobs    jobs.Repository
-	Fetcher *fetcher.Fetcher
+	DB               *sql.DB
+	Jobs             jobs.Repository
+	Fetcher          *fetcher.Fetcher
+	ArtifactStore    *artifacts.Store
+	SnapshotPipeline *pipeline.SnapshotPipeline
 }
 
 func NewApp(logger *slog.Logger, logLevel *slog.LevelVar, cfg *config.Root) (*App, error) {
@@ -48,6 +52,25 @@ func NewApp(logger *slog.Logger, logLevel *slog.LevelVar, cfg *config.Root) (*Ap
 		application.Jobs = jobs.NewSQLiteRepository(database)
 	}
 
+	if cfg.DataDir != "" {
+		store, err := artifacts.NewStore(cfg.DataDir)
+		if err != nil {
+			return nil, fmt.Errorf("app: failed to create artifact store: %w", err)
+		}
+
+		application.ArtifactStore = store
+	}
+
+	if application.Jobs != nil && application.ArtifactStore != nil {
+		application.SnapshotPipeline = pipeline.NewSnapshotPipeline(
+			logger,
+			application.Jobs,
+			application.ArtifactStore,
+			application.Fetcher,
+			pipeline.NoOpMarkdownHandoff,
+		)
+	}
+
 	return application, nil
 }
 
@@ -69,14 +92,21 @@ func createDB(path string) (*sql.DB, error) {
 
 // Close releases any resources held by the App (database connections, os.Root handles, etc.).
 func (a *App) Close() error {
-	if a.DB == nil {
-		return nil
+	var closeErr error
+
+	if a.ArtifactStore != nil {
+		err := a.ArtifactStore.Close()
+		if err != nil {
+			closeErr = fmt.Errorf("app: failed to close artifact store: %w", err)
+		}
 	}
 
-	closeErr := a.DB.Close()
-	if closeErr != nil {
-		return fmt.Errorf("app: failed to close database: %w", closeErr)
+	if a.DB != nil {
+		err := a.DB.Close()
+		if err != nil {
+			closeErr = fmt.Errorf("app: failed to close database: %w", err)
+		}
 	}
 
-	return nil
+	return closeErr
 }
