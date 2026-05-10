@@ -4,6 +4,7 @@ using Archivist.Gateway.Api.Auth.Models;
 using Archivist.Gateway.Application.Auth;
 using Archivist.Gateway.Application.Auth.Options;
 using Archivist.Gateway.Application.Auth.Services;
+using Archivist.Gateway.Application.Persistence;
 
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.Extensions.Options;
@@ -84,8 +85,7 @@ internal static class Handlers
             .Replace('/', '_')
             .TrimEnd('=');
 
-        // Determine user id from the personal user constant.
-        const string personalUserId = "01ASB2XFCZJY7WHZ2FNRTMQJCT";
+        var personalUserId = PersistenceConstants.PersonalUserId;
 
         var now = timeProvider.GetUtcNow();
         var entry = new SessionEntry(
