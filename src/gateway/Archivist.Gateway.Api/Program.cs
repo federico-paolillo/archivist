@@ -1,3 +1,4 @@
+using Archivist.Gateway.Api.Auth;
 using Archivist.Gateway.Api.Ping;
 using Archivist.Gateway.Api.Telegram;
 using Archivist.Gateway.Application.Auth.Extensions;
@@ -33,7 +34,11 @@ if (!string.IsNullOrWhiteSpace(sqlitePath))
 var authBootstrap = app.Services.GetRequiredService<IAuthBootstrapService>();
 await authBootstrap.InitializeAsync();
 
+app.UseAuthentication();
+app.UseAuthorization();
+
 app.MapPing();
+app.MapAuth();
 
 if (!string.IsNullOrWhiteSpace(sqlitePath))
 {

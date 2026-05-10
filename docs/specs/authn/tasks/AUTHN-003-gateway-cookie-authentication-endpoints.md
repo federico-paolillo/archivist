@@ -2,7 +2,7 @@
 id: AUTHN-003
 feature: authn
 title: Gateway opaque session cookie authentication
-status: blocked
+status: done
 depends_on: [AUTHN-002]
 blocks: [AUTHN-004, UIEND-002, UIEND-003]
 parallel: false

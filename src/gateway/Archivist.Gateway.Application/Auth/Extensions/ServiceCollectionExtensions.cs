@@ -13,7 +13,8 @@ namespace Archivist.Gateway.Application.Auth.Extensions;
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers authentication services: password validation, Argon2id hashing, and auth bootstrap.
+    /// Registers authentication services: password validation, Argon2id hashing, auth bootstrap,
+    /// session store, login throttle, password store, and the app-cookie authentication handler.
     /// </summary>
     public static IServiceCollection AddAuth(
         this IServiceCollection services,
@@ -31,6 +32,21 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IPasswordValidator, PasswordValidator>();
         services.AddSingleton<IPasswordHasher, Argon2idPasswordHasher>();
         services.AddSingleton<IAuthBootstrapService, AuthBootstrapService>();
+        services.AddSingleton<IPasswordStore, SqlitePasswordStore>();
+        services.AddSingleton<ISessionStore, InMemorySessionStore>();
+        services.AddSingleton<ILoginThrottle, InMemoryLoginThrottle>();
+
+        // Register TimeProvider for InMemorySessionStore and other consumers.
+        services.AddSingleton(TimeProvider.System);
+
+        // Register AppCookieOptions so endpoints can resolve IOptions<AppCookieOptions> directly.
+        services.Configure<AppCookieOptions>(_ => { });
+
+        services
+            .AddAuthentication(AppCookieDefaults.AuthenticationScheme)
+            .AddAppCookie();
+
+        services.AddAuthorization();
 
         return services;
     }

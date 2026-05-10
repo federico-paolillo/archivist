@@ -1,17 +1,13 @@
 namespace Archivist.Gateway.Application.Auth.Services;
 
 /// <summary>
-/// Ensures the personal user row exists and that a password hash is stored.
-/// Bootstraps the password hash from the configured bootstrap secret only when the row has no stored hash.
+/// Ensures the personal user's password hash is initialized before the gateway accepts requests.
 /// </summary>
 public interface IAuthBootstrapService
 {
     /// <summary>
-    /// Initializes auth storage.
-    /// Inserts the personal user row if absent, then hashes and stores the bootstrap password
-    /// if and only if <c>password_hash</c> is currently <c>NULL</c>.
-    /// When a hash already exists the bootstrap password is not required and the existing hash is preserved.
+    /// Ensures the personal user row exists and that <c>password_hash</c> is populated.
+    /// Bootstraps from <c>AUTH_BOOTSTRAP_PASSWORD</c> only when the hash is missing.
     /// </summary>
-    /// <param name="ct">Cancellation token.</param>
     Task InitializeAsync(CancellationToken ct = default);
 }

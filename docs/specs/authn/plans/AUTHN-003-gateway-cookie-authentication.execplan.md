@@ -1,7 +1,7 @@
 ---
 id: AUTHN-003-PLAN
 task: ../tasks/AUTHN-003-gateway-cookie-authentication-endpoints.md
-status: proposed
+status: completed
 canonical: true
 ---
 
