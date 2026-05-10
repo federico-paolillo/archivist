@@ -5,9 +5,17 @@ import (
 	"database/sql"
 	"fmt"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/oklog/ulid/v2"
+)
+
+// ulidEntropy is the package-level monotonic entropy source for ULID generation.
+// ulid.Monotonic is not goroutine-safe; ulidMu guards all ulid.New calls.
+var (
+	ulidEntropy = ulid.Monotonic(rand.New(rand.NewSource(time.Now().UnixNano())), 0) //nolint:gosec // Non-crypto seed for ULID entropy
+	ulidMu      sync.Mutex
 )
 
 // TerminalOutcome carries the result of a completed job to be persisted.
@@ -224,9 +232,10 @@ func insertPendingNotification(ctx context.Context, tx *sql.Tx, job *Job, now ti
 }
 
 func newULID() (string, error) {
-	entropy := ulid.Monotonic(rand.New(rand.NewSource(time.Now().UnixNano())), 0) //nolint:gosec // Non-crypto ULID generation
+	ulidMu.Lock()
+	id, err := ulid.New(ulid.Timestamp(time.Now()), ulidEntropy)
+	ulidMu.Unlock()
 
-	id, err := ulid.New(ulid.Timestamp(time.Now()), entropy)
 	if err != nil {
 		return "", fmt.Errorf("jobs: ulid generation failed: %w", err)
 	}
