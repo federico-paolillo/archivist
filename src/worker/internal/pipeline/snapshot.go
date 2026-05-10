@@ -26,15 +26,24 @@ import (
 //   - On failure: returns an ARC-coded error (e.g. ARC-008 through ARC-012).
 //     The pipeline records terminal failure when this returns non-nil.
 //
-// Until MDEXT-005 is wired, this is NoOpMarkdownHandoff which returns nil.
-type MarkdownHandoff func(ctx context.Context, job *jobs.Job, canonicalURL string) error
+// Until MDEXT-005 is wired, use NoOpMarkdownHandoff which returns nil.
+type MarkdownHandoff interface {
+	Handoff(ctx context.Context, job *jobs.Job, canonicalURL string) error
+}
+
+// MarkdownHandoffFunc is an adapter that allows function literals to implement MarkdownHandoff.
+type MarkdownHandoffFunc func(ctx context.Context, job *jobs.Job, canonicalURL string) error
+
+// Handoff implements MarkdownHandoff.
+func (f MarkdownHandoffFunc) Handoff(ctx context.Context, job *jobs.Job, canonicalURL string) error {
+	return f(ctx, job, canonicalURL)
+}
 
 // NoOpMarkdownHandoff is the placeholder for the Markdown extraction stage.
-// MDEXT-005 replaces this with the real extraction pipeline by providing a concrete
-// MarkdownHandoff function to NewSnapshotPipeline.
-func NoOpMarkdownHandoff(_ context.Context, _ *jobs.Job, _ string) error {
+// MDEXT-005 replaces this with the real extraction pipeline.
+var NoOpMarkdownHandoff MarkdownHandoff = MarkdownHandoffFunc(func(_ context.Context, _ *jobs.Job, _ string) error {
 	return nil
-}
+})
 
 // SnapshotPipeline orchestrates article-processing jobs from dequeue through snapshot
 // and hands off to the Markdown extraction stage.
@@ -240,7 +249,7 @@ func (p *SnapshotPipeline) updateCanonicalURL(
 // invokeMarkdownHandoff calls the markdown extraction handoff.
 // Extension point for MDEXT-005 — see MarkdownHandoff contract above.
 func (p *SnapshotPipeline) invokeMarkdownHandoff(ctx context.Context, job *jobs.Job, finalURL string) error {
-	mdErr := p.markdownHandoff(ctx, job, finalURL)
+	mdErr := p.markdownHandoff.Handoff(ctx, job, finalURL)
 	if mdErr == nil {
 		// Snapshot boundary — NOT a terminal success in final v0.
 		// articles.status is NOT set to ready here.
@@ -251,7 +260,7 @@ func (p *SnapshotPipeline) invokeMarkdownHandoff(ctx context.Context, job *jobs.
 	}
 
 	if isARCError(mdErr) {
-		return mdErr
+		return mdErr //nolint:wrapcheck // ARC-coded handoff errors are the user-facing message; wrapping changes the error text
 	}
 
 	p.logger.Error(

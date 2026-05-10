@@ -378,12 +378,12 @@ func TestMarkdownHandoffIsCalledOnSnapshotSuccess(t *testing.T) {
 
 	var handoffCalled bool
 
-	handoff := func(_ context.Context, j *jobs.Job, _ string) error {
+	handoff := pipeline.MarkdownHandoffFunc(func(_ context.Context, j *jobs.Job, _ string) error {
 		handoffCalled = true
 		assert.Equal(t, articleID, j.ArticleID)
 
 		return nil
-	}
+	})
 
 	p := newTestPipeline(t, database, store, fetch, handoff)
 
@@ -416,9 +416,9 @@ func TestMarkdownHandoffFailureCommitsTerminalFailure(t *testing.T) {
 	fetch := newTestFetcher(srv.URL)
 
 	// Simulate markdown extraction failure.
-	handoff := func(_ context.Context, _ *jobs.Job, _ string) error {
+	handoff := pipeline.MarkdownHandoffFunc(func(_ context.Context, _ *jobs.Job, _ string) error {
 		return pipeline.ErrSnapshotWrite // reuse as a convenient ARC-coded error for testing
-	}
+	})
 
 	p := newTestPipeline(t, database, store, fetch, handoff)
 
