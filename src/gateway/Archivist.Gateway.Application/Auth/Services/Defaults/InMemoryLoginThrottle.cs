@@ -18,7 +18,7 @@ public sealed class InMemoryLoginThrottle : ILoginThrottle
     {
         ArgumentNullException.ThrowIfNull(sourceIp);
 
-        if (_globalCounter >= MaxGlobalFailures)
+        if (Volatile.Read(ref _globalCounter) >= MaxGlobalFailures)
         {
             return true;
         }
