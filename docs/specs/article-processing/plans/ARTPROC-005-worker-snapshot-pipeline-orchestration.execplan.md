@@ -1,7 +1,7 @@
 ---
 id: ARTPROC-005-PLAN
 task: ../tasks/ARTPROC-005-worker-snapshot-pipeline-orchestration.md
-status: proposed
+status: completed
 canonical: true
 ---
 

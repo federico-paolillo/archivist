@@ -37,6 +37,12 @@ type Repository interface {
 	//     origin metadata).
 	// All three writes (article, job, notification) happen in one transaction.
 	CompleteTerminal(ctx context.Context, job *Job, outcome TerminalOutcome) error
+
+	// ArticleURL returns the original_url for the article associated with the job.
+	ArticleURL(ctx context.Context, articleID string) (string, error)
+
+	// UpdateCanonicalURL sets articles.canonical_url to canonicalURL for the given articleID.
+	UpdateCanonicalURL(ctx context.Context, articleID string, canonicalURL string) error
 }
 
 // SQLiteRepository is the SQLite-backed implementation of Repository.
@@ -392,4 +398,35 @@ func parseNullableTime(ns sql.NullString, field string) (time.Time, bool, error)
 	}
 
 	return parsed, true, nil
+}
+
+// ArticleURL returns the original_url for the article with the given ID.
+func (r *SQLiteRepository) ArticleURL(ctx context.Context, articleID string) (string, error) {
+	var originalURL string
+
+	err := r.db.QueryRowContext(
+		ctx,
+		`SELECT original_url FROM articles WHERE id = ?`,
+		articleID,
+	).Scan(&originalURL)
+	if err != nil {
+		return "", fmt.Errorf("jobs: failed to load article URL for %s: %w", articleID, err)
+	}
+
+	return originalURL, nil
+}
+
+// UpdateCanonicalURL sets articles.canonical_url for the given articleID.
+func (r *SQLiteRepository) UpdateCanonicalURL(ctx context.Context, articleID string, canonicalURL string) error {
+	_, err := r.db.ExecContext(
+		ctx,
+		`UPDATE articles SET canonical_url = ? WHERE id = ?`,
+		canonicalURL,
+		articleID,
+	)
+	if err != nil {
+		return fmt.Errorf("jobs: failed to update canonical URL for article %s: %w", articleID, err)
+	}
+
+	return nil
 }

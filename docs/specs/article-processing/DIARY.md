@@ -389,3 +389,86 @@ Follow-ups:
 
 Canonical Updates:
 - None. All changes are corrections to existing implementation; no durable decisions changed.
+
+---
+
+## 2026-05-10 - ARTPROC-005: Worker Snapshot Pipeline Orchestration
+
+Status:
+- completed
+
+Summary:
+- Implemented the Worker snapshot pipeline that claims queued article-processing jobs,
+  resolves URLs, fetches HTML, writes `snapshot.html` atomically, updates `canonical_url`,
+  invokes the Markdown extraction handoff point, and commits ARC-coded terminal failure state
+  transactionally when any stage fails. Snapshot success is non-terminal in final v0.
+
+Changes:
+- New `src/worker/internal/pipeline/snapshot.go`:
+  - `SnapshotPipeline` struct with `ProcessOne(ctx)`.
+  - Pipeline stages: fetch HTML → write snapshot → update canonical URL → markdown handoff → no-op rating slot.
+  - `MarkdownHandoff` function type (the MDEXT-005 extension point) with `NoOpMarkdownHandoff` placeholder.
+  - `persistFailure` helper for structured logging + transactional terminal failure via `jobs.Repository.CompleteTerminal`.
+  - `isARCError` / `arcCode` helpers for ARC-coded error detection and log field extraction.
+  - Snapshot success does not mark `articles.status = ready`, `jobs.status = succeeded`, or insert a success notification.
+- New `src/worker/internal/pipeline/errors.go`:
+  - `ErrSnapshotWrite` (`[ARC-007]`) and `ErrUnknown` (`[ARC-999]`) sentinel errors.
+- Extended `src/worker/pkg/jobs/repository.go`:
+  - Added `ArticleURL(ctx, articleID)` and `UpdateCanonicalURL(ctx, articleID, canonicalURL)` to the `Repository` interface and `SQLiteRepository` implementation.
+- Updated `src/worker/pkg/app/app.go`:
+  - Added `ArtifactStore *artifacts.Store` and `SnapshotPipeline *pipeline.SnapshotPipeline` fields.
+  - Wired `artifacts.NewStore(cfg.DataDir)` and `pipeline.NewSnapshotPipeline(...)` into `NewApp`.
+  - Updated `Close()` to close the artifact store before the database.
+- Updated `src/worker/pkg/app/app_test.go`:
+  - Added tests for `ArtifactStore` nil when `DataDir` is empty.
+  - Added `TestNewAppWithSQLiteAndDataDirWiresSnapshotPipeline` asserting all three pipeline dependencies are non-nil together.
+- New `src/worker/internal/pipeline/snapshot_test.go`:
+  - `TestSnapshotSuccessWritesSnapshotAndUpdatesCanonicalURL` — happy path: snapshot exists, canonical_url set, no terminal success markers.
+  - `TestSnapshotFetchFailureCommitsARCCodedFailureTransactionally` — ARC-003 (404) failure: article failed, job failed, one pending notification.
+  - `TestSnapshotForbiddenFailureMapsToARC002` — ARC-002 (403) failure.
+  - `TestSnapshotNonHTMLFailureMapsToARC005` — ARC-005 (non-HTML content) failure.
+  - `TestSnapshotTransactionRollbackOnNotificationFailure` — pre-seeded duplicate notification causes UNIQUE violation; `ProcessOne` returns an error and the article status is not updated.
+  - `TestSnapshotNoQueuedJobReturnsNil` — empty queue returns nil.
+  - `TestMarkdownHandoffIsCalledOnSnapshotSuccess` — extension point is invoked after successful snapshot.
+  - `TestMarkdownHandoffFailureCommitsTerminalFailure` — ARC-coded handoff error triggers terminal failure.
+
+Decisions:
+- The `MarkdownHandoff` function type is the explicit extension point for MDEXT-005. It is wired as `NoOpMarkdownHandoff` in `NewApp` until MDEXT-005 replaces it. See follow-up for the contract.
+- ARC-coded fetcher errors are passed through as-is (with `//nolint:wrapcheck`) because wrapping changes the error text and the text IS the persisted user-facing message.
+- Snapshot boundary is non-terminal in final v0: `ProcessOne` logs `status=snapshot_done` and returns nil on success without calling `CompleteTerminal`.
+- Unknown (non-ARC) errors from fetch and markdown handoff are mapped to `ErrUnknown` (ARC-999) to prevent low-level details from appearing in `articles.error_message`.
+- `App.Close()` now closes ArtifactStore before DB; both close even if the first fails.
+
+Validation:
+- `cd src/worker && go tool lefthook run build` — gobuild ✔, dotnet ✔ (npm pre-existing failure unrelated).
+- `cd src/worker && go tool lefthook run format` — golangci ✔, dotnet ✔ (biome pre-existing failure unrelated).
+- `cd src/worker && go tool lefthook run lint` — golangci ✔, dotnet ✔ (biome pre-existing failure unrelated).
+- `cd src/worker && go tool lefthook run test` — gotest ✔ (all packages including internal/pipeline), dotnet ✔ (vitest pre-existing failure unrelated).
+- All 8 pipeline tests pass.
+
+Follow-ups:
+
+### MDEXT-005 Handoff Interface Contract
+
+MDEXT-005 must replace `pipeline.NoOpMarkdownHandoff` with a real implementation.
+
+The function type signature is:
+
+```go
+type MarkdownHandoff func(ctx context.Context, job *jobs.Job, canonicalURL string) error
+```
+
+Wiring point: `pkg/app/app.go` → `pipeline.NewSnapshotPipeline(..., mdHandoff)`.
+Currently: `pipeline.NoOpMarkdownHandoff`.
+MDEXT-005 replaces with: its own function (or closure) that opens `snapshot.html` via `artifacts.Store.OpenSnapshot(job.ArticleID)`, runs Markdown extraction, writes `content.md`, and continues to SUMGEN-005.
+
+Contract:
+- Input: `ctx`, `job` (with `ArticleID` and `ID`), `canonicalURL` (the resolved final URL).
+- On success: must return `nil`. Must not call `jobs.Repository.CompleteTerminal` — the snapshot pipeline calls it on failure only; SUMGEN-005 owns the terminal success call.
+- On failure: must return an ARC-coded error (`errors.New("[ARC-NNN] ...")`). The snapshot pipeline calls `CompleteTerminal(failed, errorMessage)` automatically.
+- Must not set `articles.status = ready`, `jobs.status = succeeded`, or insert a success notification.
+
+Canonical Updates:
+- `docs/specs/article-processing/PLAN.md` — ARTPROC-005 row: in_progress → done.
+- `docs/specs/article-processing/tasks/ARTPROC-005-worker-snapshot-pipeline-orchestration.md` — status: in_progress → done.
+- `docs/specs/article-processing/plans/ARTPROC-005-worker-snapshot-pipeline-orchestration.execplan.md` — status: accepted → completed.
