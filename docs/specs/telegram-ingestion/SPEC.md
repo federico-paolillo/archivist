@@ -2,7 +2,7 @@
 id: TELING
 slug: telegram-ingestion
 title: Telegram Ingestion
-status: draft
+status: done
 owner: null
 depends_on: []
 impacts: [gateway, worker, sqlite]

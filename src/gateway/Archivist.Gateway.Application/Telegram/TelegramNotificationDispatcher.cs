@@ -61,6 +61,13 @@ public sealed partial class TelegramNotificationDispatcher(
 
         if (notification.TelegramChatId is null || notification.TelegramMessageId is null)
         {
+            const string missingTargetError = "Missing Telegram reply target: telegram_chat_id or telegram_message_id is null.";
+            var failedAt = timeProvider.GetUtcNow();
+
+            await notificationRepository
+                .MarkFailedAsync(notification.NotificationId, missingTargetError, failedAt, failedAt.Add(NotificationTtl), cancellationToken)
+                .ConfigureAwait(false);
+
             LogMissingReplyTarget(logger, notification.NotificationId, notification.JobId);
             return;
         }

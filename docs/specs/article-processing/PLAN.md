@@ -1,6 +1,6 @@
 ---
 feature: article-processing
-status: draft
+status: done
 canonical: true
 ---
 

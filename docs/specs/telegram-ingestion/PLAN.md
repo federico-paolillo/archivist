@@ -1,6 +1,6 @@
 ---
 feature: telegram-ingestion
-status: draft
+status: done
 canonical: true
 ---
 

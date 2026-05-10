@@ -2,7 +2,7 @@
 id: ARTPROC
 slug: article-processing
 title: URL-To-Article Processing Pipeline
-status: draft
+status: done
 owner: null
 depends_on: [telegram-ingestion]
 impacts: [worker, gateway, sqlite, filesystem]

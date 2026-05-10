@@ -24,7 +24,7 @@ internal sealed class SameOriginFilter : IEndpointFilter
         {
             if (!IsSameOrigin(request))
             {
-                return TypedResults.StatusCode(StatusCodes.Status403Forbidden);
+                return TypedResults.Forbid();
             }
         }
 
