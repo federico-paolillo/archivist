@@ -51,9 +51,9 @@ It is not listed in `docs/REBUILD.md` and is not authoritative by itself. If thi
 
 ### Wave 3 - Gateway Dispatch, Auth Sessions, Snapshot Orchestration
 
-- [`TELING-004`](./specs/telegram-ingestion/tasks/TELING-004-telegram-notification-dispatcher.md) - Telegram notification dispatcher. Feature: [`telegram-ingestion`](./specs/telegram-ingestion/SPEC.md). Status: `blocked`. ExecPlan: [`proposed`](./specs/telegram-ingestion/plans/TELING-004-telegram-notification-dispatcher.execplan.md).
-- [`AUTHN-003`](./specs/authn/tasks/AUTHN-003-gateway-cookie-authentication-endpoints.md) - Gateway opaque session cookie authentication. Feature: [`authn`](./specs/authn/SPEC.md). Status: `blocked`. ExecPlan: [`proposed`](./specs/authn/plans/AUTHN-003-gateway-cookie-authentication.execplan.md).
-- [`ARTPROC-005`](./specs/article-processing/tasks/ARTPROC-005-worker-snapshot-pipeline-orchestration.md) - Worker snapshot pipeline orchestration. Feature: [`article-processing`](./specs/article-processing/SPEC.md). Status: `blocked`. ExecPlan: [`proposed`](./specs/article-processing/plans/ARTPROC-005-worker-snapshot-pipeline-orchestration.execplan.md).
+- [`TELING-004`](./specs/telegram-ingestion/tasks/TELING-004-telegram-notification-dispatcher.md) - Telegram notification dispatcher. Feature: [`telegram-ingestion`](./specs/telegram-ingestion/SPEC.md). Status: `done`. ExecPlan: [`completed`](./specs/telegram-ingestion/plans/TELING-004-telegram-notification-dispatcher.execplan.md).
+- [`AUTHN-003`](./specs/authn/tasks/AUTHN-003-gateway-cookie-authentication-endpoints.md) - Gateway opaque session cookie authentication. Feature: [`authn`](./specs/authn/SPEC.md). Status: `done`. ExecPlan: [`completed`](./specs/authn/plans/AUTHN-003-gateway-cookie-authentication.execplan.md).
+- [`ARTPROC-005`](./specs/article-processing/tasks/ARTPROC-005-worker-snapshot-pipeline-orchestration.md) - Worker snapshot pipeline orchestration. Feature: [`article-processing`](./specs/article-processing/SPEC.md). Status: `done`. ExecPlan: [`completed`](./specs/article-processing/plans/ARTPROC-005-worker-snapshot-pipeline-orchestration.execplan.md).
 
 ### Wave 4 - Auth Protection, Markdown Integration, Delete API
 
@@ -100,13 +100,13 @@ flowchart TD
     TELING_001["TELING-001<br/>Persistence contracts<br/>done"]
     TELING_002["TELING-002<br/>Telegram webhook ingestion<br/>done"]
     TELING_003["TELING-003<br/>Worker terminal notification contract<br/>done"]
-    TELING_004["TELING-004<br/>Telegram notification dispatcher<br/>blocked"]
+    TELING_004["TELING-004<br/>Telegram notification dispatcher<br/>done"]
   end
 
   subgraph authn["authn"]
     AUTHN_001["AUTHN-001<br/>Authn canonical docs and design decisions<br/>done"]
     AUTHN_002["AUTHN-002<br/>Password persistence and bootstrap<br/>done"]
-    AUTHN_003["AUTHN-003<br/>Gateway opaque session cookie authentication<br/>blocked"]
+    AUTHN_003["AUTHN-003<br/>Gateway opaque session cookie authentication<br/>done"]
     AUTHN_004["AUTHN-004<br/>Protect UI API and validate auth client contract<br/>blocked"]
     AUTHN_005["AUTHN-005<br/>Security validation pass<br/>blocked"]
   end
@@ -116,7 +116,7 @@ flowchart TD
     ARTPROC_002["ARTPROC-002<br/>Define shared ARC error-code convention<br/>done"]
     ARTPROC_003["ARTPROC-003<br/>Worker filesystem artifact access layer<br/>done"]
     ARTPROC_004["ARTPROC-004<br/>Worker URL resolver and HTML fetcher<br/>done"]
-    ARTPROC_005["ARTPROC-005<br/>Worker snapshot pipeline orchestration<br/>blocked"]
+    ARTPROC_005["ARTPROC-005<br/>Worker snapshot pipeline orchestration<br/>done"]
     ARTPROC_006["ARTPROC-006<br/>Gateway snapshot success notification bridge<br/>skipped"]
   end
 
@@ -210,8 +210,8 @@ flowchart TD
   classDef blocked fill:#fef3c7,stroke:#b45309,color:#111827
   classDef skipped fill:#e5e7eb,stroke:#6b7280,color:#374151,stroke-dasharray: 4 4
 
-  class AUTHN_001,ARTPROC_001,ARTPROC_002,MDEXT_001,SUMGEN_001,UIEND_001,UI_001,MDEXT_004,SUMGEN_003,TELING_001,TELING_002,TELING_003,AUTHN_002,ARTPROC_003,MDEXT_003,ARTPROC_004,MDEXT_002 done
-  class TELING_004,AUTHN_003,AUTHN_004,AUTHN_005,ARTPROC_005,MDEXT_005,SUMGEN_002,SUMGEN_004,SUMGEN_005,UIEND_002,UIEND_003,UI_002,UI_003,UI_004 blocked
+  class AUTHN_001,ARTPROC_001,ARTPROC_002,MDEXT_001,SUMGEN_001,UIEND_001,UI_001,MDEXT_004,SUMGEN_003,TELING_001,TELING_002,TELING_003,AUTHN_002,ARTPROC_003,MDEXT_003,ARTPROC_004,MDEXT_002,TELING_004,AUTHN_003,ARTPROC_005 done
+  class AUTHN_004,AUTHN_005,MDEXT_005,SUMGEN_002,SUMGEN_004,SUMGEN_005,UIEND_002,UIEND_003,UI_002,UI_003,UI_004 blocked
   class ARTPROC_006,MDEXT_006 skipped
 
   click TELING_001 "./specs/telegram-ingestion/SPEC.md" "telegram-ingestion SPEC"
