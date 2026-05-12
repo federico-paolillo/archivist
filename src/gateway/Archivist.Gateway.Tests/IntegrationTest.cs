@@ -63,6 +63,17 @@ public abstract class IntegrationTest(
         return _webApplicationFactory.CreateClient();
     }
 
+    protected T GetRequiredService<T>()
+        where T : notnull
+    {
+        if (_webApplicationFactory is null)
+        {
+            throw new InvalidOperationException($"No WebApplicationFactory Did you call {nameof(PrepareEnvironment)}");
+        }
+
+        return _webApplicationFactory.Services.GetRequiredService<T>();
+    }
+
     private sealed class NoOpAuthBootstrapService : IAuthBootstrapService
     {
         public Task InitializeAsync(CancellationToken ct = default) => Task.CompletedTask;

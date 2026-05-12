@@ -3,6 +3,8 @@ using System.Net;
 using Archivist.Gateway.Application.Auth.Services;
 using Archivist.Gateway.Application.Auth.Services.Defaults;
 
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Time.Testing;
 
 using Xunit.Abstractions;
@@ -31,6 +33,23 @@ public sealed class AppCookieAuthenticationHandlerTest(ITestOutputHelper testOut
         var response = await client.GetAsync("/auth/session");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public void ProtectedUiApiProbe_IsMappedWithAuthorizationMetadata()
+    {
+        var sessionStore = new InMemorySessionStore(new FakeTimeProvider());
+        PrepareEnvironment(services =>
+        {
+            services.AddSingleton<ISessionStore>(sessionStore);
+        });
+
+        var dataSource = GetRequiredService<EndpointDataSource>();
+        var endpoint = dataSource.Endpoints
+            .OfType<RouteEndpoint>()
+            .Single(e => e.RoutePattern.RawText == "/auth/session");
+
+        Assert.Contains(endpoint.Metadata, metadata => metadata is IAuthorizeData);
     }
 
     [Fact]

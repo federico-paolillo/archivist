@@ -220,3 +220,29 @@ dotnet test     — Passed: 44, Failed: 0, Skipped: 0
 - `docs/specs/authn/PLAN.md` — AUTHN-003 row: done
 - `docs/specs/authn/plans/AUTHN-003-gateway-cookie-authentication.execplan.md` — status: completed
 - `docs/specs/authn/DIARY.md` — this entry
+
+## 2026-05-12 — AUTHN-004: Protect UI API and validate auth client contract
+
+Task ID: AUTHN-004
+Status: done
+
+Summary:
+- Added AUTHN-004 regression coverage for unauthenticated protected Gateway access through the authenticated session probe.
+- Confirmed `GET /auth/session` returns `204` with a valid app-cookie session and `401` without one.
+- Confirmed the existing `/login` and `/logout` endpoint tests still pass.
+
+Decisions:
+- Did not add a placeholder `/articles` route in AUTHN-004. `GET /articles`, `GET /articles/{id}`, and `DELETE /articles/{id}` are owned by the `ui-endpoints` feature, and adding a stub here would create an incomplete public API contract.
+- Used `GET /auth/session` as the protected Gateway contract probe because it already participates in the real ASP.NET Core authentication and authorization pipeline and is the auth check consumed by the final UI.
+
+Validation:
+- `cd src/gateway && dotnet test`
+- Result: Passed: 101, Failed: 0, Skipped: 0.
+
+Follow-ups:
+- `ui-endpoints` must apply `RequireAuthorization()` to concrete article endpoints when those routes are implemented.
+- `AUTHN-005` remains the next authn security validation pass.
+
+Canonical Updates:
+- `docs/specs/authn/tasks/AUTHN-004-protect-ui-api-and-validate-auth-client-contract.md` — status: done, validation recorded.
+- `docs/specs/authn/PLAN.md` — AUTHN-004 row: done.
