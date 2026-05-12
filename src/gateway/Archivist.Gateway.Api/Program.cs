@@ -1,6 +1,8 @@
+using Archivist.Gateway.Api.Articles;
 using Archivist.Gateway.Api.Auth;
 using Archivist.Gateway.Api.Ping;
 using Archivist.Gateway.Api.Telegram;
+using Archivist.Gateway.Application.Articles.Extensions;
 using Archivist.Gateway.Application.Auth.Extensions;
 using Archivist.Gateway.Application.Auth.Services;
 using Archivist.Gateway.Application.Persistence;
@@ -17,6 +19,7 @@ var sqlitePath = builder.Configuration["SQLITE_PATH"];
 if (!string.IsNullOrWhiteSpace(sqlitePath))
 {
     builder.Services.AddArchivistPersistence(sqlitePath);
+    builder.Services.AddArticles(builder.Configuration);
     builder.Services.AddTelegram(builder.Configuration);
 }
 
@@ -42,6 +45,7 @@ app.MapAuth();
 
 if (!string.IsNullOrWhiteSpace(sqlitePath))
 {
+    app.MapArticles();
     app.MapTelegram();
 }
 

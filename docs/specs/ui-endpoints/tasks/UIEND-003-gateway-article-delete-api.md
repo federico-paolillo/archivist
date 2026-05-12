@@ -2,7 +2,7 @@
 id: UIEND-003
 feature: ui-endpoints
 title: Gateway article delete API
-status: blocked
+status: done
 depends_on: [UIEND-001, AUTHN-003, TELING-001]
 blocks: [UI-003]
 parallel: false
@@ -90,6 +90,16 @@ cd src/gateway && dotnet format
 cd src/gateway && dotnet build
 cd src/gateway && dotnet test
 ```
+
+Validation completed on 2026-05-12:
+
+- `cd src/gateway && dotnet format`
+- `cd src/gateway && dotnet build`
+- `cd src/gateway && dotnet test`
+
+Status transition:
+
+- `blocked` -> `done` by explicit user assignment override for Wave 4 worker `UIEND-003`.
 
 ## Dependencies
 

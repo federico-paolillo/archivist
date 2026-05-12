@@ -46,7 +46,7 @@ UIEND-001 -> UIEND-003
 |---|---|---|---|---|---|---|
 | `UIEND-001` | Create canonical artifacts | done | - | `UIEND-002`, `UIEND-003` | no | - |
 | `UIEND-002` | Gateway article read API | blocked | `UIEND-001`, `AUTHN-003`, `TELING-001`, `SUMGEN-005` | `UI-003` | no | `plans/UIEND-002-gateway-article-read-api.execplan.md` |
-| `UIEND-003` | Gateway article delete API | blocked | `UIEND-001`, `AUTHN-003`, `TELING-001` | `UI-003` | no | `plans/UIEND-003-gateway-article-delete-api.execplan.md` |
+| `UIEND-003` | Gateway article delete API | done | `UIEND-001`, `AUTHN-003`, `TELING-001` | `UI-003` | no | `plans/UIEND-003-gateway-article-delete-api.execplan.md` |
 
 ---
 

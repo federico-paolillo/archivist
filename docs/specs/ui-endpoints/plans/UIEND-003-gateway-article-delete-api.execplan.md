@@ -1,7 +1,7 @@
 ---
 id: UIEND-003-PLAN
 task: ../tasks/UIEND-003-gateway-article-delete-api.md
-status: proposed
+status: completed
 canonical: true
 ---
 
@@ -70,3 +70,7 @@ cd src/gateway && dotnet test
 
 - Delete endpoint and tests are implemented.
 - Validation passes or failures are recorded.
+
+Completion note:
+
+- Completed on 2026-05-12 under explicit user assignment override from proposed guidance.
