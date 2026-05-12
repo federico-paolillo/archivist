@@ -2,7 +2,7 @@
 id: MDEXT
 slug: markdown-extraction
 title: Markdown Extraction With Fallbacks
-status: draft
+status: done
 owner: null
 depends_on: [article-processing]
 impacts: [worker, gateway, filesystem, sqlite]

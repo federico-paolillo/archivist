@@ -2,10 +2,12 @@ package config
 
 // Root is the top-level configuration structure.
 type Root struct {
-	App        App
-	Debug      bool
-	SqlitePath string
-	DataDir    string
+	App         App
+	Debug       bool
+	SqlitePath  string
+	DataDir     string
+	JinaEnabled bool   `config:"JINA_ENABLED"`
+	JinaAPIKey  string `config:"JINA_API_KEY"`
 }
 
 type App struct {
@@ -18,8 +20,10 @@ func Default() *Root {
 		App: App{
 			Name: "archivist-worker",
 		},
-		Debug:      true,
-		SqlitePath: "",
-		DataDir:    "",
+		Debug:       true,
+		SqlitePath:  "",
+		DataDir:     "",
+		JinaEnabled: false,
+		JinaAPIKey:  "",
 	}
 }

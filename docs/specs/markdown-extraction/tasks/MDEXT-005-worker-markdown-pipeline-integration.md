@@ -2,7 +2,7 @@
 id: MDEXT-005
 feature: markdown-extraction
 title: Worker Markdown Pipeline Integration
-status: blocked
+status: done
 depends_on: [ARTPROC-005, MDEXT-002, MDEXT-003, MDEXT-004]
 blocks: [SUMGEN-002]
 parallel: false
