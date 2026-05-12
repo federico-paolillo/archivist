@@ -1,6 +1,6 @@
 ---
 feature: markdown-extraction
-status: draft
+status: done
 canonical: true
 ---
 
@@ -55,7 +55,7 @@ MDEXT-005 -> SUMGEN-002
 | `MDEXT-002` | Worker Markdown artifact access | done | `MDEXT-001`, `ARTPROC-003` | `MDEXT-005` | yes | - |
 | `MDEXT-003` | Worker go-readability extraction | done | `MDEXT-001` | `MDEXT-005` | yes | - |
 | `MDEXT-004` | Worker Jina Reader fallback | done | `MDEXT-001` | `MDEXT-005` | yes | `plans/MDEXT-004-worker-jina-reader-fallback.execplan.md` |
-| `MDEXT-005` | Worker Markdown pipeline integration | blocked | `ARTPROC-005`, `MDEXT-002`, `MDEXT-003`, `MDEXT-004` | `SUMGEN-002` | no | `plans/MDEXT-005-worker-markdown-pipeline-integration.execplan.md` |
+| `MDEXT-005` | Worker Markdown pipeline integration | done | `ARTPROC-005`, `MDEXT-002`, `MDEXT-003`, `MDEXT-004` | `SUMGEN-002` | no | `plans/MDEXT-005-worker-markdown-pipeline-integration.execplan.md` |
 | `MDEXT-006` | Gateway Markdown success notification | skipped | `MDEXT-005`, `TELING-004` | - | no | - |
 
 ---

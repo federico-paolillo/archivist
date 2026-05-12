@@ -33,6 +33,8 @@ func TestNewAppReturnsApp(t *testing.T) {
 	assert.Nil(t, application.Jobs)
 
 	require.NotNil(t, application.Fetcher)
+	require.NotNil(t, application.LocalMarkdown)
+	require.NotNil(t, application.JinaMarkdown)
 
 	// Without DataDir, ArtifactStore is nil.
 	assert.Nil(t, application.ArtifactStore)
@@ -87,5 +89,7 @@ func TestNewAppWithSQLiteAndDataDirWiresSnapshotPipeline(t *testing.T) {
 	assert.NotNil(t, application.DB)
 	assert.NotNil(t, application.Jobs)
 	assert.NotNil(t, application.ArtifactStore)
+	assert.NotNil(t, application.LocalMarkdown)
+	assert.NotNil(t, application.JinaMarkdown)
 	assert.NotNil(t, application.SnapshotPipeline)
 }

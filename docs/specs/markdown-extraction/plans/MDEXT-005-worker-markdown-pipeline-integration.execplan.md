@@ -1,7 +1,7 @@
 ---
 id: MDEXT-005-PLAN
 task: ../tasks/MDEXT-005-worker-markdown-pipeline-integration.md
-status: proposed
+status: completed
 canonical: true
 ---
 

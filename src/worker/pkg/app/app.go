@@ -8,6 +8,7 @@ import (
 
 	"codeberg.org/federico-paolillo/archivist/internal/artifacts"
 	"codeberg.org/federico-paolillo/archivist/internal/fetcher"
+	"codeberg.org/federico-paolillo/archivist/internal/markdown"
 	"codeberg.org/federico-paolillo/archivist/internal/pipeline"
 	"codeberg.org/federico-paolillo/archivist/pkg/app/config"
 	"codeberg.org/federico-paolillo/archivist/pkg/db"
@@ -25,6 +26,8 @@ type App struct {
 	Jobs             jobs.Repository
 	Fetcher          *fetcher.Fetcher
 	ArtifactStore    *artifacts.Store
+	LocalMarkdown    markdown.MarkdownExtractor
+	JinaMarkdown     markdown.MarkdownExtractor
 	SnapshotPipeline *pipeline.SnapshotPipeline
 }
 
@@ -41,6 +44,8 @@ func NewApp(logger *slog.Logger, logLevel *slog.LevelVar, cfg *config.Root) (*Ap
 		DisableForceHttpVersion()
 
 	application.Fetcher = fetcher.New(httpClient)
+	application.LocalMarkdown = markdown.NewGoReadabilityExtractor()
+	application.JinaMarkdown = markdown.NewJinaExtractor(httpClient, cfg.JinaEnabled, cfg.JinaAPIKey)
 
 	if cfg.SqlitePath != "" {
 		database, err := createDB(cfg.SqlitePath)
@@ -62,12 +67,19 @@ func NewApp(logger *slog.Logger, logLevel *slog.LevelVar, cfg *config.Root) (*Ap
 	}
 
 	if application.Jobs != nil && application.ArtifactStore != nil {
+		markdownHandoff := pipeline.NewMarkdownExtractionHandoff(
+			logger,
+			application.ArtifactStore,
+			application.LocalMarkdown,
+			application.JinaMarkdown,
+		)
+
 		application.SnapshotPipeline = pipeline.NewSnapshotPipeline(
 			logger,
 			application.Jobs,
 			application.ArtifactStore,
 			application.Fetcher,
-			pipeline.NoOpMarkdownHandoff,
+			markdownHandoff,
 		)
 	}
 

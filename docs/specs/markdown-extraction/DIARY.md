@@ -309,3 +309,41 @@ Follow-ups:
 
 Canonical Updates:
 - None.
+
+---
+
+## 2026-05-12 — MDEXT-005: Worker Markdown Pipeline Integration
+
+Status:
+- done
+
+Summary:
+- Replaced the Worker snapshot pipeline's no-op Markdown handoff with a concrete Markdown extraction handoff that reads `snapshot.html`, calls `MarkdownExtractor` implementations, writes `content.md` atomically, and leaves final success for summary generation.
+
+Changes:
+- Added `MarkdownExtractionHandoff` in `src/worker/internal/pipeline/markdown_handoff.go`.
+- Added ARC-coded Markdown-stage errors for local unreadable, local extraction failure, Jina fallback failure, Jina insufficient balance, and Markdown artifact write failure.
+- Wired `GoReadabilityExtractor` and `JinaExtractor` into `pkg/app.NewApp` through the Worker-owned `MarkdownExtractor` interface.
+- Added Jina config fields and explicit env loading for `APP_JINA_ENABLED` and `APP_JINA_API_KEY`.
+- Added Worker pipeline tests for local success, Jina fallback success, Jina general failure, Jina insufficient balance, Markdown write failure, terminal failure transaction, rollback on notification insert failure, and required log fields.
+
+Decisions:
+- Markdown success remains non-terminal: after `content.md` promotion, `articles.status`, `jobs.status`, and success notification rows are not finalized at the Markdown boundary.
+- Pipeline orchestration logs provider attempts, fallback reason, selected provider, ARC code, duration, and artifact write result; adapters remain logging-free at info/error level.
+- Provider SDK and adapter details stay outside orchestration. The handoff depends only on the `MarkdownExtractor` contract.
+
+Validation:
+- `cd src/worker && go tool lefthook run build` — passed after installing existing UI npm dependencies needed by the repository-wide hook.
+- `cd src/worker && go tool lefthook run format` — passed.
+- `cd src/worker && go tool lefthook run lint` — passed.
+- `cd src/worker && go tool lefthook run test` — passed.
+
+Follow-ups:
+- `SUMGEN-002` and later summary integration can now consume the promoted `content.md` boundary.
+
+Canonical Updates:
+- `docs/specs/markdown-extraction/tasks/MDEXT-005-worker-markdown-pipeline-integration.md` (status: done)
+- `docs/specs/markdown-extraction/plans/MDEXT-005-worker-markdown-pipeline-integration.execplan.md` (status: completed)
+- `docs/specs/markdown-extraction/PLAN.md` (feature status: done; MDEXT-005 row: done)
+- `docs/specs/markdown-extraction/SPEC.md` (status: done)
+- `docs/specs/INDEX.md` (markdown-extraction status: done)

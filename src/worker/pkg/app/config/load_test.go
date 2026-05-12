@@ -27,6 +27,8 @@ func TestConfigurationDefaults(t *testing.T) {
 	assert.True(t, cfg.Debug)
 	assert.Equal(t, "", cfg.SqlitePath)
 	assert.Equal(t, "", cfg.DataDir)
+	assert.False(t, cfg.JinaEnabled)
+	assert.Equal(t, "", cfg.JinaAPIKey)
 }
 
 func TestConfigurationLoadsNewFieldsFromEnvVars(t *testing.T) {
@@ -54,4 +56,15 @@ func TestConfigurationLoadsDataDir(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, "/data", cfg.DataDir)
+}
+
+func TestConfigurationLoadsJina(t *testing.T) {
+	t.Setenv("APP_JINA_ENABLED", "true")
+	t.Setenv("APP_JINA_API_KEY", "jina-secret")
+
+	cfg, err := config.Load()
+
+	require.NoError(t, err)
+	assert.True(t, cfg.JinaEnabled)
+	assert.Equal(t, "jina-secret", cfg.JinaAPIKey)
 }
