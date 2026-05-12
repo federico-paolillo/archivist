@@ -1,0 +1,300 @@
+namespace Archivist.Gateway.Tests.Api;
+
+using System.Net;
+
+using Archivist.Gateway.Application.ArticleArtifacts;
+using Archivist.Gateway.Application.Auth.Services;
+using Archivist.Gateway.Application.Auth.Services.Defaults;
+using Archivist.Gateway.Application.Persistence;
+using Archivist.Gateway.Application.Persistence.Entities;
+
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Time.Testing;
+
+using Xunit.Abstractions;
+
+public sealed class ArticleDeleteEndpointTest(ITestOutputHelper testOutputHelper) : IntegrationTest(testOutputHelper)
+{
+    private const string CookieName = "__Host-app-auth";
+    private const string SessionId = "test-session-id";
+    private const string PersonalUserId = PersistenceConstants.PersonalUserId;
+    private const string OtherUserId = "01ASB2XFCZJY7WHZ2FNRTMQJCV";
+
+    [Theory]
+    [InlineData(PersistenceConstants.ArticleReady, PersistenceConstants.JobSucceeded)]
+    [InlineData(PersistenceConstants.ArticleFailed, PersistenceConstants.JobFailed)]
+    [InlineData(PersistenceConstants.ArticleQueued, PersistenceConstants.JobQueued)]
+    public async Task DeleteArticle_AllowedStatuses_RemovesArticleRowsAndArtifacts(string articleStatus, string jobStatus)
+    {
+        var env = PrepareArticleEnvironment();
+        var articleId = "01H00000000000000000000000";
+        var jobId = "01H00000000000000000000001";
+
+        await SeedArticleAsync(env.SqlitePath, articleId, PersonalUserId, articleStatus, jobId, jobStatus, addNotification: true);
+        var artifactFile = CreateArtifact(env.DataDirectory, articleId);
+
+        using var http = CreateHttpClient();
+        var response = await SendDeleteAsync(http, articleId);
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.False(Directory.Exists(Path.GetDirectoryName(artifactFile)));
+
+        await using var db = CreateDb(env.SqlitePath);
+        Assert.Equal(0, await db.Articles.CountAsync());
+        Assert.Equal(0, await db.Jobs.CountAsync());
+        Assert.Equal(0, await db.Notifications.CountAsync());
+    }
+
+    [Fact]
+    public async Task DeleteArticle_RunningJob_Returns409AndLeavesState()
+    {
+        var env = PrepareArticleEnvironment();
+        var articleId = "01H00000000000000000000002";
+
+        await SeedArticleAsync(env.SqlitePath, articleId, PersonalUserId, PersistenceConstants.ArticleQueued, "01H00000000000000000000003", PersistenceConstants.JobRunning, addNotification: false);
+        CreateArtifact(env.DataDirectory, articleId);
+
+        using var http = CreateHttpClient();
+        var response = await SendDeleteAsync(http, articleId);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.True(Directory.Exists(Path.Combine(env.DataDirectory, "articles", articleId)));
+
+        await using var db = CreateDb(env.SqlitePath);
+        Assert.Equal(1, await db.Articles.CountAsync());
+        Assert.Equal(1, await db.Jobs.CountAsync());
+    }
+
+    [Fact]
+    public async Task DeleteArticle_MalformedId_Returns400()
+    {
+        PrepareArticleEnvironment();
+
+        using var http = CreateHttpClient();
+        var response = await SendDeleteAsync(http, "not-a-ulid");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteArticle_NotOwnedByAuthenticatedUser_Returns404()
+    {
+        var env = PrepareArticleEnvironment();
+        var articleId = "01H00000000000000000000004";
+
+        await SeedArticleAsync(env.SqlitePath, articleId, OtherUserId, PersistenceConstants.ArticleQueued, "01H00000000000000000000005", PersistenceConstants.JobQueued, addNotification: false);
+
+        using var http = CreateHttpClient();
+        var response = await SendDeleteAsync(http, articleId);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+
+        await using var db = CreateDb(env.SqlitePath);
+        Assert.Equal(1, await db.Articles.CountAsync());
+        Assert.Equal(1, await db.Jobs.CountAsync());
+    }
+
+    [Fact]
+    public async Task DeleteArticle_MissingArtifactDirectory_DoesNotFail()
+    {
+        var env = PrepareArticleEnvironment();
+        var articleId = "01H00000000000000000000006";
+
+        await SeedArticleAsync(env.SqlitePath, articleId, PersonalUserId, PersistenceConstants.ArticleQueued, "01H00000000000000000000007", PersistenceConstants.JobQueued, addNotification: false);
+
+        using var http = CreateHttpClient();
+        var response = await SendDeleteAsync(http, articleId);
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteArticle_ArtifactCleanupFailure_Returns500AndLeavesDatabaseState()
+    {
+        var env = PrepareArticleEnvironment(artifactDeletion: new FailingArticleArtifactDeletion());
+        var articleId = "01H00000000000000000000008";
+
+        await SeedArticleAsync(env.SqlitePath, articleId, PersonalUserId, PersistenceConstants.ArticleQueued, "01H00000000000000000000009", PersistenceConstants.JobQueued, addNotification: true);
+
+        using var http = CreateHttpClient();
+        var response = await SendDeleteAsync(http, articleId);
+
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+
+        await using var db = CreateDb(env.SqlitePath);
+        Assert.Equal(1, await db.Articles.CountAsync());
+        Assert.Equal(1, await db.Jobs.CountAsync());
+        Assert.Equal(1, await db.Notifications.CountAsync());
+    }
+
+    [Fact]
+    public async Task DeleteArticle_CrossSiteOrigin_Returns403()
+    {
+        var env = PrepareArticleEnvironment();
+        var articleId = "01H0000000000000000000000A";
+
+        await SeedArticleAsync(env.SqlitePath, articleId, PersonalUserId, PersistenceConstants.ArticleQueued, "01H0000000000000000000000B", PersistenceConstants.JobQueued, addNotification: false);
+
+        using var http = CreateHttpClient();
+        using var request = CreateDeleteRequest(articleId, "https://evil.example.com");
+
+        var response = await http.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteArticle_QueuedArticle_RemovesQueuedJobSoLaterClaimFindsNothing()
+    {
+        var env = PrepareArticleEnvironment();
+        var articleId = "01H0000000000000000000000C";
+
+        await SeedArticleAsync(env.SqlitePath, articleId, PersonalUserId, PersistenceConstants.ArticleQueued, "01H0000000000000000000000D", PersistenceConstants.JobQueued, addNotification: false);
+
+        using var http = CreateHttpClient();
+        var response = await SendDeleteAsync(http, articleId);
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+
+        await using var db = CreateDb(env.SqlitePath);
+        var claimableJobs = await db.Jobs.CountAsync(x => x.Status == PersistenceConstants.JobQueued);
+        Assert.Equal(0, claimableJobs);
+    }
+
+    private TestEnvironment PrepareArticleEnvironment(IArticleArtifactDeletion? artifactDeletion = null)
+    {
+        var sqlitePath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.db");
+        var dataDirectory = Path.Combine(Path.GetTempPath(), $"archivist-data-{Guid.NewGuid():N}");
+        var fakeTime = new FakeTimeProvider(DateTimeOffset.UtcNow);
+        var sessionStore = new InMemorySessionStore(fakeTime);
+        var now = fakeTime.GetUtcNow();
+        sessionStore
+            .SetAsync(SessionId, new SessionEntry(PersonalUserId, now, now.AddHours(24)))
+            .GetAwaiter()
+            .GetResult();
+
+        PrepareEnvironment(
+            Environments.Development,
+            configureTestServices: services =>
+            {
+                services.RemoveAll<ISessionStore>();
+                services.RemoveAll<TimeProvider>();
+                services.RemoveAll<IHostedService>();
+                services.AddSingleton<ISessionStore>(sessionStore);
+                services.AddSingleton<TimeProvider>(fakeTime);
+
+                if (artifactDeletion is not null)
+                {
+                    services.RemoveAll<IArticleArtifactDeletion>();
+                    services.AddScoped(_ => artifactDeletion);
+                }
+            },
+            configureConfiguration: cfg =>
+                cfg.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["SQLITE_PATH"] = sqlitePath,
+                    ["DATA_DIR"] = dataDirectory,
+                    ["TELEGRAM_WEBHOOK_SECRET"] = "test-webhook-secret",
+                    ["TELEGRAM_ALLOWED_USER_ID"] = "99999",
+                    ["TELEGRAM_BOT_TOKEN"] = "fake-token",
+                }));
+
+        return new TestEnvironment(sqlitePath, dataDirectory);
+    }
+
+    private async Task<HttpResponseMessage> SendDeleteAsync(HttpClient http, string articleId)
+    {
+        using var request = CreateDeleteRequest(articleId, "http://localhost");
+        return await http.SendAsync(request);
+    }
+
+    private static HttpRequestMessage CreateDeleteRequest(string articleId, string origin)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Delete, $"/articles/{articleId}");
+        request.Headers.Add("Cookie", $"{CookieName}={SessionId}");
+        request.Headers.Add("Origin", origin);
+        return request;
+    }
+
+    private static string CreateArtifact(string dataDirectory, string articleId)
+    {
+        var articleDirectory = Path.Combine(dataDirectory, "articles", articleId);
+        Directory.CreateDirectory(articleDirectory);
+        var artifactFile = Path.Combine(articleDirectory, "summary.md");
+        File.WriteAllText(artifactFile, "summary");
+        return artifactFile;
+    }
+
+    private static async Task SeedArticleAsync(
+        string sqlitePath,
+        string articleId,
+        string userId,
+        string articleStatus,
+        string jobId,
+        string jobStatus,
+        bool addNotification)
+    {
+        await using var db = CreateDb(sqlitePath);
+        await db.Database.EnsureCreatedAsync();
+
+        db.Users.Add(new UserEntity
+        {
+            Id = userId,
+            TelegramUserId = userId == PersonalUserId ? 99999 : null,
+        });
+        db.Articles.Add(new ArticleEntity
+        {
+            Id = articleId,
+            UserId = userId,
+            OriginalUrl = "https://example.com/article",
+            Status = articleStatus,
+            CreatedAt = DateTimeOffset.UtcNow,
+        });
+        db.Jobs.Add(new JobEntity
+        {
+            Id = jobId,
+            UserId = userId,
+            ArticleId = articleId,
+            Type = PersistenceConstants.ArticleProcessingJobType,
+            Status = jobStatus,
+            TelegramUpdateId = 123456789,
+            TelegramChatId = 123,
+            TelegramMessageId = 456,
+            TelegramUserId = 99999,
+            CreatedAt = DateTimeOffset.UtcNow,
+        });
+
+        if (addNotification)
+        {
+            db.Notifications.Add(new NotificationEntity
+            {
+                Id = $"{jobId[..24]}NF",
+                JobId = jobId,
+                Status = PersistenceConstants.NotificationPending,
+                CreatedAt = DateTimeOffset.UtcNow,
+                ExpiresAt = DateTimeOffset.UtcNow.AddDays(7),
+            });
+        }
+
+        await db.SaveChangesAsync();
+    }
+
+    private static ArchivistDbContext CreateDb(string sqlitePath)
+    {
+        var options = new DbContextOptionsBuilder<ArchivistDbContext>()
+            .UseSqlite($"Data Source={sqlitePath}")
+            .Options;
+
+        return new ArchivistDbContext(options);
+    }
+
+    private sealed record TestEnvironment(string SqlitePath, string DataDirectory);
+
+    private sealed class FailingArticleArtifactDeletion : IArticleArtifactDeletion
+    {
+        public Task<bool> DeleteArticleDirectoryAsync(string articleId, CancellationToken cancellationToken) =>
+            Task.FromResult(false);
+    }
+}

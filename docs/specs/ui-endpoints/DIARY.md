@@ -72,3 +72,35 @@ Canonical Updates:
 - `docs/specs/ui-endpoints/tasks/UIEND-003-gateway-article-delete-api.md`
 - `docs/specs/ui-endpoints/plans/UIEND-002-gateway-article-read-api.execplan.md`
 - `docs/specs/ui-endpoints/plans/UIEND-003-gateway-article-delete-api.execplan.md`
+
+## 2026-05-12 — UIEND-003: Gateway Article Delete API
+
+Status:
+- completed
+
+Summary:
+- Implemented authenticated `DELETE /articles/{id}` for hard deletion of owned article state, associated jobs, associated notifications, and the deterministic artifact directory.
+
+Changes:
+- Added Gateway article route mapping with `RequireAuthorization` and same-origin unsafe-method filtering.
+- Added an article delete application service using a SQLite `BEGIN IMMEDIATE` transaction, ownership recheck, running-job conflict detection, explicit associated row deletion, and commit after artifact cleanup succeeds.
+- Added a delete-only artifact cleanup abstraction separate from read-only artifact access.
+- Added integration tests for ready, failed, queued, running conflict, malformed ID, not found, missing artifact directory, cleanup failure with DB state intact, row/directory cleanup, cross-site rejection, and queued-job removal before later claim.
+
+Decisions:
+- Used the proposed ExecPlan as execution guidance under explicit user assignment override; marked it completed.
+- `DATA_DIR` defaults to `/data` for Gateway article artifact deletion when not configured.
+- Artifact cleanup failure returns `500` and rolls back the open SQLite transaction before database delete statements run.
+
+Validation:
+- `cd src/gateway && dotnet format`
+- `cd src/gateway && dotnet build`
+- `cd src/gateway && dotnet test`
+
+Follow-ups:
+- `UIEND-002` remains separate and was not implemented.
+
+Canonical Updates:
+- `docs/specs/ui-endpoints/PLAN.md`
+- `docs/specs/ui-endpoints/tasks/UIEND-003-gateway-article-delete-api.md`
+- `docs/specs/ui-endpoints/plans/UIEND-003-gateway-article-delete-api.execplan.md`
