@@ -2,7 +2,7 @@
 id: AUTHN-004
 feature: authn
 title: Protect UI API and validate auth client contract
-status: blocked
+status: done
 depends_on: [AUTHN-003]
 blocks: [AUTHN-005, UI-002]
 parallel: false
@@ -64,12 +64,23 @@ Scenario: Session endpoint confirms authenticated request
 - Gateway protected route test passes.
 - Auth endpoints retain the contracts consumed by `docs/specs/ui/SPEC.md`.
 
+## Implementation Notes
+
+- Status transitioned from `blocked` to `done` by explicit user assignment for Wave 4.
+- No placeholder `/articles` route was added in this task. The concrete UI article endpoint contracts are owned by `ui-endpoints`; this task validates the existing authenticated Gateway route contract through `GET /auth/session` and preserves the auth client contract required by `docs/specs/ui/SPEC.md`.
+
 ## Validation
 
 Required checks:
 
 ```bash
 cd src/gateway && dotnet test
+```
+
+Result on 2026-05-12:
+
+```text
+Passed! - Failed: 0, Passed: 101, Skipped: 0, Total: 101
 ```
 
 ## Dependencies
