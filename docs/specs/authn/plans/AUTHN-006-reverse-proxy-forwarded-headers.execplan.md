@@ -47,7 +47,7 @@ ExecPlan-specific context:
 
 ## Implementation Sequence
 
-1. Add Gateway configuration binding for `GATEWAY_PUBLIC_HOSTS` as a required production-style public host allowlist for forwarded host validation.
+1. Add Gateway configuration binding for `GATEWAY_PUBLIC_HOSTS` as a required production-style public host allowlist for forwarded host validation; environment-based deployment supplies it as `ARCHIVIST_GATEWAY_PUBLIC_HOSTS`.
 2. Configure ASP.NET Core forwarded headers to process `X-Forwarded-Proto` and `X-Forwarded-For`.
 3. Set forwarded header `ForwardLimit = 1`.
 4. Apply allowed public hosts from `GATEWAY_PUBLIC_HOSTS`; fail fast in production-style configuration when forwarded headers are enabled and no public hosts are configured.

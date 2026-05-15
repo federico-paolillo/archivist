@@ -62,8 +62,8 @@ Not included:
 ## Requirements
 
 - REQ-001: The gateway must expose `POST /telegram/webhook` for Telegram update delivery.
-- REQ-002: The gateway must validate `X-Telegram-Bot-Api-Secret-Token` against `TELEGRAM_WEBHOOK_SECRET` before processing a Telegram update.
-- REQ-003: The gateway must process messages only from `TELEGRAM_ALLOWED_USER_ID`.
+- REQ-002: The gateway must validate `X-Telegram-Bot-Api-Secret-Token` against `Telegram:WebhookSecret` before processing a Telegram update.
+- REQ-003: The gateway must process messages only from `Telegram:AllowedUserId`.
 - REQ-004: Unauthorized Telegram users must not create users, articles, jobs, notifications, or Telegram replies.
 - REQ-005: The gateway must accept only text messages whose trimmed body is exactly one absolute `http` or `https` URL.
 - REQ-006: Unsupported schemes, missing schemes, media/captions, extra text, and multiple tokens must be rejected.
@@ -261,7 +261,7 @@ Notifications are gateway delivery records. They do not copy article IDs, Telegr
 
 - Telegram webhook: `POST /telegram/webhook`.
 - Telegram webhook secret header: `X-Telegram-Bot-Api-Secret-Token`.
-- Telegram send API: gateway sends replies using `TELEGRAM_BOT_TOKEN`.
+- Telegram send API: gateway sends replies using `Telegram:BotToken`.
 - SQLite user contract: gateway ensures the personal user row exists for accepted authorized Telegram messages.
 - SQLite queue contract: gateway inserts article and queued job records; worker claims queued jobs atomically with `UPDATE ... RETURNING`.
 - SQLite notification contract: worker inserts one pending notification when a job reaches `succeeded` or `failed`; gateway dispatches pending notifications.
@@ -270,9 +270,10 @@ Notifications are gateway delivery records. They do not copy article IDs, Telegr
 - Configuration:
   - `DATA_DIR`
   - `SQLITE_PATH`
-  - `TELEGRAM_BOT_TOKEN`
-  - `TELEGRAM_ALLOWED_USER_ID`
-  - `TELEGRAM_WEBHOOK_SECRET`
+  - `Telegram:BotToken`
+  - `Telegram:AllowedUserId`
+  - `Telegram:WebhookSecret`
+  - Gateway reads these hierarchical keys from configuration sections or `ARCHIVIST_`-prefixed environment variables, for example `ARCHIVIST_Telegram__BotToken` and `ARCHIVIST_Telegram__WebhookSecret`.
 
 ## Dependencies
 

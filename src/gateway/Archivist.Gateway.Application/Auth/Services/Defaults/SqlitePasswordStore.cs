@@ -1,20 +1,19 @@
-using Archivist.Gateway.Application.Auth.Options;
+using Archivist.Gateway.Application.Auth;
 
 using Microsoft.Data.Sqlite;
-using Microsoft.Extensions.Options;
 
 namespace Archivist.Gateway.Application.Auth.Services.Defaults;
 
 /// <summary>
 /// Reads the personal user's stored Argon2id password hash from SQLite.
 /// </summary>
-public sealed class SqlitePasswordStore(IOptions<AuthOptions> options) : IPasswordStore
+public sealed class SqlitePasswordStore(AuthSettings settings) : IPasswordStore
 {
     private const string PersonalUserId = "01ASB2XFCZJY7WHZ2FNRTMQJCT";
 
     public async Task<string?> GetPasswordHashAsync(CancellationToken ct = default)
     {
-        var sqlitePath = options.Value.SqlitePath;
+        var sqlitePath = settings.SqlitePath;
 
         if (string.IsNullOrWhiteSpace(sqlitePath))
         {

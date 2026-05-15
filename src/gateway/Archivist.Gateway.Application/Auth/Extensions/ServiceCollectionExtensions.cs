@@ -1,6 +1,7 @@
-using Archivist.Gateway.Application.Auth.Options;
+using Archivist.Gateway.Application.Auth;
 using Archivist.Gateway.Application.Auth.Services;
 using Archivist.Gateway.Application.Auth.Services.Defaults;
+using Archivist.Gateway.Application.Configuration;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,10 +24,15 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
 
-        services.Configure<AuthOptions>(opts =>
+        services.AddSingleton(serviceProvider =>
         {
-            opts.SqlitePath = configuration["SQLITE_PATH"];
-            opts.BootstrapPassword = configuration["AUTH_BOOTSTRAP_PASSWORD"];
+            var resolvedConfiguration = serviceProvider.GetRequiredService<IConfiguration>();
+
+            return new AuthSettings
+            {
+                SqlitePath = resolvedConfiguration.GetValue<string>(Settings.SqlitePathKey),
+                BootstrapPassword = resolvedConfiguration.GetValue<string>(Settings.AuthBootstrapPasswordKey),
+            };
         });
 
         services.AddSingleton<IPasswordValidator, PasswordValidator>();
@@ -39,8 +45,8 @@ public static class ServiceCollectionExtensions
         // Register TimeProvider for InMemorySessionStore and other consumers.
         services.AddSingleton(TimeProvider.System);
 
-        // Register AppCookieOptions so endpoints can resolve IOptions<AppCookieOptions> directly.
-        services.Configure<AppCookieOptions>(_ => { });
+        services.AddOptions<AppCookieSettings>().BindConfiguration(AppCookieSettings.Section);
+        services.AddOptions<AppCookieSettings>(AppCookieDefaults.AuthenticationScheme).BindConfiguration(AppCookieSettings.Section);
 
         services
             .AddAuthentication(AppCookieDefaults.AuthenticationScheme)

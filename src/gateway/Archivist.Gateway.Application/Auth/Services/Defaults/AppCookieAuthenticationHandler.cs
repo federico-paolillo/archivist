@@ -1,7 +1,7 @@
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 
-using Archivist.Gateway.Application.Auth.Options;
+using Archivist.Gateway.Application.Auth;
 
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Logging;
@@ -16,12 +16,12 @@ namespace Archivist.Gateway.Application.Auth.Services.Defaults;
 /// The handler does not issue, clear, rotate, or refresh cookies.
 /// </summary>
 public sealed class AppCookieAuthenticationHandler(
-    IOptionsMonitor<AppCookieOptions> options,
+    IOptionsMonitor<AppCookieSettings> options,
     ILoggerFactory logger,
     UrlEncoder encoder,
     ISessionStore sessionStore,
     TimeProvider timeProvider
-) : AuthenticationHandler<AppCookieOptions>(options, logger, encoder)
+) : AuthenticationHandler<AppCookieSettings>(options, logger, encoder)
 {
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {

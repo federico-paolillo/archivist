@@ -1,6 +1,7 @@
 using Archivist.Gateway.Application.ArticleArtifacts;
 using Archivist.Gateway.Application.ArticleArtifacts.Defaults;
 using Archivist.Gateway.Application.Articles.Defaults;
+using Archivist.Gateway.Application.Configuration;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,13 +21,17 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
 
-        var dataDirectory = configuration["DATA_DIR"];
-        if (string.IsNullOrWhiteSpace(dataDirectory))
+        services.AddSingleton(serviceProvider =>
         {
-            dataDirectory = "/data";
-        }
+            var resolvedConfiguration = serviceProvider.GetRequiredService<IConfiguration>();
+            var dataDirectory = resolvedConfiguration.GetValue<string>(Settings.DataDirectoryKey);
+            if (string.IsNullOrWhiteSpace(dataDirectory))
+            {
+                dataDirectory = "/data";
+            }
 
-        services.AddSingleton(new ArticleArtifactPaths(dataDirectory));
+            return new ArticleArtifactPaths(dataDirectory);
+        });
         services.AddScoped<IArticleArtifactDeletion, FileSystemArticleArtifactDeletion>();
         services.AddScoped<IArticleDeleteService, EfArticleDeleteService>();
 

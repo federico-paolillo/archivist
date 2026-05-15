@@ -73,7 +73,7 @@ Not included:
 - REQ-014: Session expiry must be absolute and server-side enforced at 24 hours from issue.
 - REQ-015: The v0 `ISessionStore` implementation must be in-memory and may use `ConcurrentDictionary<string, SessionEntry>`.
 - REQ-016: Gateway restart invalidates existing v0 sessions by wiping the in-memory store.
-- REQ-017: Gateway auth must integrate with ASP.NET Core through a custom `IAuthenticationHandler`, or `AuthenticationHandler<AppCookieOptions>`, registered by `AddAppCookie()`.
+- REQ-017: Gateway auth must integrate with ASP.NET Core through a custom `IAuthenticationHandler`, or `AuthenticationHandler<AppCookieSettings>`, registered by `AddAppCookie()`.
 - REQ-018: The auth scheme and authentication type must be `"app-cookie"`.
 - REQ-019: Authenticated requests must receive a minimal `ClaimsPrincipal` containing only `ClaimTypes.NameIdentifier` with the user id.
 - REQ-020: The handler must not issue, clear, rotate, or refresh cookies.
@@ -227,7 +227,7 @@ The v0 implementation is in-memory and may use `ConcurrentDictionary<string, Ses
 ```csharp
 public static AuthenticationBuilder AddAppCookie(
     this AuthenticationBuilder builder,
-    Action<AppCookieOptions>? configure = null);
+    Action<AppCookieSettings>? configure = null);
 ```
 
 Wire-up:
@@ -249,6 +249,7 @@ services.AddAuthorization();
   - `AUTH_BOOTSTRAP_PASSWORD`: one-time 2048-character bootstrap password. Secret.
   - `SQLITE_PATH`: SQLite database path.
   - `GATEWAY_PUBLIC_HOSTS`: comma-separated public host allowlist for trusted forwarded host values. Not secret.
+  - Gateway reads these standalone logical keys from configuration providers or `ARCHIVIST_`-prefixed environment variables, for example `ARCHIVIST_AUTH_BOOTSTRAP_PASSWORD`, `ARCHIVIST_SQLITE_PATH`, and `ARCHIVIST_GATEWAY_PUBLIC_HOSTS`.
 
 ## Dependencies
 

@@ -171,7 +171,7 @@ Authorized Telegram messages must contain exactly one trimmed absolute `http` or
 
 The gateway persists the Telegram sender user ID separately from `telegram_chat_id` and `telegram_message_id`. `telegram_user_id` is sender identity metadata. `telegram_chat_id` and `telegram_message_id` are reply-target metadata.
 
-The v0 personal account ULID must not be treated as a catch-all for future multi-user ingestion. Any feature that accepts additional Telegram users must define explicit identity-linking behavior before changing `TELEGRAM_ALLOWED_USER_ID` authorization semantics.
+The v0 personal account ULID must not be treated as a catch-all for future multi-user ingestion. Any feature that accepts additional Telegram users must define explicit identity-linking behavior before changing `Telegram:AllowedUserId` authorization semantics.
 
 The worker must not call Telegram APIs directly.
 
@@ -252,8 +252,8 @@ The system is single-user.
 
 Security boundaries:
 
-- Telegram ingestion is limited to one configured `TELEGRAM_ALLOWED_USER_ID`.
-- Telegram webhook requests require `TELEGRAM_WEBHOOK_SECRET`.
+- Telegram ingestion is limited to one configured `Telegram:AllowedUserId`.
+- Telegram webhook requests require `Telegram:WebhookSecret`.
 - The entire UI and UI-facing API are protected by cookie authentication.
 - UI/API authentication uses password-only login for the fixed personal user.
 - Password hashes are Argon2id PHC strings stored on the personal `users` row.
@@ -269,14 +269,14 @@ Security boundaries:
 
 ## Configuration
 
-The following configuration keys define the v0 runtime surface:
+The following logical configuration keys define the v0 runtime surface:
 
 ```text
 DATA_DIR
 SQLITE_PATH
-TELEGRAM_BOT_TOKEN
-TELEGRAM_ALLOWED_USER_ID
-TELEGRAM_WEBHOOK_SECRET
+Telegram:BotToken
+Telegram:AllowedUserId
+Telegram:WebhookSecret
 AUTH_BOOTSTRAP_PASSWORD
 LLM_PROVIDER
 LLM_API_KEY
@@ -286,6 +286,8 @@ JINA_API_KEY
 GATEWAY_PUBLIC_HOSTS
 VITE_API_BASE_PATH
 ```
+
+Gateway uses the default ASP.NET Core application configuration sources, appends `ARCHIVIST_`-prefixed environment variables, and creates the builder without command-line arguments. Standalone Gateway keys remain flat, for example `ARCHIVIST_SQLITE_PATH`. Option-bound groups use hierarchy with double underscores in environment variables, for example `ARCHIVIST_Telegram__BotToken`, `ARCHIVIST_Telegram__AllowedUserId`, and `ARCHIVIST_Telegram__WebhookSecret`.
 
 `JINA_API_KEY` is optional configuration for authenticated Jina Reader requests and must be treated as secret material when supplied.
 

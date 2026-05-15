@@ -70,13 +70,13 @@ AUTHN-001 -> AUTHN-002 -> AUTHN-003 -> AUTHN-004 -> AUTHN-006 -> AUTHN-005
 
 - `users.password_hash` Argon2id PHC storage.
 - `ISessionStore` and `SessionEntry`.
-- `AppCookieAuthenticationHandler`, `AppCookieOptions`, and `AddAppCookie()`.
+- `AppCookieAuthenticationHandler`, `AppCookieSettings`, and `AddAppCookie()`.
 - `POST /login`, `POST /logout`, and `GET /auth/session`.
 - Cookie name and attributes for `__Host-app-auth`.
 - 32-byte base64url opaque session id generation and 24-hour server-side absolute expiry.
 - Same-origin rejection behavior for unsafe methods.
 - Effective public scheme, host, and port after trusted forwarded-header processing.
-- `GATEWAY_PUBLIC_HOSTS`, `AUTH_BOOTSTRAP_PASSWORD`, and `SQLITE_PATH`.
+- `GATEWAY_PUBLIC_HOSTS`, `AUTH_BOOTSTRAP_PASSWORD`, and `SQLITE_PATH` standalone logical keys, supplied to Gateway through configuration providers or `ARCHIVIST_`-prefixed environment variables.
 
 ---
 

@@ -22,7 +22,7 @@ This task includes:
 
 - Opaque `__Host-app-auth` session id cookies.
 - `ISessionStore`, `SessionEntry`, and v0 in-memory session storage.
-- `AppCookieAuthenticationHandler`, `AppCookieOptions`, and `AddAppCookie()`.
+- `AppCookieAuthenticationHandler`, `AppCookieSettings`, and `AddAppCookie()`.
 - `POST /login`, `POST /logout`, and `GET /auth/session`.
 - In-memory login throttling.
 - Same-origin rejection for unsafe methods.

@@ -26,7 +26,7 @@ This task includes:
 
 - `POST /telegram/webhook`.
 - Webhook secret validation using `X-Telegram-Bot-Api-Secret-Token`.
-- Allowed-user validation using `TELEGRAM_ALLOWED_USER_ID`.
+- Allowed-user validation using `Telegram:AllowedUserId`.
 - Strict absolute `http`/`https` URL-only validation.
 - Invalid authorized message reply: `Nope, you must send only an URL`.
 - Valid queued acknowledgement reply: `Ok, I will have a look`.

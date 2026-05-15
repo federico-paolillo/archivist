@@ -29,7 +29,7 @@ Runtime artifact paths are defined in `docs/conventions/ARTIFACTS.md`.
 
 Language-specific naming conventions are defined in module convention files when needed.
 
-Configuration keys use uppercase snake case, for example `DATA_DIR` and `TELEGRAM_BOT_TOKEN`.
+Standalone configuration keys use uppercase snake case, for example `DATA_DIR`. Option-bound groups use hierarchical section keys, for example `Telegram:BotToken`.
 
 ## Error Handling
 
@@ -66,14 +66,16 @@ Before any task is marked done, run the validation required by that task or its 
 
 Runtime configuration is supplied through environment variables or equivalent deployment secret mechanisms.
 
+Gateway configuration uses logical keys in code and documentation. Standalone Gateway values stay flat; multiple settings with the same conceptual prefix are grouped into a hierarchical section. Gateway accepts `ARCHIVIST_`-prefixed environment variables, using `__` for hierarchy. For example, `SQLITE_PATH` maps to `ARCHIVIST_SQLITE_PATH`, while `Telegram:BotToken` maps to `ARCHIVIST_Telegram__BotToken`.
+
 Known v0 configuration keys are:
 
 ```text
 DATA_DIR
 SQLITE_PATH
-TELEGRAM_BOT_TOKEN
-TELEGRAM_ALLOWED_USER_ID
-TELEGRAM_WEBHOOK_SECRET
+Telegram:BotToken
+Telegram:AllowedUserId
+Telegram:WebhookSecret
 AUTH_BOOTSTRAP_PASSWORD
 LLM_PROVIDER
 LLM_API_KEY

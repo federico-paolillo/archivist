@@ -12,7 +12,7 @@ using Microsoft.Extensions.Options;
 /// validates URL-only text, persists valid URLs atomically, and sends immediate Telegram replies.
 /// </summary>
 public sealed partial class TelegramWebhookHandler(
-    IOptions<TelegramOptions> options,
+    IOptions<TelegramSettings> settings,
     ITelegramIngestionRepository ingestionRepository,
     ITelegramClient telegramClient,
     ILogger<TelegramWebhookHandler> logger)
@@ -29,16 +29,16 @@ public sealed partial class TelegramWebhookHandler(
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        var opts = options.Value;
+        var telegramSettings = settings.Value;
 
-        if (!IsSecretValid(command.WebhookSecret, opts.WebhookSecret))
+        if (!IsSecretValid(command.WebhookSecret, telegramSettings.WebhookSecret))
         {
             LogBadSecret(logger, command.UpdateId);
 
             return new TelegramWebhookResult(TelegramWebhookOutcome.BadSecret);
         }
 
-        if (command.SenderUserId is null || command.SenderUserId != opts.AllowedUserId)
+        if (command.SenderUserId is null || command.SenderUserId != telegramSettings.AllowedUserId)
         {
             LogUnauthorized(logger, command.UpdateId, command.SenderUserId);
 

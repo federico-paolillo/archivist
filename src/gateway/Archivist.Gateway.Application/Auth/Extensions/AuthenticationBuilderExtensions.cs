@@ -1,4 +1,4 @@
-using Archivist.Gateway.Application.Auth.Options;
+using Archivist.Gateway.Application.Auth;
 using Archivist.Gateway.Application.Auth.Services.Defaults;
 
 using Microsoft.AspNetCore.Authentication;
@@ -18,11 +18,11 @@ public static class AuthenticationBuilderExtensions
     /// </summary>
     public static AuthenticationBuilder AddAppCookie(
         this AuthenticationBuilder builder,
-        Action<AppCookieOptions>? configure = null)
+        Action<AppCookieSettings>? configure = null)
     {
         ArgumentNullException.ThrowIfNull(builder);
 
-        return builder.AddScheme<AppCookieOptions, AppCookieAuthenticationHandler>(
+        return builder.AddScheme<AppCookieSettings, AppCookieAuthenticationHandler>(
             AppCookieDefaults.AuthenticationScheme,
             configure);
     }

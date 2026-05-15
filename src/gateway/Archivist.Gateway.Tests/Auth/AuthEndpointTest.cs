@@ -1,7 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 
-using Archivist.Gateway.Application.Auth.Options;
+using Archivist.Gateway.Application.Auth;
 using Archivist.Gateway.Application.Auth.Services;
 using Archivist.Gateway.Application.Auth.Services.Defaults;
 

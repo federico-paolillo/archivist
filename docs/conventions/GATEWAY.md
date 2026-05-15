@@ -44,6 +44,19 @@ Conventions:
 - Login verification must validate shape and request size before Argon2id work and must use in-memory throttling in v0.
 - `POST /login` must return `403 Forbidden` unless post-forwarding `Request.Scheme == "https"`.
 
+## Configuration
+
+- Gateway application configuration must keep ASP.NET Core's default application configuration sources, create the builder without command-line arguments, and append `builder.Configuration.AddEnvironmentVariables("ARCHIVIST_")`.
+- Do not use command-line arguments as a Gateway application configuration source.
+- Keep standalone settings flat and group multiple settings with the same conceptual prefix into sections.
+- Treat documented standalone keys such as `SQLITE_PATH` and `DATA_DIR` as logical keys. Their environment variable names are `ARCHIVIST_SQLITE_PATH` and `ARCHIVIST_DATA_DIR`.
+- Treat documented grouped keys such as `Telegram:BotToken`, `Telegram:AllowedUserId`, and `Telegram:WebhookSecret` as hierarchical keys. Their environment variable names are `ARCHIVIST_Telegram__BotToken`, `ARCHIVIST_Telegram__AllowedUserId`, and `ARCHIVIST_Telegram__WebhookSecret`.
+- Keep expected Gateway configuration keys and sections in `Settings.cs`; production code must not scatter raw configuration-key literals.
+- Consume direct scalar values through `configuration.GetValue<string>(...)` using `Settings.cs` constants.
+- Gateway settings classes must be named `*Settings`, not `*Options`.
+- When a Gateway settings class is consumed through `IOptions`, register it with `serviceCollection.AddOptions<TSettings>().BindConfiguration(TSettings.Section)`. Authentication-scheme settings that are read by a named handler must also bind the named options instance for that scheme.
+- Use hierarchical sections for option-bound settings classes that contain multiple related values.
+
 ## Reverse Proxy and Forwarded Headers
 
 - The primary deployment runs Gateway behind Caddy on a Docker internal network. Gateway must not publish a host port in this topology.

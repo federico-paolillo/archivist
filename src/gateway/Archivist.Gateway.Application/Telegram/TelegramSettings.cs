@@ -1,10 +1,12 @@
 namespace Archivist.Gateway.Application.Telegram;
 
 /// <summary>
-/// Configuration options for Telegram integration.
+/// Configuration settings for Telegram integration.
 /// </summary>
-public sealed class TelegramOptions
+public sealed class TelegramSettings
 {
+    public const string Section = global::Archivist.Gateway.Application.Configuration.Settings.TelegramSection;
+
     /// <summary>
     /// Gets or sets the Telegram bot token used for API calls.
     /// </summary>

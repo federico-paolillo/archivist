@@ -1,4 +1,5 @@
 using Archivist.Gateway.Application.Auth.Services;
+using Archivist.Gateway.Application.Configuration;
 
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -12,10 +13,18 @@ public abstract class IntegrationTest(
 ) : IDisposable
 {
     private WebApplicationFactory<Program>? _webApplicationFactory;
+    private readonly string _testRoot = Path.Combine(
+        Path.GetTempPath(),
+        $"archivist-gateway-tests-{Guid.NewGuid():N}");
 
     public void Dispose()
     {
         _webApplicationFactory?.Dispose();
+
+        if (Directory.Exists(_testRoot))
+        {
+            Directory.Delete(_testRoot, recursive: true);
+        }
     }
 
     protected void PrepareEnvironment(Action<IServiceCollection>? configureTestServices = null)
@@ -29,7 +38,15 @@ public abstract class IntegrationTest(
         Action<ConfigurationBuilder>? configureConfiguration = null
     )
     {
+        Directory.CreateDirectory(_testRoot);
+
         var cfgBuilder = new ConfigurationBuilder();
+        cfgBuilder.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            [Settings.SqlitePathKey] = Path.Combine(_testRoot, "archive.db"),
+            [Settings.DataDirectoryKey] = Path.Combine(_testRoot, "data"),
+            [Settings.GatewayPublicHostsKey] = environmentName == Environments.Production ? null : "localhost",
+        });
 
         configureConfiguration?.Invoke(cfgBuilder);
 
@@ -40,7 +57,7 @@ public abstract class IntegrationTest(
             {
                 builder.ConfigureLogging(l => l.AddProvider(new XUnitLoggerProvider(testOutputHelper)));
                 builder.UseEnvironment(environmentName);
-                builder.UseConfiguration(cfg);
+                builder.ConfigureAppConfiguration((_, configuration) => configuration.AddConfiguration(cfg));
                 builder.ConfigureTestServices(services =>
                 {
                     // Replace the real auth bootstrap with a no-op so integration tests

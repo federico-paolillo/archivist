@@ -19,16 +19,7 @@ public static class ServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(configuration);
 
-        services.Configure<TelegramOptions>(opts =>
-        {
-            opts.BotToken = configuration["TELEGRAM_BOT_TOKEN"] ?? string.Empty;
-            opts.WebhookSecret = configuration["TELEGRAM_WEBHOOK_SECRET"] ?? string.Empty;
-
-            if (long.TryParse(configuration["TELEGRAM_ALLOWED_USER_ID"], out var allowedUserId))
-            {
-                opts.AllowedUserId = allowedUserId;
-            }
-        });
+        services.AddOptions<TelegramSettings>().BindConfiguration(TelegramSettings.Section);
 
         services.AddHttpClient<ITelegramClient, HttpTelegramClient>();
         services.AddScoped<TelegramWebhookHandler>();

@@ -1,8 +1,8 @@
-using Archivist.Gateway.Application.Auth.Options;
+using Archivist.Gateway.Application.Auth;
+using Archivist.Gateway.Application.Configuration;
 
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 namespace Archivist.Gateway.Application.Auth.Services.Defaults;
 
@@ -11,7 +11,7 @@ namespace Archivist.Gateway.Application.Auth.Services.Defaults;
 /// Bootstraps the password hash from the configured bootstrap secret only when the row has no stored hash.
 /// </summary>
 public sealed partial class AuthBootstrapService(
-    IOptions<AuthOptions> options,
+    AuthSettings settings,
     IPasswordValidator passwordValidator,
     IPasswordHasher passwordHasher,
     ILogger<AuthBootstrapService> logger
@@ -21,11 +21,11 @@ public sealed partial class AuthBootstrapService(
 
     public async Task InitializeAsync(CancellationToken ct = default)
     {
-        var sqlitePath = options.Value.SqlitePath;
+        var sqlitePath = settings.SqlitePath;
 
         if (string.IsNullOrWhiteSpace(sqlitePath))
         {
-            throw new InvalidOperationException("SQLITE_PATH is required for auth bootstrap.");
+            throw new InvalidOperationException($"{Settings.SqlitePathKey} is required for auth bootstrap.");
         }
 
         var connectionString = $"Data Source={sqlitePath}";
@@ -83,19 +83,19 @@ public sealed partial class AuthBootstrapService(
         }
 
         // No hash stored — bootstrap is required.
-        var bootstrapPassword = options.Value.BootstrapPassword;
+        var bootstrapPassword = settings.BootstrapPassword;
 
         if (string.IsNullOrEmpty(bootstrapPassword))
         {
             throw new InvalidOperationException(
-                "AUTH_BOOTSTRAP_PASSWORD is required to initialize the personal user password hash. " +
+                $"{Settings.AuthBootstrapPasswordKey} is required to initialize the personal user password hash. " +
                 "Set the environment variable and restart the gateway.");
         }
 
         if (!passwordValidator.IsValid(bootstrapPassword))
         {
             throw new InvalidOperationException(
-                "AUTH_BOOTSTRAP_PASSWORD is invalid. " +
+                $"{Settings.AuthBootstrapPasswordKey} is invalid. " +
                 "The password must be exactly 2048 printable ASCII characters (0x20–0x7E).");
         }
 

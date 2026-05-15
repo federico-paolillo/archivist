@@ -1,9 +1,8 @@
-using Archivist.Gateway.Application.Auth.Options;
+using Archivist.Gateway.Application.Auth;
 using Archivist.Gateway.Application.Auth.Services.Defaults;
 
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 
 namespace Archivist.Gateway.Tests.Auth;
 
@@ -35,14 +34,14 @@ public sealed class AuthBootstrapServiceTest : IDisposable
 
     private AuthBootstrapService CreateService(string? bootstrapPassword = null, string? sqlitePath = null)
     {
-        var opts = Options.Create(new AuthOptions
+        var settings = new AuthSettings
         {
             SqlitePath = sqlitePath ?? _dbPath,
             BootstrapPassword = bootstrapPassword,
-        });
+        };
 
         return new AuthBootstrapService(
-            opts,
+            settings,
             _passwordValidator,
             _passwordHasher,
             NullLogger<AuthBootstrapService>.Instance);
@@ -202,14 +201,14 @@ public sealed class AuthBootstrapServiceTest : IDisposable
         var service = CreateService(bootstrapPassword: ValidBootstrapPassword(), sqlitePath: null);
 
         // Override sqlitePath to empty.
-        var opts = Options.Create(new AuthOptions
+        var settings = new AuthSettings
         {
             SqlitePath = string.Empty,
             BootstrapPassword = ValidBootstrapPassword(),
-        });
+        };
 
         var emptyPathService = new AuthBootstrapService(
-            opts,
+            settings,
             _passwordValidator,
             _passwordHasher,
             NullLogger<AuthBootstrapService>.Instance);

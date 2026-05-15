@@ -39,7 +39,7 @@ Create the gateway application services and SQLite persistence needed for passwo
 ## Implementation Sequence
 
 1. Add SQLite and Argon2id dependencies to the gateway application layer.
-2. Define auth options for `SQLITE_PATH` and `AUTH_BOOTSTRAP_PASSWORD`.
+2. Define auth settings for `SQLITE_PATH` and `AUTH_BOOTSTRAP_PASSWORD`; Gateway receives these logical keys as `ARCHIVIST_SQLITE_PATH` and `ARCHIVIST_AUTH_BOOTSTRAP_PASSWORD` in environment-based deployment.
 3. Ensure the `users` table exists with `id`, nullable `telegram_user_id`, and nullable `password_hash`.
 4. Insert the fixed personal user row if missing.
 5. If `password_hash` is missing, validate and hash `AUTH_BOOTSTRAP_PASSWORD`; otherwise leave the stored hash untouched.

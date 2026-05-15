@@ -254,9 +254,9 @@ public sealed class TelegramWebhookEndpointTest(ITestOutputHelper testOutputHelp
                 cfg.AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["SQLITE_PATH"] = sqlitePath,
-                    ["TELEGRAM_WEBHOOK_SECRET"] = ValidSecret,
-                    ["TELEGRAM_ALLOWED_USER_ID"] = AllowedUserId.ToString(),
-                    ["TELEGRAM_BOT_TOKEN"] = "fake-token",
+                    ["Telegram:WebhookSecret"] = ValidSecret,
+                    ["Telegram:AllowedUserId"] = AllowedUserId.ToString(),
+                    ["Telegram:BotToken"] = "fake-token",
                 }));
     }
 

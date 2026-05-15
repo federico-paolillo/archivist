@@ -2,7 +2,6 @@ using System.Security.Cryptography;
 
 using Archivist.Gateway.Api.Auth.Models;
 using Archivist.Gateway.Application.Auth;
-using Archivist.Gateway.Application.Auth.Options;
 using Archivist.Gateway.Application.Auth.Services;
 using Archivist.Gateway.Application.Persistence;
 
@@ -29,7 +28,7 @@ internal static class Handlers
         IPasswordValidator passwordValidator,
         ISessionStore sessionStore,
         ILoginThrottle loginThrottle,
-        IOptions<AppCookieOptions> cookieOptionsAccessor,
+        IOptions<AppCookieSettings> cookieOptionsAccessor,
         TimeProvider timeProvider,
         CancellationToken ct)
     {
@@ -127,7 +126,7 @@ internal static class Handlers
     public static async Task<NoContent> PostLogout(
         HttpContext context,
         ISessionStore sessionStore,
-        IOptions<AppCookieOptions> cookieOptionsAccessor,
+        IOptions<AppCookieSettings> cookieOptionsAccessor,
         CancellationToken ct)
     {
         var cookieOptions = cookieOptionsAccessor.Value;

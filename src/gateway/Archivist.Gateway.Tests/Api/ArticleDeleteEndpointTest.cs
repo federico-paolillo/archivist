@@ -225,9 +225,9 @@ public sealed class ArticleDeleteEndpointTest(ITestOutputHelper testOutputHelper
                 {
                     ["SQLITE_PATH"] = sqlitePath,
                     ["DATA_DIR"] = dataDirectory,
-                    ["TELEGRAM_WEBHOOK_SECRET"] = "test-webhook-secret",
-                    ["TELEGRAM_ALLOWED_USER_ID"] = "99999",
-                    ["TELEGRAM_BOT_TOKEN"] = "fake-token",
+                    ["Telegram:WebhookSecret"] = "test-webhook-secret",
+                    ["Telegram:AllowedUserId"] = "99999",
+                    ["Telegram:BotToken"] = "fake-token",
                     ["GATEWAY_PUBLIC_HOSTS"] = PublicHost,
                 }));
 

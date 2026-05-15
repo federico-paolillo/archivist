@@ -10,14 +10,14 @@ using Microsoft.Extensions.Options;
 /// </summary>
 public sealed class HttpTelegramClient(
     HttpClient httpClient,
-    IOptions<TelegramOptions> options) : ITelegramClient
+    IOptions<TelegramSettings> settings) : ITelegramClient
 {
     /// <inheritdoc />
     public async Task SendReplyAsync(long chatId, long replyToMessageId, string text, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(text);
 
-        var botToken = options.Value.BotToken;
+        var botToken = settings.Value.BotToken;
         ArgumentException.ThrowIfNullOrWhiteSpace(botToken);
 
         var payload = new SendMessagePayload(chatId, text, new ReplyParameters(replyToMessageId));

@@ -1,12 +1,10 @@
-namespace Archivist.Gateway.Application.Auth.Options;
+namespace Archivist.Gateway.Application.Auth;
 
 /// <summary>
-/// Configuration options for authentication bootstrap and password management.
+/// Configuration settings for authentication bootstrap and password management.
 /// </summary>
-public sealed class AuthOptions
+public sealed class AuthSettings
 {
-    public const string SectionName = "Auth";
-
     /// <summary>
     /// The one-time bootstrap password used to initialize <c>password_hash</c> for the personal user.
     /// Required only when the personal user row has no stored password hash.

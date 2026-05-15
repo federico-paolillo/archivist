@@ -39,8 +39,8 @@ Implement the gateway HTTP authentication surface using opaque server-issued ses
 
 1. Define `SessionEntry` and `ISessionStore` exactly as specified in `../SPEC.md`; `RemoveAsync` on missing keys is a no-op.
 2. Implement the v0 in-memory store with `ConcurrentDictionary<string, SessionEntry>` and expired-entry cleanup on lookup and/or periodic sweep.
-3. Define `AppCookieOptions` with `CookieName = "__Host-app-auth"` and `SessionLifetime = TimeSpan.FromHours(24)` defaults.
-4. Implement `AddAppCookie(this AuthenticationBuilder builder, Action<AppCookieOptions>? configure = null)` with default scheme `"app-cookie"` and the custom handler.
+3. Define `AppCookieSettings` with `CookieName = "__Host-app-auth"` and `SessionLifetime = TimeSpan.FromHours(24)` defaults.
+4. Implement `AddAppCookie(this AuthenticationBuilder builder, Action<AppCookieSettings>? configure = null)` with default scheme `"app-cookie"` and the custom handler.
 5. Implement `AppCookieAuthenticationHandler` so missing cookie returns `NoResult`, unknown/expired sessions fail, expired sessions are removed, and valid sessions produce a one-claim `ClaimsPrincipal`.
 6. Add auth endpoint route mapping for `POST /login`, `POST /logout`, and `GET /auth/session`.
 7. Validate login request body size, password shape, TLS, and same-origin constraints before password verification.
