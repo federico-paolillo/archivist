@@ -1,6 +1,6 @@
 ---
 feature: ui-endpoints
-status: draft
+status: in_progress
 canonical: true
 ---
 

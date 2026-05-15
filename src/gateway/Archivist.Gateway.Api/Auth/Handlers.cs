@@ -35,6 +35,11 @@ internal static class Handlers
     {
         var cookieOptions = cookieOptionsAccessor.Value;
 
+        if (!context.Request.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase))
+        {
+            return TypedResults.Forbid();
+        }
+
         // Reject if body or password field is missing.
         var password = body?.Password;
         if (string.IsNullOrEmpty(password))

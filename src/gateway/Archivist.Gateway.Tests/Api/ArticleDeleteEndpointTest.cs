@@ -19,6 +19,8 @@ public sealed class ArticleDeleteEndpointTest(ITestOutputHelper testOutputHelper
 {
     private const string CookieName = "__Host-app-auth";
     private const string SessionId = "test-session-id";
+    private const string PublicHost = "localhost";
+    private const string PublicOrigin = "https://localhost";
     private const string PersonalUserId = PersistenceConstants.PersonalUserId;
     private const string OtherUserId = "01ASB2XFCZJY7WHZ2FNRTMQJCV";
 
@@ -139,6 +141,33 @@ public sealed class ArticleDeleteEndpointTest(ITestOutputHelper testOutputHelper
 
         using var http = CreateHttpClient();
         using var request = CreateDeleteRequest(articleId, "https://evil.example.com");
+        AddTrustedForwardedHeaders(request);
+
+        var response = await http.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("http://localhost", null)]
+    [InlineData("https://example.net", null)]
+    [InlineData("https://localhost:9443", "localhost:8443")]
+    public async Task DeleteArticle_OriginMismatch_Returns403(string origin, string? host)
+    {
+        var env = PrepareArticleEnvironment();
+        var articleId = "01H0000000000000000000000E";
+
+        await SeedArticleAsync(env.SqlitePath, articleId, PersonalUserId, PersistenceConstants.ArticleQueued, "01H0000000000000000000000F", PersistenceConstants.JobQueued, addNotification: false);
+
+        using var http = CreateHttpClient();
+        using var request = CreateDeleteRequest(articleId, origin);
+        AddTrustedForwardedHeaders(request);
+
+        if (host is not null)
+        {
+            request.Headers.Host = host;
+            request.Headers.Remove("X-Forwarded-Host");
+        }
 
         var response = await http.SendAsync(request);
 
@@ -199,6 +228,7 @@ public sealed class ArticleDeleteEndpointTest(ITestOutputHelper testOutputHelper
                     ["TELEGRAM_WEBHOOK_SECRET"] = "test-webhook-secret",
                     ["TELEGRAM_ALLOWED_USER_ID"] = "99999",
                     ["TELEGRAM_BOT_TOKEN"] = "fake-token",
+                    ["GATEWAY_PUBLIC_HOSTS"] = PublicHost,
                 }));
 
         return new TestEnvironment(sqlitePath, dataDirectory);
@@ -206,7 +236,8 @@ public sealed class ArticleDeleteEndpointTest(ITestOutputHelper testOutputHelper
 
     private async Task<HttpResponseMessage> SendDeleteAsync(HttpClient http, string articleId)
     {
-        using var request = CreateDeleteRequest(articleId, "http://localhost");
+        using var request = CreateDeleteRequest(articleId, PublicOrigin);
+        AddTrustedForwardedHeaders(request);
         return await http.SendAsync(request);
     }
 
@@ -216,6 +247,13 @@ public sealed class ArticleDeleteEndpointTest(ITestOutputHelper testOutputHelper
         request.Headers.Add("Cookie", $"{CookieName}={SessionId}");
         request.Headers.Add("Origin", origin);
         return request;
+    }
+
+    private static void AddTrustedForwardedHeaders(HttpRequestMessage request)
+    {
+        request.Headers.Add("X-Forwarded-Proto", "https");
+        request.Headers.Add("X-Forwarded-For", "203.0.113.20");
+        request.Headers.Add("X-Forwarded-Host", PublicHost);
     }
 
     private static string CreateArtifact(string dataDirectory, string articleId)

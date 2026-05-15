@@ -246,3 +246,42 @@ Follow-ups:
 Canonical Updates:
 - `docs/specs/authn/tasks/AUTHN-004-protect-ui-api-and-validate-auth-client-contract.md` — status: done, validation recorded.
 - `docs/specs/authn/PLAN.md` — AUTHN-004 row: done.
+
+## 2026-05-15 — AUTHN-006 and AUTHN-005: Forwarded-header auth and security validation
+
+Task IDs: AUTHN-006, AUTHN-005
+Status: done
+
+Summary:
+- Implemented trusted reverse-proxy forwarded-header handling before authentication, authorization, and route mapping.
+- Added `GATEWAY_PUBLIC_HOSTS` startup enforcement outside Development and forwarded-host allowlisting through ASP.NET Core forwarded-header options.
+- Changed login to require post-forwarding `Request.Scheme == "https"`.
+- Updated same-origin filtering to compare post-forwarding scheme, host, and effective port.
+- Added regression coverage for forwarded HTTPS login success, effective HTTP login rejection, scheme/host/port origin mismatches for login/logout/delete, forwarded-host allowlisting, missing production public hosts, cookie attributes, and Gateway's unprefixed auth route contract.
+
+Decisions:
+- Gateway processes `X-Forwarded-For`, `X-Forwarded-Proto`, and `X-Forwarded-Host` with `ForwardLimit = 1`.
+- Known proxy/network lists are cleared because v0 uses the private Docker network as the trust boundary and does not define `GATEWAY_TRUSTED_PROXY_RANGES`.
+- The test harness verifies Gateway behavior and the requirement that `/api/*` is not mapped in Gateway. It does not execute Caddy, so actual public `/api` prefix stripping remains a documented deployment assumption.
+- Publication hygiene: `AMEND.md`, `REVIEW.md`, `REFACTOR.md`, and `.claude/worktrees/` remain local temporary review/worktree artifacts and are not part of the staged publication set.
+- The `src/gateway/.gitignore` `*.lscache` rule is intentional and included to keep local Gateway tooling cache files out of source publication.
+
+Validation:
+- `cd src/gateway && dotnet format` — passed.
+- `cd src/gateway && dotnet build` — passed with 0 warnings and 0 errors.
+- `cd src/gateway && dotnet test` — passed: 124 tests, 0 failed.
+- `cd src/worker && go tool lefthook run build` — passed.
+- `cd src/worker && go tool lefthook run format` — passed; first run emitted a non-fatal stale golangci cache warning referencing `/Users/federico.paolillo/src/archivist-worktrees/wave4-mdext-005`.
+- `cd src/worker && go tool lefthook run lint` — initial run failed because golangci used stale cache entries for the deleted `/Users/federico.paolillo/src/archivist-worktrees/wave4-mdext-005` path; after `go tool golangci-lint cache clean`, rerunning the required lint command passed.
+- `cd src/worker && go tool lefthook run test` — passed.
+
+Follow-ups:
+- Deployment validation should verify Caddy uses `http://:443`, overwrites forwarded headers, sets `X-Forwarded-Proto: https`, and strips `/api` before forwarding to Gateway.
+
+Canonical Updates:
+- `docs/specs/authn/SPEC.md` — status: done.
+- `docs/specs/authn/PLAN.md` — AUTHN-006 and AUTHN-005 rows: done.
+- `docs/specs/authn/tasks/AUTHN-006-reverse-proxy-forwarded-headers-and-effective-https-auth.md` — status: done, validation recorded.
+- `docs/specs/authn/plans/AUTHN-006-reverse-proxy-forwarded-headers.execplan.md` — status: completed.
+- `docs/specs/authn/tasks/AUTHN-005-security-validation-pass.md` — status: done, validation recorded.
+- `docs/specs/INDEX.md` — authn status: done.

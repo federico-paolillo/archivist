@@ -140,6 +140,34 @@ func TestClaimQueuedReturnsErrNoRowsWhenNoJobExists(t *testing.T) {
 	assert.Nil(t, claimed)
 }
 
+func TestClaimQueuedReturnsErrNoRowsForOrphanQueuedJob(t *testing.T) {
+	database := openTestDB(t)
+	seedUser(t, database)
+
+	_, err := database.Exec(`PRAGMA foreign_keys = OFF`)
+	require.NoError(t, err)
+
+	seedNonTelegramJob(t, database, "JOB001", "MISSINGARTICLE001")
+
+	_, err = database.Exec(`PRAGMA foreign_keys = ON`)
+	require.NoError(t, err)
+
+	repo := jobs.NewSQLiteRepository(database)
+
+	ctx := t.Context()
+
+	claimed, err := repo.ClaimQueued(ctx)
+
+	require.ErrorIs(t, err, sql.ErrNoRows)
+	assert.Nil(t, claimed)
+
+	var dbStatus string
+
+	err = database.QueryRowContext(ctx, `SELECT status FROM jobs WHERE id = ?`, "JOB001").Scan(&dbStatus)
+	require.NoError(t, err)
+	assert.Equal(t, jobs.StatusQueued, dbStatus)
+}
+
 func TestClaimQueuedPreservesAllTelegramOriginFields(t *testing.T) {
 	database := openTestDB(t)
 	seedUser(t, database)

@@ -97,6 +97,12 @@ Validation completed on 2026-05-12:
 - `cd src/gateway && dotnet build`
 - `cd src/gateway && dotnet test`
 
+Validation addendum on 2026-05-15:
+
+- Added Worker `SQLiteRepository.ClaimQueued` regression coverage for orphan queued jobs whose article row no longer exists.
+- `go test ./pkg/jobs` passed.
+- A deterministic concurrent delete/claim serialization regression was not added because the current Worker repository test harness uses a single-connection in-memory SQLite fixture, while Gateway delete coverage runs through a separate EF/TestServer fixture. Exercising exact cross-connection write interleavings safely requires a shared file-backed integration harness outside this fix scope. The canonical delete/claim serialization contract remains in `../SPEC.md`.
+
 Status transition:
 
 - `blocked` -> `done` by explicit user assignment override for Wave 4 worker `UIEND-003`.

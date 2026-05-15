@@ -104,3 +104,34 @@ Canonical Updates:
 - `docs/specs/ui-endpoints/PLAN.md`
 - `docs/specs/ui-endpoints/tasks/UIEND-003-gateway-article-delete-api.md`
 - `docs/specs/ui-endpoints/plans/UIEND-003-gateway-article-delete-api.execplan.md`
+
+## 2026-05-15 — R-001: Worker claim skips orphan queued jobs
+
+Task ID: R-001
+Status: completed
+
+Summary:
+- Fixed `SQLiteRepository.ClaimQueued` so the atomic `UPDATE ... RETURNING` claim selects only queued jobs whose article row still exists.
+- Added a Worker repository regression test that creates an orphan queued job through a controlled fixture and asserts `sql.ErrNoRows`.
+- Moved the ui-endpoints feature status to `in_progress` because `UIEND-003` is done while `UIEND-002` remains blocked.
+
+Decisions:
+- Kept the claim in a single `UPDATE ... RETURNING` statement.
+- Did not add a deterministic concurrent delete/claim test in this pass. The current Worker repository tests use a single-connection in-memory SQLite fixture, while Gateway delete tests use a separate EF/TestServer fixture. A safe cross-connection SQLite write-interleaving test requires a shared file-backed integration harness outside this targeted fix.
+
+Validation:
+- `go test ./pkg/jobs` — passed.
+- `cd src/worker && go tool lefthook run build` — passed.
+- `cd src/worker && go tool lefthook run format` — passed.
+- `cd src/worker && go tool lefthook run lint` — initial run failed on stale golangci cache entries for a deleted external worktree; after `go tool golangci-lint cache clean`, rerunning the required lint command passed.
+- `cd src/worker && go tool lefthook run test` — passed.
+
+Follow-ups:
+- Add execution-level delete/claim serialization coverage if a shared file-backed Gateway/Worker SQLite integration harness is introduced.
+- `UIEND-002` remains blocked on summary generation.
+
+Canonical Updates:
+- `docs/specs/ui-endpoints/SPEC.md` — status: in_progress.
+- `docs/specs/ui-endpoints/PLAN.md` — status: in_progress.
+- `docs/specs/ui-endpoints/tasks/UIEND-003-gateway-article-delete-api.md` — validation limitation recorded.
+- `docs/specs/INDEX.md` — ui-endpoints status: in_progress.

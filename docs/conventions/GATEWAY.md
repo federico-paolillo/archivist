@@ -40,7 +40,24 @@ Conventions:
 - Auth sessions are stored behind `ISessionStore`. The v0 implementation is in-memory; multi-replica deployments must replace it with Redis or another explicit shared store before adding gateway replicas.
 - Cookie auth must return `401` or `403` for API requests instead of redirecting to login or access-denied pages.
 - Unsafe HTTP methods must reject cross-site requests before endpoint handling.
+- Unsafe method same-origin checks must compare post-forwarding `Request.Scheme`, `Request.Host`, and effective port.
 - Login verification must validate shape and request size before Argon2id work and must use in-memory throttling in v0.
+- `POST /login` must return `403 Forbidden` unless post-forwarding `Request.Scheme == "https"`.
+
+## Reverse Proxy and Forwarded Headers
+
+- The primary deployment runs Gateway behind Caddy on a Docker internal network. Gateway must not publish a host port in this topology.
+- Only Caddy publishes host port `443` from the Docker stack.
+- Public TLS is terminated upstream of Caddy by the VPS/cloud-provider layer. Caddy receives plaintext HTTP on host port `443`.
+- Caddy must listen with `http://:443` for the primary topology. Do not use bare `:443`, `tls`, `tls internal`, or certificate paths unless a future documented topology makes Caddy the TLS endpoint.
+- Caddy must route public `/api/*` requests to Gateway with the `/api` prefix stripped. Do not add `/api` prefixes to Gateway route definitions.
+- Do not route public root-level `/login`, `/logout`, or `/auth/session` to Gateway. Public browser calls reach Gateway as `/api/login`, `/api/logout`, and `/api/auth/session`.
+- Caddy must overwrite forwarded headers instead of passing client-supplied forwarded headers through.
+- Caddy must set `X-Forwarded-Proto` to literal `https` in the primary topology.
+- Gateway startup must enable processing for `X-Forwarded-Proto` and `X-Forwarded-For`, use `ForwardLimit = 1`, and constrain public hosts with `GATEWAY_PUBLIC_HOSTS`.
+- Do not add `GATEWAY_TRUSTED_PROXY_RANGES` for v0.
+- `UseForwardedHeaders()` must run before authentication middleware, authorization middleware, and endpoint mapping.
+- Gateway must not be exposed directly to the public Internet while forwarded headers are trusted.
 
 ## Persistence
 

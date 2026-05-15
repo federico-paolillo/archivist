@@ -10,10 +10,28 @@ using Archivist.Gateway.Application.Persistence.Extensions;
 using Archivist.Gateway.Application.Ping;
 using Archivist.Gateway.Application.Telegram.Extensions;
 
+using Microsoft.AspNetCore.HttpOverrides;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddPing();
 builder.Services.AddAuth(builder.Configuration);
+
+var publicHosts = GetGatewayPublicHosts(builder.Configuration, builder.Environment);
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor |
+        ForwardedHeaders.XForwardedProto |
+        ForwardedHeaders.XForwardedHost;
+    options.ForwardLimit = 1;
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+
+    foreach (var host in publicHosts)
+    {
+        options.AllowedHosts.Add(host);
+    }
+});
 
 var sqlitePath = builder.Configuration["SQLITE_PATH"];
 if (!string.IsNullOrWhiteSpace(sqlitePath))
@@ -37,6 +55,7 @@ if (!string.IsNullOrWhiteSpace(sqlitePath))
 var authBootstrap = app.Services.GetRequiredService<IAuthBootstrapService>();
 await authBootstrap.InitializeAsync();
 
+app.UseForwardedHeaders();
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -50,3 +69,20 @@ if (!string.IsNullOrWhiteSpace(sqlitePath))
 }
 
 await app.RunAsync();
+
+static IReadOnlyList<string> GetGatewayPublicHosts(IConfiguration configuration, IHostEnvironment environment)
+{
+    var configuredHosts = configuration["GATEWAY_PUBLIC_HOSTS"];
+    var publicHosts = configuredHosts?
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray() ??
+        [];
+
+    if (!environment.IsDevelopment() && publicHosts.Length == 0)
+    {
+        throw new InvalidOperationException("GATEWAY_PUBLIC_HOSTS is required outside Development.");
+    }
+
+    return publicHosts;
+}

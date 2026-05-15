@@ -5,6 +5,7 @@ using Archivist.Gateway.Application.Auth.Options;
 using Archivist.Gateway.Application.Auth.Services;
 using Archivist.Gateway.Application.Auth.Services.Defaults;
 
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Time.Testing;
 
 using Xunit.Abstractions;
@@ -21,6 +22,8 @@ public sealed class AuthEndpointTest(ITestOutputHelper testOutputHelper) : Integ
     private const string CookieName = "__Host-app-auth";
     private const int PasswordLength = 2048;
     private const string PersonalUserId = "01ASB2XFCZJY7WHZ2FNRTMQJCT";
+    private const string PublicHost = "localhost";
+    private const string PublicOrigin = "https://localhost";
 
     private static string ValidPassword() => new('a', PasswordLength);
 
@@ -201,7 +204,8 @@ public sealed class AuthEndpointTest(ITestOutputHelper testOutputHelper) : Integ
         using var client = CreateHttpClient();
 
         using var request = new HttpRequestMessage(HttpMethod.Post, LoginPath);
-        request.Headers.Add("Origin", "http://localhost");
+        AddTrustedForwardedHeaders(request);
+        request.Headers.Add("Origin", PublicOrigin);
         request.Content = JsonContent.Create<object?>(null);
 
         var response = await client.SendAsync(request);
@@ -217,7 +221,8 @@ public sealed class AuthEndpointTest(ITestOutputHelper testOutputHelper) : Integ
         using var client = CreateHttpClient();
 
         using var request = new HttpRequestMessage(HttpMethod.Post, LoginPath);
-        request.Headers.Add("Origin", "http://localhost");
+        AddTrustedForwardedHeaders(request);
+        request.Headers.Add("Origin", PublicOrigin);
         request.Content = JsonContent.Create(new { });
 
         var response = await client.SendAsync(request);
@@ -244,7 +249,8 @@ public sealed class AuthEndpointTest(ITestOutputHelper testOutputHelper) : Integ
 
         using var request = new HttpRequestMessage(HttpMethod.Post, LoginPath);
         request.Headers.Add("Cookie", $"{CookieName}={existingSessionId}");
-        request.Headers.Add("Origin", "http://localhost");
+        AddTrustedForwardedHeaders(request);
+        request.Headers.Add("Origin", PublicOrigin);
         request.Content = JsonContent.Create(new { password = ValidPassword() });
 
         await client.SendAsync(request);
@@ -288,7 +294,8 @@ public sealed class AuthEndpointTest(ITestOutputHelper testOutputHelper) : Integ
 
         using var request = new HttpRequestMessage(HttpMethod.Post, LogoutPath);
         request.Headers.Add("Cookie", $"{CookieName}=some-session");
-        request.Headers.Add("Origin", "http://localhost");
+        AddTrustedForwardedHeaders(request);
+        request.Headers.Add("Origin", PublicOrigin);
 
         var response = await client.SendAsync(request);
 
@@ -303,7 +310,8 @@ public sealed class AuthEndpointTest(ITestOutputHelper testOutputHelper) : Integ
         using var client = CreateHttpClient();
 
         using var request = new HttpRequestMessage(HttpMethod.Post, LogoutPath);
-        request.Headers.Add("Origin", "http://localhost");
+        AddTrustedForwardedHeaders(request);
+        request.Headers.Add("Origin", PublicOrigin);
 
         var response = await client.SendAsync(request);
 
@@ -318,7 +326,8 @@ public sealed class AuthEndpointTest(ITestOutputHelper testOutputHelper) : Integ
         using var client = CreateHttpClient();
 
         using var request = new HttpRequestMessage(HttpMethod.Post, LogoutPath);
-        request.Headers.Add("Origin", "http://localhost");
+        AddTrustedForwardedHeaders(request);
+        request.Headers.Add("Origin", PublicOrigin);
 
         var response = await client.SendAsync(request);
 
@@ -343,7 +352,8 @@ public sealed class AuthEndpointTest(ITestOutputHelper testOutputHelper) : Integ
 
         using var request = new HttpRequestMessage(HttpMethod.Post, LogoutPath);
         request.Headers.Add("Cookie", $"{CookieName}={sessionId}");
-        request.Headers.Add("Origin", "http://localhost");
+        AddTrustedForwardedHeaders(request);
+        request.Headers.Add("Origin", PublicOrigin);
 
         await client.SendAsync(request);
 
@@ -363,6 +373,7 @@ public sealed class AuthEndpointTest(ITestOutputHelper testOutputHelper) : Integ
         using var client = CreateHttpClient();
 
         using var request = new HttpRequestMessage(HttpMethod.Post, LoginPath);
+        AddTrustedForwardedHeaders(request);
         request.Headers.Add("Origin", "https://evil.example.com");
         request.Content = JsonContent.Create(new { password = ValidPassword() });
 
@@ -394,6 +405,7 @@ public sealed class AuthEndpointTest(ITestOutputHelper testOutputHelper) : Integ
         using var client = CreateHttpClient();
 
         using var request = new HttpRequestMessage(HttpMethod.Post, LogoutPath);
+        AddTrustedForwardedHeaders(request);
         request.Headers.Add("Origin", "https://evil.example.com");
 
         var response = await client.SendAsync(request);
@@ -401,12 +413,137 @@ public sealed class AuthEndpointTest(ITestOutputHelper testOutputHelper) : Integ
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
+    [Fact]
+    public async Task PostLogin_EffectiveHttp_Returns403AndDoesNotSetCookie()
+    {
+        SetupSuccessEnvironment();
+
+        using var client = CreateHttpClient();
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, LoginPath);
+        AddTrustedForwardedHeaders(request, scheme: "http");
+        request.Headers.Add("Origin", "http://localhost");
+        request.Content = JsonContent.Create(new { password = ValidPassword() });
+
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Null(GetAuthCookieHeader(response));
+    }
+
+    [Theory]
+    [InlineData("http://localhost", null)]
+    [InlineData("https://example.net", null)]
+    [InlineData("https://localhost:9443", "localhost:8443")]
+    public async Task PostLogin_OriginMismatch_Returns403(string origin, string? host)
+    {
+        SetupSuccessEnvironment();
+
+        using var client = CreateHttpClient();
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, LoginPath);
+        AddTrustedForwardedHeaders(request);
+        request.Headers.Add("Origin", origin);
+        request.Content = JsonContent.Create(new { password = ValidPassword() });
+
+        if (host is not null)
+        {
+            request.Headers.Host = host;
+            request.Headers.Remove("X-Forwarded-Host");
+        }
+
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("http://localhost", null)]
+    [InlineData("https://example.net", null)]
+    [InlineData("https://localhost:9443", "localhost:8443")]
+    public async Task PostLogout_OriginMismatch_Returns403(string origin, string? host)
+    {
+        SetupSuccessEnvironment();
+
+        using var client = CreateHttpClient();
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, LogoutPath);
+        AddTrustedForwardedHeaders(request);
+        request.Headers.Add("Origin", origin);
+
+        if (host is not null)
+        {
+            request.Headers.Host = host;
+            request.Headers.Remove("X-Forwarded-Host");
+        }
+
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PostLogin_DisallowedForwardedHost_Returns403()
+    {
+        SetupSuccessEnvironment(publicHosts: "allowed.example");
+
+        using var client = CreateHttpClient();
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, LoginPath);
+        AddTrustedForwardedHeaders(request, host: "blocked.example");
+        request.Headers.Add("Origin", "https://blocked.example");
+        request.Content = JsonContent.Create(new { password = ValidPassword() });
+
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public void MissingGatewayPublicHosts_FailsFastOutsideDevelopment()
+    {
+        PrepareEnvironment(Environments.Production);
+
+        var exception = Assert.Throws<InvalidOperationException>(() => CreateHttpClient());
+
+        Assert.Contains("GATEWAY_PUBLIC_HOSTS", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ApiPrefixedAuthRoutes_AreNotMappedByGateway()
+    {
+        SetupSuccessEnvironment();
+
+        using var client = CreateHttpClient();
+
+        using var login = new HttpRequestMessage(HttpMethod.Post, "/api/login");
+        AddTrustedForwardedHeaders(login);
+        login.Headers.Add("Origin", PublicOrigin);
+        login.Content = JsonContent.Create(new { password = ValidPassword() });
+
+        using var logout = new HttpRequestMessage(HttpMethod.Post, "/api/logout");
+        AddTrustedForwardedHeaders(logout);
+        logout.Headers.Add("Origin", PublicOrigin);
+
+        using var session = new HttpRequestMessage(HttpMethod.Get, "/api/auth/session");
+        AddTrustedForwardedHeaders(session);
+
+        var loginResponse = await client.SendAsync(login);
+        var logoutResponse = await client.SendAsync(logout);
+        var sessionResponse = await client.SendAsync(session);
+
+        Assert.Equal(HttpStatusCode.NotFound, loginResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, logoutResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, sessionResponse.StatusCode);
+    }
+
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
 
     private (InMemorySessionStore SessionStore, FakePasswordStore PasswordStore, FakeTimeProvider Time) SetupSuccessEnvironment(
-        Action<IServiceCollection>? configureServices = null)
+        Action<IServiceCollection>? configureServices = null,
+        string publicHosts = PublicHost)
     {
         var fakeTime = new FakeTimeProvider();
         var sessionStore = new InMemorySessionStore(fakeTime);
@@ -414,14 +551,21 @@ public sealed class AuthEndpointTest(ITestOutputHelper testOutputHelper) : Integ
         var validHash = passwordHasher.Hash(ValidPassword());
         var passwordStore = new FakePasswordStore(validHash);
 
-        PrepareEnvironment(services =>
-        {
-            services.AddSingleton<ISessionStore>(sessionStore);
-            services.AddSingleton<IPasswordStore>(passwordStore);
-            services.AddSingleton<TimeProvider>(fakeTime);
+        PrepareEnvironment(
+            Environments.Development,
+            configureTestServices: services =>
+            {
+                services.AddSingleton<ISessionStore>(sessionStore);
+                services.AddSingleton<IPasswordStore>(passwordStore);
+                services.AddSingleton<TimeProvider>(fakeTime);
 
-            configureServices?.Invoke(services);
-        });
+                configureServices?.Invoke(services);
+            },
+            configureConfiguration: cfg =>
+                cfg.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["GATEWAY_PUBLIC_HOSTS"] = publicHosts,
+                }));
 
         return (sessionStore, passwordStore, fakeTime);
     }
@@ -431,10 +575,21 @@ public sealed class AuthEndpointTest(ITestOutputHelper testOutputHelper) : Integ
         using var client = CreateHttpClient();
 
         using var request = new HttpRequestMessage(HttpMethod.Post, LoginPath);
-        request.Headers.Add("Origin", "http://localhost");
+        AddTrustedForwardedHeaders(request);
+        request.Headers.Add("Origin", PublicOrigin);
         request.Content = JsonContent.Create(new { password });
 
         return await client.SendAsync(request);
+    }
+
+    private static void AddTrustedForwardedHeaders(
+        HttpRequestMessage request,
+        string scheme = "https",
+        string host = PublicHost)
+    {
+        request.Headers.Add("X-Forwarded-Proto", scheme);
+        request.Headers.Add("X-Forwarded-For", "203.0.113.10");
+        request.Headers.Add("X-Forwarded-Host", host);
     }
 
     private static string? GetAuthCookieHeader(HttpResponseMessage response)

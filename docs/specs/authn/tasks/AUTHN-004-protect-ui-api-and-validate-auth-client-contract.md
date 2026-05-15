@@ -4,7 +4,7 @@ feature: authn
 title: Protect UI API and validate auth client contract
 status: done
 depends_on: [AUTHN-003]
-blocks: [AUTHN-005, UI-002]
+blocks: [AUTHN-006, UI-002]
 parallel: false
 exec_plan: null
 canonical: true
@@ -91,4 +91,4 @@ Depends on:
 
 Blocks:
 
-- `AUTHN-005`
+- `AUTHN-006`

@@ -1,6 +1,6 @@
 ---
 feature: authn
-status: draft
+status: done
 canonical: true
 ---
 
@@ -15,7 +15,7 @@ This file is the feature-level implementation control board for the v0 UI/API au
 ## Task DAG
 
 ```text
-AUTHN-001 -> AUTHN-002 -> AUTHN-003 -> AUTHN-004 -> AUTHN-005
+AUTHN-001 -> AUTHN-002 -> AUTHN-003 -> AUTHN-004 -> AUTHN-006 -> AUTHN-005
 ```
 
 ---
@@ -31,9 +31,13 @@ AUTHN-001 -> AUTHN-002 -> AUTHN-003 -> AUTHN-004 -> AUTHN-005
 - `AUTHN-002` defines password persistence, bootstrap behavior, and Argon2id verification.
 - `AUTHN-003` implements opaque session cookie endpoints, `ISessionStore`, the custom `"app-cookie"` authentication handler, throttling, and same-origin checks.
 
-### Phase 3: UI API Protection And Validation
+### Phase 3: UI API Protection And Reverse Proxy Auth
 
 - `AUTHN-004` validates protected UI-facing gateway endpoint behavior and preserves the auth endpoint contract consumed by the final UI.
+- `AUTHN-006` amends Gateway auth for trusted reverse-proxy forwarded headers and effective public HTTPS validation.
+
+### Phase 4: Security Validation
+
 - `AUTHN-005` performs the security validation pass and records completion.
 
 ---
@@ -45,8 +49,9 @@ AUTHN-001 -> AUTHN-002 -> AUTHN-003 -> AUTHN-004 -> AUTHN-005
 | `AUTHN-001` | Authn canonical docs and design decisions | done | - | `AUTHN-002` | no | - |
 | `AUTHN-002` | Password persistence and bootstrap | done | `AUTHN-001`, `TELING-001` | `AUTHN-003` | no | `plans/AUTHN-002-password-persistence-and-bootstrap.execplan.md` (completed) |
 | `AUTHN-003` | Gateway opaque session cookie authentication | done | `AUTHN-002` | `AUTHN-004`, `UIEND-002`, `UIEND-003` | no | `plans/AUTHN-003-gateway-cookie-authentication.execplan.md` (completed) |
-| `AUTHN-004` | Protect UI API and validate auth client contract | done | `AUTHN-003` | `AUTHN-005`, `UI-002` | no | - |
-| `AUTHN-005` | Security validation pass | blocked | `AUTHN-004` | - | no | - |
+| `AUTHN-004` | Protect UI API and validate auth client contract | done | `AUTHN-003` | `AUTHN-006`, `UI-002` | no | - |
+| `AUTHN-006` | Reverse-proxy forwarded headers and effective HTTPS auth | done | `AUTHN-004` | `AUTHN-005` | no | `plans/AUTHN-006-reverse-proxy-forwarded-headers.execplan.md` (completed) |
+| `AUTHN-005` | Security validation pass | done | `AUTHN-006` | - | no | - |
 
 ---
 
@@ -56,6 +61,7 @@ AUTHN-001 -> AUTHN-002 -> AUTHN-003 -> AUTHN-004 -> AUTHN-005
 - `AUTHN-002` must wait for `TELING-001` unless the implementer explicitly updates the shared persistence foundation first.
 - Future UI API feature tasks must treat `AUTHN-003` as a blocking gateway contract.
 - The browser auth shell must wait for `AUTHN-004` because that task validates the UI auth client contract consumed by `UI-002`.
+- `AUTHN-006` must run after `AUTHN-004` and before `AUTHN-005` because it changes Gateway auth request interpretation, forwarded-header startup order, and same-origin validation.
 - Future Telegram persistence work must preserve `users.password_hash` and nullable-at-rest `users.telegram_user_id`.
 
 ---
@@ -69,7 +75,8 @@ AUTHN-001 -> AUTHN-002 -> AUTHN-003 -> AUTHN-004 -> AUTHN-005
 - Cookie name and attributes for `__Host-app-auth`.
 - 32-byte base64url opaque session id generation and 24-hour server-side absolute expiry.
 - Same-origin rejection behavior for unsafe methods.
-- `AUTH_BOOTSTRAP_PASSWORD` and `SQLITE_PATH`.
+- Effective public scheme, host, and port after trusted forwarded-header processing.
+- `GATEWAY_PUBLIC_HOSTS`, `AUTH_BOOTSTRAP_PASSWORD`, and `SQLITE_PATH`.
 
 ---
 
@@ -77,7 +84,7 @@ AUTHN-001 -> AUTHN-002 -> AUTHN-003 -> AUTHN-004 -> AUTHN-005
 
 1. Run gateway auth bootstrap and endpoint tests.
 2. Run gateway build and full test suite.
-3. Verify cookie attributes, session rotation, server-side expiry, logout store removal, oversized login rejection, throttling, protected endpoint `401`, and same-origin rejection.
+3. Verify forwarded `https` login success, effective `http` login `403`, forwarded public host constraints, cookie attributes, session rotation, server-side expiry, logout store removal, oversized login rejection, throttling, protected endpoint `401`, and same-origin rejection.
 
 Validation commands:
 

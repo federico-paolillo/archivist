@@ -2,7 +2,7 @@
 id: AUTHN
 slug: authn
 title: UI/API Authentication
-status: draft
+status: done
 owner: null
 depends_on: [telegram-ingestion]
 impacts: [gateway, ui, sqlite]
@@ -33,6 +33,7 @@ In scope:
 - Protection of UI-facing API endpoints.
 - In-memory login throttling for the single gateway instance.
 - Basic same-origin defenses for unsafe methods.
+- Forwarded-header handling for the trusted Docker reverse proxy deployment topology.
 - Auth endpoint/session contracts consumed by the final browser UI.
 
 ## Out of Scope
@@ -77,7 +78,7 @@ Not included:
 - REQ-019: Authenticated requests must receive a minimal `ClaimsPrincipal` containing only `ClaimTypes.NameIdentifier` with the user id.
 - REQ-020: The handler must not issue, clear, rotate, or refresh cookies.
 - REQ-021: `POST /login` must accept JSON `{ "password": string }`, return `204` and `Set-Cookie` on success, and return a generic `401` on invalid credentials.
-- REQ-022: `/login` must reject non-`POST`, non-same-origin, and non-TLS requests.
+- REQ-022: `/login` must reject non-`POST`, non-same-origin, and requests whose effective public scheme is not `https`.
 - REQ-023: Login throttling must run per IP and globally before Argon2id verification.
 - REQ-024: Successful login must always rotate the session id and remove any existing valid session from the request cookie.
 - REQ-025: `POST /logout` must remove the store entry when present, always clear `__Host-app-auth`, and return `204`.
@@ -86,6 +87,11 @@ Not included:
 - REQ-028: Unsafe cross-site requests must be rejected using same-origin request checks. State-changing `GET` endpoints are prohibited.
 - REQ-029: Cookie values, passwords, and `Set-Cookie` headers must not be logged.
 - REQ-030: Final browser rendering for login, login failure, protected routes, and logout belongs to the `ui` feature and must consume these auth endpoints without changing their contracts.
+- REQ-031: The effective public scheme is `HttpRequest.Scheme` after trusted forwarded-header processing.
+- REQ-032: Gateway must run privately on the Docker internal network behind Caddy and must not be exposed directly to the public Internet when forwarded headers are trusted.
+- REQ-033: Gateway startup must process `X-Forwarded-Proto` and `X-Forwarded-For` before authentication middleware, authorization middleware, and endpoint mapping.
+- REQ-034: Forwarded host values must be constrained by `GATEWAY_PUBLIC_HOSTS`.
+- REQ-035: Same-origin checks for unsafe methods must compare post-forwarding scheme, host, and effective port.
 
 ## Acceptance Criteria
 
@@ -140,6 +146,28 @@ Scenario: Authentication handler rejects an expired session
   When the authentication handler runs
   Then the session store entry is removed
   And authentication fails
+
+Scenario: Login succeeds behind trusted reverse proxy
+  Given the personal user has a stored password_hash for the submitted password
+  And Gateway receives internal HTTP from Caddy
+  And trusted forwarded headers set the effective public scheme to https
+  And the Origin matches the effective public origin
+  When the browser posts the password to /login
+  Then the response status is 204
+  And the auth cookie attributes remain unchanged
+
+Scenario: Login rejects ineffective HTTPS context
+  Given the personal user has a stored password_hash for the submitted password
+  And forwarded-header processing leaves the effective public scheme as http
+  When the browser posts the password to /login
+  Then the response status is 403
+  And no auth cookie is issued
+
+Scenario: Unsafe request rejects public origin mismatch
+  Given a valid auth cookie is present
+  When an unsafe request supplies an Origin or Referer with a mismatched scheme, host, or effective port
+  Then the response status is 403
+  And the endpoint handler is not reached
 ```
 
 ## Data and State
@@ -178,7 +206,8 @@ The v0 implementation is in-memory and may use `ConcurrentDictionary<string, Ses
 
 - `POST /login`
   - Request body: `{ "password": string }`.
-  - The request must be `POST`, same-origin, and TLS.
+  - The request must be `POST`, same-origin, and have effective public scheme `https`.
+  - The effective public scheme is `HttpRequest.Scheme` after forwarded-header processing.
   - Per-IP and global login throttling run before Argon2id verification.
   - Success: always remove any existing valid session from the request cookie, create a fresh session id, store a `SessionEntry`, and return `204 No Content` with `Set-Cookie`.
   - Failure: `401 Unauthorized`; the response must not disclose whether bootstrap is missing, the password is wrong, or throttling contributed.
@@ -219,6 +248,7 @@ services.AddAuthorization();
 - Configuration:
   - `AUTH_BOOTSTRAP_PASSWORD`: one-time 2048-character bootstrap password. Secret.
   - `SQLITE_PATH`: SQLite database path.
+  - `GATEWAY_PUBLIC_HOSTS`: comma-separated public host allowlist for trusted forwarded host values. Not secret.
 
 ## Dependencies
 
@@ -226,6 +256,7 @@ Depends on:
 
 - `telegram-ingestion` persistence foundation for the shared `users` table contract.
 - `docs/ARCHITECTURE.md` v0 single-user gateway/UI boundary.
+- `docs/ARCHITECTURE.md` reverse-proxy deployment topology.
 - `docs/conventions/GATEWAY.md` ASP.NET Core Minimal API conventions.
 - `docs/conventions/UI.md` Preact/Vite conventions.
 
@@ -244,6 +275,7 @@ Impacts:
 - Do not encrypt, sign, MAC, or otherwise transform the cookie value.
 - Gateway restart invalidating cookies is intentional in v0.
 - Do not implement final Preact login page rendering in this feature; `docs/specs/ui/SPEC.md` owns browser UI routes and rendering behavior.
+- The trusted reverse proxy must overwrite forwarded headers. Do not expose Gateway directly to the public Internet while trusting forwarded headers.
 
 ## Security / Privacy Notes
 
@@ -251,6 +283,7 @@ Impacts:
 - `AUTH_BOOTSTRAP_PASSWORD`, stored password hashes, session ids, auth cookies, and `Set-Cookie` headers are secret material and must not be logged.
 - The cookie value contains no user id, role, expiry, or metadata. Store presence and server-side expiry determine validity.
 - SameSite cookies are not the only CSRF control. Unsafe requests must also enforce same-origin request checks.
+- Same-origin request checks must compare the post-forwarding effective public scheme, host, and port.
 - Login throttling is in-memory and is acceptable only because v0 has one gateway instance.
 
 ## Multiple-Replica Notes
@@ -277,3 +310,5 @@ To support multiple gateway replicas:
 - `./DIARY.md`
 - `./plans/AUTHN-002-password-persistence-and-bootstrap.execplan.md`
 - `./plans/AUTHN-003-gateway-cookie-authentication.execplan.md`
+- `./tasks/AUTHN-006-reverse-proxy-forwarded-headers-and-effective-https-auth.md`
+- `./plans/AUTHN-006-reverse-proxy-forwarded-headers.execplan.md`

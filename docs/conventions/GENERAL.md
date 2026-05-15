@@ -80,12 +80,15 @@ LLM_API_KEY
 LLM_MODEL
 JINA_ENABLED
 JINA_API_KEY
+GATEWAY_PUBLIC_HOSTS
 VITE_API_BASE_PATH
 ```
 
 `AUTH_BOOTSTRAP_PASSWORD` is required only when initializing a missing personal-user password hash. It must be exactly 2048 printable ASCII characters and must be treated as secret material.
 
 `JINA_API_KEY` is optional configuration for authenticated Jina Reader requests. It must be treated as a secret when supplied.
+
+`GATEWAY_PUBLIC_HOSTS` is a comma-separated allowlist of public host names accepted from trusted forwarded headers. It is not secret material.
 
 `VITE_API_BASE_PATH` is UI build-time configuration. It defaults to `/api` and is not secret material.
 

@@ -2,7 +2,7 @@
 id: UIEND
 slug: ui-endpoints
 title: UI Article Endpoints
-status: draft
+status: in_progress
 owner: null
 depends_on: [authn, telegram-ingestion, summary-generation]
 impacts: [gateway, sqlite, filesystem, ui]
