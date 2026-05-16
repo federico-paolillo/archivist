@@ -74,24 +74,25 @@ func NewSnapshotPipeline(
 }
 
 // ProcessOne claims one queued article-processing job and runs it through the pipeline.
-// It returns nil when no queued job was available, and nil when a job was processed
-// (even if the job itself failed — job failures are persisted, not surfaced to the caller).
-// It returns a non-nil error only for unexpected infrastructure failures.
-func (p *SnapshotPipeline) ProcessOne(ctx context.Context) error {
+// It returns processed=false when no queued job was available. It returns
+// processed=true when a job was processed, even if the job itself failed and
+// that failure was persisted. It returns a non-nil error only for unexpected
+// infrastructure failures.
+func (p *SnapshotPipeline) ProcessOne(ctx context.Context) (bool, error) {
 	job, claimErr := p.repo.ClaimQueued(ctx)
 	if claimErr != nil {
 		if errors.Is(claimErr, sql.ErrNoRows) {
-			return nil
+			return false, nil
 		}
 
-		return fmt.Errorf("pipeline: claim queued job: %w", claimErr)
+		return false, fmt.Errorf("pipeline: claim queued job: %w", claimErr)
 	}
 
 	start := time.Now()
 
 	articleURL, urlErr := p.repo.ArticleURL(ctx, job.ArticleID)
 	if urlErr != nil {
-		return fmt.Errorf("pipeline: load article URL for %s: %w", job.ArticleID, urlErr)
+		return false, fmt.Errorf("pipeline: load article URL for %s: %w", job.ArticleID, urlErr)
 	}
 
 	p.logger.Info(
@@ -106,7 +107,12 @@ func (p *SnapshotPipeline) ProcessOne(ctx context.Context) error {
 	duration := time.Since(start)
 
 	if processingErr != nil {
-		return p.persistFailure(ctx, job, articleURL, processingErr, duration)
+		persistErr := p.persistFailure(ctx, job, articleURL, processingErr, duration)
+		if persistErr != nil {
+			return false, persistErr
+		}
+
+		return true, nil
 	}
 
 	p.logger.Info(
@@ -117,7 +123,7 @@ func (p *SnapshotPipeline) ProcessOne(ctx context.Context) error {
 		slog.String("status", "snapshot_done"),
 	)
 
-	return nil
+	return true, nil
 }
 
 // persistFailure logs the failure and commits terminal failure state.

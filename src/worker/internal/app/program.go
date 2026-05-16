@@ -39,6 +39,24 @@ func CliProgram(ctx context.Context, a *pkgapp.App, cfg *config.Root) error {
 		},
 		Commands: []*cli.Command{
 			{
+				Name:  "process",
+				Usage: "Process queued article jobs",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:  "once",
+						Usage: "Process at most one queued job and exit",
+					},
+					&cli.DurationFlag{
+						Name:  "idle-sleep",
+						Usage: "Sleep duration when no queued job is available",
+						Value: defaultProcessIdleSleep,
+					},
+				},
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					return process(ctx, a, cmd.Bool("once"), cmd.Duration("idle-sleep"))
+				},
+			},
+			{
 				Name:  "version",
 				Usage: "Dummy command. Prints the Go version",
 				Action: func(ctx context.Context, cmd *cli.Command) error {

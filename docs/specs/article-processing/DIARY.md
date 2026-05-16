@@ -472,3 +472,51 @@ Canonical Updates:
 - `docs/specs/article-processing/PLAN.md` — ARTPROC-005 row: in_progress → done.
 - `docs/specs/article-processing/tasks/ARTPROC-005-worker-snapshot-pipeline-orchestration.md` — status: in_progress → done.
 - `docs/specs/article-processing/plans/ARTPROC-005-worker-snapshot-pipeline-orchestration.execplan.md` — status: accepted → completed.
+
+---
+
+## 2026-05-16 - ARTPROC-007: Worker Executable Processing Command
+
+Status:
+- completed
+
+Summary:
+- Added the explicit Worker processing command so queued jobs are reachable from the deployed executable path. The previous implementation wired `SnapshotPipeline` into `App` but left the binary with only the diagnostic `version` command.
+
+Changes:
+- Added `src/worker/internal/app/process.go`:
+  - `archivist-worker process`
+  - `process --once`
+  - `process --idle-sleep`
+  - startup validation that `SnapshotPipeline` is configured
+  - cancellable single-worker polling loop
+- Updated `src/worker/internal/app/program.go` to own `urfave/cli/v3` command configuration and register the `process` command.
+- Updated `src/worker/internal/pipeline/snapshot.go` so `ProcessOne(ctx)` returns `(processed bool, err error)`.
+- Updated pipeline tests for the new `ProcessOne` contract.
+- Added `src/worker/internal/app/process_test.go` with executable-surface coverage for `process --once`, missing pipeline configuration, and idle cancellation.
+
+Decisions:
+- The root command remains command-only; production processing is invoked with `archivist-worker process`.
+- The loop is v0 single-worker polling, not a scheduler, retry system, or worker pool.
+- `ProcessOne` distinguishes no work from processed work so daemon mode can sleep only when idle and drain queued work without unnecessary delay.
+- Worker CLI configuration stays in `program.go`; each command forwards to a command-named function that does not accept or reference `urfave/cli/v3` types.
+
+Validation:
+- `cd src/worker && go run ./cmd/app process --help` — passed.
+- `cd src/worker && go tool lefthook run build` — passed.
+- `cd src/worker && go tool lefthook run format` — passed after loop helper refactor.
+- `cd src/worker && go tool lefthook run lint` — passed.
+- `cd src/worker && go tool lefthook run test` — passed.
+
+Follow-ups:
+- Worker configuration-key mismatch remains separate from this executable processing command task.
+
+Canonical Updates:
+- `docs/specs/article-processing/SPEC.md` — added executable processing requirement, acceptance scenario, interface, and rebuild note.
+- `docs/specs/article-processing/PLAN.md` — added `ARTPROC-007` DAG edge and task row.
+- `docs/specs/article-processing/tasks/ARTPROC-007-worker-executable-processing-command.md` — added completed corrective task.
+- `docs/specs/article-processing/plans/ARTPROC-007-worker-executable-processing-command.execplan.md` — added completed ExecPlan.
+- `docs/ARCHITECTURE.md` — documented `archivist-worker process` as the Worker production command.
+- `docs/conventions/WORKER.md` — added CLI command boundary convention and executable-surface test requirement.
+- `docs/BOOKKEEPING.md` — added executable/service-boundary quality gate.
+- `docs/REBUILD.md` — added executable/service-boundary rebuild validation rule.

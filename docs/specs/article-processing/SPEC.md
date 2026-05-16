@@ -26,6 +26,7 @@ This feature intentionally stops before extraction, readability comparison, scor
 In scope:
 
 - Worker dequeue of queued article-processing jobs using the existing SQLite queue contract.
+- Explicit Worker executable processing through `archivist-worker process`.
 - URL validation for `http` and `https` schemes before fetch.
 - Redirect resolution and HTML fetching using `github.com/imroc/req/v3`.
 - Conservative fetch limits: 10 redirects, 20 second total timeout, 10 MiB maximum response body.
@@ -80,6 +81,7 @@ Not included:
 - REQ-015: Gateway snapshot-stage notification work is skipped in final v0; success notification content is summary-based and owned by `summary-generation`.
 - REQ-016: Extraction and rating pipeline steps must exist only as no-op slots or documentation boundaries in this feature.
 - REQ-017: The `markdown-extraction` and `summary-generation` features supersede the snapshot-stage success criterion with summary-complete processing.
+- REQ-018: The Worker executable must expose an explicit `process` command that runs the processing pipeline, validates the snapshot pipeline is configured, and supports a one-shot mode for executable-surface validation.
 
 ## Acceptance Criteria
 
@@ -96,6 +98,14 @@ Scenario: Worker snapshots an HTML article
   And articles.status is not set to "ready" at the snapshot boundary in final v0
   And jobs.status is not set to "succeeded" at the snapshot boundary in final v0
   And no success notification is inserted at the snapshot boundary in final v0
+
+Scenario: Worker executable processes a queued job
+  Given the Worker is configured with SQLite and DATA_DIR
+  And a queued article-processing job exists
+  When `archivist-worker process --once` runs
+  Then the executable path claims the queued job
+  And the Worker stores snapshot.html under DATA_DIR/articles/{article_id}/
+  And articles.canonical_url is set to the final redirected URL
 
 Scenario: URL returns not found
   Given a queued article-processing job exists
@@ -168,6 +178,7 @@ No artifact paths, HTTP status columns, failure-code columns, extraction telemet
 ## Interfaces
 
 - Worker job source: SQLite queued article-processing jobs.
+- Worker executable command: `archivist-worker process`.
 - Worker HTTP client: `github.com/imroc/req/v3`.
 - Worker artifact store: `{DATA_DIR}/articles/{article_id}/snapshot.html`.
 - Worker stage contract: update canonical URL, write `snapshot.html`, and hand off to Markdown extraction in final v0.
@@ -200,6 +211,7 @@ Impacts:
 - Existing code is not authoritative; rebuilds must follow this spec and linked tasks.
 - Snapshot success is an intermediate stage. Final v0 success is summary-complete.
 - The `markdown-extraction` and `summary-generation` features replace snapshot-stage success with summary-complete processing.
+- Queue processing must be reachable through `archivist-worker process`; tests that only instantiate `SnapshotPipeline` are not sufficient to prove executable behavior.
 - `snapshot.html` is the only artifact written by this feature.
 - Do not add article artifact path columns.
 - Do not add retry states or automatic retry scheduling.
@@ -230,5 +242,7 @@ Impacts:
 - `./tasks/ARTPROC-004-worker-url-resolver-and-html-fetcher.md`
 - `./tasks/ARTPROC-005-worker-snapshot-pipeline-orchestration.md`
 - `./tasks/ARTPROC-006-gateway-snapshot-success-notification-bridge.md`
+- `./tasks/ARTPROC-007-worker-executable-processing-command.md`
 - `../markdown-extraction/SPEC.md`
 - `./plans/ARTPROC-005-worker-snapshot-pipeline-orchestration.execplan.md`
+- `./plans/ARTPROC-007-worker-executable-processing-command.execplan.md`

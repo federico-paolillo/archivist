@@ -162,8 +162,9 @@ func TestSnapshotSuccessWritesSnapshotAndUpdatesCanonicalURL(t *testing.T) {
 
 	p := newTestPipeline(t, database, store, fetch, nil)
 
-	err = p.ProcessOne(t.Context())
+	processed, err := p.ProcessOne(t.Context())
 	require.NoError(t, err)
+	require.True(t, processed)
 
 	// snapshot.html must exist and be readable.
 	rc, openErr := store.OpenSnapshot(articleID)
@@ -210,8 +211,9 @@ func TestSnapshotFetchFailureCommitsARCCodedFailureTransactionally(t *testing.T)
 
 	p := newTestPipeline(t, database, store, fetch, nil)
 
-	err = p.ProcessOne(t.Context())
+	processed, err := p.ProcessOne(t.Context())
 	require.NoError(t, err)
+	require.True(t, processed)
 
 	articleStatus := scalarString(t, database, `SELECT status FROM articles WHERE id = ?`, articleID)
 	assert.Equal(t, "failed", articleStatus)
@@ -250,8 +252,9 @@ func TestSnapshotForbiddenFailureMapsToARC002(t *testing.T) {
 
 	p := newTestPipeline(t, database, store, fetch, nil)
 
-	err = p.ProcessOne(t.Context())
+	processed, err := p.ProcessOne(t.Context())
 	require.NoError(t, err)
+	require.True(t, processed)
 
 	articleError := scalarNullableString(t, database, `SELECT error_message FROM articles WHERE id = ?`, articleID)
 	assert.Contains(t, articleError, "[ARC-002]")
@@ -280,8 +283,9 @@ func TestSnapshotNonHTMLFailureMapsToARC005(t *testing.T) {
 
 	p := newTestPipeline(t, database, store, fetch, nil)
 
-	err = p.ProcessOne(t.Context())
+	processed, err := p.ProcessOne(t.Context())
 	require.NoError(t, err)
+	require.True(t, processed)
 
 	articleError := scalarNullableString(t, database, `SELECT error_message FROM articles WHERE id = ?`, articleID)
 	assert.Contains(t, articleError, "[ARC-005]")
@@ -327,10 +331,11 @@ func TestSnapshotTransactionRollbackOnNotificationFailure(t *testing.T) {
 
 	// The pipeline will attempt to insert a second notification, violating UNIQUE.
 	// The transaction should roll back, so articles.status remains in its pre-terminal state.
-	processErr := p.ProcessOne(t.Context())
+	processed, processErr := p.ProcessOne(t.Context())
 
 	// ProcessOne must return an error because CompleteTerminal failed.
 	require.Error(t, processErr)
+	require.False(t, processed)
 
 	// Since the transaction rolled back, articles.status must not be 'failed'.
 	// The job was claimed (status=running) but the terminal transition failed.
@@ -338,8 +343,8 @@ func TestSnapshotTransactionRollbackOnNotificationFailure(t *testing.T) {
 	assert.NotEqual(t, "failed", articleStatus)
 }
 
-// TestSnapshotNoQueuedJobReturnsNil verifies that ProcessOne returns nil when there are no jobs.
-func TestSnapshotNoQueuedJobReturnsNil(t *testing.T) {
+// TestSnapshotNoQueuedJobReturnsFalse verifies that ProcessOne returns false when there are no jobs.
+func TestSnapshotNoQueuedJobReturnsFalse(t *testing.T) {
 	database := openTestDB(t)
 	seedUser(t, database)
 
@@ -352,8 +357,9 @@ func TestSnapshotNoQueuedJobReturnsNil(t *testing.T) {
 
 	p := newTestPipeline(t, database, store, fetch, nil)
 
-	err = p.ProcessOne(t.Context())
+	processed, err := p.ProcessOne(t.Context())
 	require.NoError(t, err)
+	require.False(t, processed)
 }
 
 // TestMarkdownHandoffIsCalledOnSnapshotSuccess verifies that the MarkdownHandoff
@@ -389,8 +395,9 @@ func TestMarkdownHandoffIsCalledOnSnapshotSuccess(t *testing.T) {
 
 	p := newTestPipeline(t, database, store, fetch, handoff)
 
-	err = p.ProcessOne(t.Context())
+	processed, err := p.ProcessOne(t.Context())
 	require.NoError(t, err)
+	require.True(t, processed)
 
 	assert.True(t, handoffCalled, "expected markdown handoff to be called after snapshot success")
 }
@@ -424,8 +431,9 @@ func TestMarkdownHandoffFailureCommitsTerminalFailure(t *testing.T) {
 
 	p := newTestPipeline(t, database, store, fetch, handoff)
 
-	err = p.ProcessOne(t.Context())
+	processed, err := p.ProcessOne(t.Context())
 	require.NoError(t, err)
+	require.True(t, processed)
 
 	articleStatus := scalarString(t, database, `SELECT status FROM articles WHERE id = ?`, articleID)
 	assert.Equal(t, "failed", articleStatus)
@@ -461,8 +469,9 @@ func TestWrappedARCFailurePersistsCleanPublicMessage(t *testing.T) {
 
 	p := newTestPipeline(t, database, store, newTestFetcher(srv.URL), handoff)
 
-	err = p.ProcessOne(t.Context())
+	processed, err := p.ProcessOne(t.Context())
 	require.NoError(t, err)
+	require.True(t, processed)
 
 	const publicMessage = "[ARC-010] Archivist could not extract this page with the fallback reader."
 	assert.Equal(t, publicMessage, scalarNullableString(t, database, `SELECT error_message FROM articles WHERE id = ?`, articleID))

@@ -55,6 +55,18 @@ Anytime you add a new service to the composition root you must test that it is c
 
 `NewApp()` is the constructor of the composition root and can be optionally partitioned into multiple `createXxx()` factory functions that take care of complex initialization logic. These functions are not necessary if constructing a service is trivial.
 
+## CLI commands
+
+Worker CLI command code lives under `src/worker/internal/app/`.
+
+`program.go` owns all `urfave/cli/v3` command configuration: command names, usage text, flags, default flag values, and extraction of typed flag values from `*cli.Command`.
+
+Each CLI command action must forward from `program.go` to a function in its own file named after the command. For example, the `process` command forwards to `process(...)` in `process.go`, and the `version` command forwards to `version(...)` in `version.go`.
+
+Command action functions must not accept or reference `urfave/cli/v3` types. They receive only `context.Context`, the Worker `App`, and already-parsed primitive or domain values needed to perform the command.
+
+Any task that changes Worker production behavior through a CLI command must include executable-surface tests that invoke the command registration path. Tests that instantiate internal services directly are not sufficient for executable-boundary behavior.
+
 ## Configuration
 
 Worker configuration is loaded from environment variables or equivalent deployment secret mechanisms. Worker settings include:

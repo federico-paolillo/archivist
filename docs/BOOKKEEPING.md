@@ -487,6 +487,8 @@ Before a feature is considered complete:
 6. `docs/specs/INDEX.md` reflects feature status.
 7. Rebuild implications are captured in `docs/REBUILD.md` or feature rebuild notes.
 
+Tasks that modify executable or service boundaries must validate the public executable or service entrypoint. Internal service tests are required but not sufficient for behavior that must be reachable from a deployed binary, hosted service, CLI command, or HTTP route.
+
 ---
 
 ## Anti-Patterns

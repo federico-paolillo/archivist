@@ -162,6 +162,8 @@ A rebuild is not complete until:
 5. feature diaries record implementation outcomes;
 6. durable decisions discovered during the rebuild have been promoted to canonical documents.
 
+Executable and service-boundary rebuild work must include validation through the deployed entrypoint shape, such as a CLI command, hosted-service loop, or HTTP route. Tests that only instantiate internal services do not satisfy executable-boundary acceptance criteria.
+
 Project validation commands:
 
 ```bash

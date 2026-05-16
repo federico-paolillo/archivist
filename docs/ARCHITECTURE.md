@@ -47,6 +47,7 @@ The system favors a small, rebuildable deployment over horizontal scale. SQLite 
 
 - Runtime: Go.
 - Deployment: single instance in v0.
+- Production command: `archivist-worker process`.
 - Responsibilities:
   - atomically dequeue jobs from SQLite;
   - fetch article HTML over plain HTTP(S);

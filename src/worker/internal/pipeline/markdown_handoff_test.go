@@ -75,8 +75,9 @@ func TestMarkdownExtractionHandoffLocalSuccessWritesMarkdownAndStaysNonTerminal(
 	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, nil), store, local, jina)
 	p := newTestPipeline(t, database, store, newTestFetcher(srv.URL), handoff)
 
-	err = p.ProcessOne(t.Context())
+	processed, err := p.ProcessOne(t.Context())
 	require.NoError(t, err)
+	require.True(t, processed)
 
 	rc, openErr := store.OpenMarkdown(articleID)
 	require.NoError(t, openErr)
@@ -293,8 +294,9 @@ func TestMarkdownExtractionFailureCommitsTerminalFailureTransactionally(t *testi
 	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, nil), store, local, jina)
 	p := newTestPipeline(t, database, store, newTestFetcher(srv.URL), handoff)
 
-	err = p.ProcessOne(t.Context())
+	processed, err := p.ProcessOne(t.Context())
 	require.NoError(t, err)
+	require.True(t, processed)
 
 	assert.Equal(t, "failed", scalarString(t, database, `SELECT status FROM articles WHERE id = ?`, articleID))
 	assert.Equal(t, "failed", scalarString(t, database, `SELECT status FROM jobs WHERE id = ?`, jobID))
@@ -346,8 +348,9 @@ func TestMarkdownExtractionFailureRollsBackWhenNotificationInsertFails(t *testin
 	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, nil), store, local, jina)
 	p := newTestPipeline(t, database, store, newTestFetcher(srv.URL), handoff)
 
-	processErr := p.ProcessOne(t.Context())
+	processed, processErr := p.ProcessOne(t.Context())
 	require.Error(t, processErr)
+	require.False(t, processed)
 
 	assert.NotEqual(t, "failed", scalarString(t, database, `SELECT status FROM articles WHERE id = ?`, articleID))
 	assert.Equal(t, "running", scalarString(t, database, `SELECT status FROM jobs WHERE id = ?`, jobID))
