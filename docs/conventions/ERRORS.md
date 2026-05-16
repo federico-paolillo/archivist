@@ -45,5 +45,6 @@ Detailed HTTP, filesystem, library, stack, or provider diagnostics belong in str
 - Do not reuse a code for a different meaning.
 - Do not delete a code once implementation or persisted data may reference it.
 - Add new codes in canonical docs before implementation uses them.
+- Worker implementation must mirror this catalog in `src/worker/internal/arc`; packages must not duplicate public ARC messages elsewhere.
 - Keep public messages short and user-safe.
 - Keep operational details in logs or job diagnostic context.

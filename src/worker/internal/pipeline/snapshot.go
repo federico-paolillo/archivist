@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"time"
 
+	"codeberg.org/federico-paolillo/archivist/internal/arc"
 	"codeberg.org/federico-paolillo/archivist/internal/artifacts"
 	"codeberg.org/federico-paolillo/archivist/internal/fetcher"
 	"codeberg.org/federico-paolillo/archivist/pkg/jobs"
@@ -134,12 +135,18 @@ func (p *SnapshotPipeline) persistFailure(
 		slog.String("url", articleURL),
 		slog.String("status", "failed"),
 		slog.Duration("duration", duration),
-		slog.String("arc_code", arcCode(processingErr)),
+		slog.String("arc_code", arc.CodeString(processingErr)),
+		slog.Any("err", processingErr),
 	)
+
+	errorMessage, ok := arc.PublicMessage(processingErr)
+	if !ok {
+		errorMessage = arc.Format(arc.CodeUnknownProcessingFailure)
+	}
 
 	terminalErr := p.repo.CompleteTerminal(ctx, job, jobs.TerminalOutcome{
 		Success:      false,
-		ErrorMessage: processingErr.Error(),
+		ErrorMessage: errorMessage,
 	})
 	if terminalErr != nil {
 		return fmt.Errorf("pipeline: persist terminal failure for job %s: %w", job.ID, terminalErr)
@@ -176,8 +183,15 @@ func (p *SnapshotPipeline) fetchHTML(ctx context.Context, job *jobs.Job, article
 		return result, nil
 	}
 
-	if isARCError(fetchErr) {
-		return nil, fetchErr //nolint:wrapcheck // ARC-coded fetcher errors are the user-facing message; wrapping changes the error text
+	if _, ok := arc.CodeOf(fetchErr); ok {
+		return nil, pipelineFailure(
+			"fetch",
+			"fetch html",
+			fetchErr,
+			nil,
+			withJobContext(job.ArticleID, job.ID),
+			withPipelineURL(articleURL),
+		)
 	}
 
 	p.logger.Error(
@@ -187,7 +201,14 @@ func (p *SnapshotPipeline) fetchHTML(ctx context.Context, job *jobs.Job, article
 		slog.Any("err", fetchErr),
 	)
 
-	return nil, ErrUnknown
+	return nil, pipelineFailure(
+		"fetch",
+		"fetch html",
+		arc.ErrUnknown,
+		fetchErr,
+		withJobContext(job.ArticleID, job.ID),
+		withPipelineURL(articleURL),
+	)
 }
 
 // writeSnapshot atomically writes snapshot.html and maps failures to ARC-007.
@@ -202,7 +223,13 @@ func (p *SnapshotPipeline) writeSnapshot(_ context.Context, job *jobs.Job, resul
 			slog.Any("err", snapshotErr),
 		)
 
-		return ErrSnapshotWrite
+		return pipelineFailure(
+			"snapshot",
+			"write snapshot",
+			arc.ErrSnapshotWrite,
+			snapshotErr,
+			withJobContext(job.ArticleID, job.ID),
+		)
 	}
 
 	p.logger.Info(
@@ -232,7 +259,14 @@ func (p *SnapshotPipeline) updateCanonicalURL(
 			slog.Any("err", canonicalErr),
 		)
 
-		return ErrUnknown
+		return pipelineFailure(
+			"snapshot",
+			"update canonical URL",
+			arc.ErrUnknown,
+			canonicalErr,
+			withJobContext(job.ArticleID, job.ID),
+			withPipelineURL(finalURL),
+		)
 	}
 
 	p.logger.Info(
@@ -259,8 +293,15 @@ func (p *SnapshotPipeline) invokeMarkdownHandoff(ctx context.Context, job *jobs.
 		return nil
 	}
 
-	if isARCError(mdErr) {
-		return mdErr //nolint:wrapcheck // ARC-coded handoff errors are the user-facing message; wrapping changes the error text
+	if _, ok := arc.CodeOf(mdErr); ok {
+		return pipelineFailure(
+			"markdown",
+			"handoff",
+			mdErr,
+			nil,
+			withJobContext(job.ArticleID, job.ID),
+			withPipelineURL(finalURL),
+		)
 	}
 
 	p.logger.Error(
@@ -270,6 +311,12 @@ func (p *SnapshotPipeline) invokeMarkdownHandoff(ctx context.Context, job *jobs.
 		slog.Any("err", mdErr),
 	)
 
-	return ErrUnknown
+	return pipelineFailure(
+		"markdown",
+		"handoff",
+		arc.ErrUnknown,
+		mdErr,
+		withJobContext(job.ArticleID, job.ID),
+		withPipelineURL(finalURL),
+	)
 }
-

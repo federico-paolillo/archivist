@@ -3,10 +3,12 @@ package summary_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"codeberg.org/federico-paolillo/archivist/internal/arc"
 	"codeberg.org/federico-paolillo/archivist/internal/summary"
 	"github.com/imroc/req/v3"
 	"github.com/stretchr/testify/require"
@@ -15,11 +17,11 @@ import (
 // buildAnthropicResponse returns a minimal Anthropic Messages API response body.
 func buildAnthropicResponse(text string) string {
 	resp := map[string]any{
-		"id":           "msg_test123",
-		"type":         "message",
-		"role":         "assistant",
-		"model":        "claude-3-5-haiku-20241022",
-		"stop_reason":  "end_turn",
+		"id":            "msg_test123",
+		"type":          "message",
+		"role":          "assistant",
+		"model":         "claude-3-5-haiku-20241022",
+		"stop_reason":   "end_turn",
 		"stop_sequence": nil,
 		"content": []map[string]any{
 			{"type": "text", "text": text},
@@ -79,15 +81,14 @@ func TestAnthropicAdapterSuccessPath(t *testing.T) {
 
 	adapter := newTestAdapter(t, srv)
 
-	result := adapter.Summarize(t.Context(), summary.SummarizerRequest{
+	output, err := adapter.Summarize(t.Context(), summary.SummarizerRequest{
 		MarkdownSource: "# Article\n\nSome content.",
 	})
 
-	require.Equal(t, summary.ResultStatusSuccess, result.Status)
-	require.Equal(t, summary.ProviderAnthropic, result.Provider)
-	require.Equal(t, expectedSummary, result.Summary)
-	require.Empty(t, result.ErrorCode)
-	require.Empty(t, result.FailureReason)
+	require.NoError(t, err)
+	require.Equal(t, summary.ProviderAnthropic, adapter.Provider())
+	require.Equal(t, expectedSummary, output.Summary)
+	require.Equal(t, "msg_test123", output.RequestID)
 }
 
 func TestAnthropicAdapterEmptyOutputIsARC013(t *testing.T) {
@@ -100,13 +101,15 @@ func TestAnthropicAdapterEmptyOutputIsARC013(t *testing.T) {
 
 	adapter := newTestAdapter(t, srv)
 
-	result := adapter.Summarize(t.Context(), summary.SummarizerRequest{
+	_, err := adapter.Summarize(t.Context(), summary.SummarizerRequest{
 		MarkdownSource: "# Article\n\nSome content.",
 	})
 
-	require.Equal(t, summary.ResultStatusFailure, result.Status)
-	require.Equal(t, summary.ProviderAnthropic, result.Provider)
-	require.Equal(t, summary.ErrorCodeProviderFailure, result.ErrorCode)
+	require.ErrorIs(t, err, arc.ErrSummarizerProviderFailure)
+	providerErr, ok := errors.AsType[*summary.ProviderError](err)
+	require.True(t, ok)
+	require.Equal(t, summary.ProviderAnthropic, providerErr.Provider)
+	require.Equal(t, "msg_test123", providerErr.RequestID)
 }
 
 func TestAnthropicAdapterGenericErrorIsARC013(t *testing.T) {
@@ -119,13 +122,15 @@ func TestAnthropicAdapterGenericErrorIsARC013(t *testing.T) {
 
 	adapter := newTestAdapter(t, srv)
 
-	result := adapter.Summarize(t.Context(), summary.SummarizerRequest{
+	_, err := adapter.Summarize(t.Context(), summary.SummarizerRequest{
 		MarkdownSource: "# Article\n\nSome content.",
 	})
 
-	require.Equal(t, summary.ResultStatusFailure, result.Status)
-	require.Equal(t, summary.ProviderAnthropic, result.Provider)
-	require.Equal(t, summary.ErrorCodeProviderFailure, result.ErrorCode)
+	require.ErrorIs(t, err, arc.ErrSummarizerProviderFailure)
+	providerErr, ok := errors.AsType[*summary.ProviderError](err)
+	require.True(t, ok)
+	require.Equal(t, summary.ProviderAnthropic, providerErr.Provider)
+	require.Equal(t, http.StatusInternalServerError, providerErr.StatusCode)
 }
 
 func TestAnthropicAdapterRequestTooLargeIsARC014(t *testing.T) {
@@ -138,13 +143,14 @@ func TestAnthropicAdapterRequestTooLargeIsARC014(t *testing.T) {
 
 	adapter := newTestAdapter(t, srv)
 
-	result := adapter.Summarize(t.Context(), summary.SummarizerRequest{
+	_, err := adapter.Summarize(t.Context(), summary.SummarizerRequest{
 		MarkdownSource: "# Article\n\nSome content.",
 	})
 
-	require.Equal(t, summary.ResultStatusFailure, result.Status)
-	require.Equal(t, summary.ProviderAnthropic, result.Provider)
-	require.Equal(t, summary.ErrorCodeRequestTooLarge, result.ErrorCode)
+	require.ErrorIs(t, err, arc.ErrSummarizerRequestTooLarge)
+	providerErr, ok := errors.AsType[*summary.ProviderError](err)
+	require.True(t, ok)
+	require.Equal(t, http.StatusRequestEntityTooLarge, providerErr.StatusCode)
 }
 
 func TestAnthropicAdapterBillingErrorIsARC015(t *testing.T) {
@@ -157,13 +163,14 @@ func TestAnthropicAdapterBillingErrorIsARC015(t *testing.T) {
 
 	adapter := newTestAdapter(t, srv)
 
-	result := adapter.Summarize(t.Context(), summary.SummarizerRequest{
+	_, err := adapter.Summarize(t.Context(), summary.SummarizerRequest{
 		MarkdownSource: "# Article\n\nSome content.",
 	})
 
-	require.Equal(t, summary.ResultStatusFailure, result.Status)
-	require.Equal(t, summary.ProviderAnthropic, result.Provider)
-	require.Equal(t, summary.ErrorCodeBillingFailure, result.ErrorCode)
+	require.ErrorIs(t, err, arc.ErrSummarizerBillingFailure)
+	providerErr, ok := errors.AsType[*summary.ProviderError](err)
+	require.True(t, ok)
+	require.Equal(t, http.StatusPaymentRequired, providerErr.StatusCode)
 }
 
 func TestAnthropicAdapterContextCancellationIsARC013(t *testing.T) {
@@ -179,10 +186,9 @@ func TestAnthropicAdapterContextCancellationIsARC013(t *testing.T) {
 
 	adapter := newTestAdapter(t, srv)
 
-	result := adapter.Summarize(ctx, summary.SummarizerRequest{
+	_, err := adapter.Summarize(ctx, summary.SummarizerRequest{
 		MarkdownSource: "# Article\n\nSome content.",
 	})
 
-	require.Equal(t, summary.ResultStatusFailure, result.Status)
-	require.Equal(t, summary.ErrorCodeProviderFailure, result.ErrorCode)
+	require.ErrorIs(t, err, arc.ErrSummarizerProviderFailure)
 }

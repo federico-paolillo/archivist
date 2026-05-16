@@ -2,12 +2,14 @@ package fetcher_test
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
+	"codeberg.org/federico-paolillo/archivist/internal/arc"
 	"codeberg.org/federico-paolillo/archivist/internal/fetcher"
 	"github.com/imroc/req/v3"
 	"github.com/stretchr/testify/assert"
@@ -91,7 +93,8 @@ func TestFetch401ReturnsARC002(t *testing.T) {
 
 	_, err := f.Fetch(t.Context(), server.URL)
 
-	require.ErrorIs(t, err, fetcher.ErrAccessDenied)
+	require.ErrorIs(t, err, arc.ErrURLAccessDenied)
+	assertFetcherError(t, err, "http status", http.StatusUnauthorized)
 }
 
 func TestFetch403ReturnsARC002(t *testing.T) {
@@ -104,7 +107,8 @@ func TestFetch403ReturnsARC002(t *testing.T) {
 
 	_, err := f.Fetch(t.Context(), server.URL)
 
-	require.ErrorIs(t, err, fetcher.ErrAccessDenied)
+	require.ErrorIs(t, err, arc.ErrURLAccessDenied)
+	assertFetcherError(t, err, "http status", http.StatusForbidden)
 }
 
 func TestFetch404ReturnsARC003(t *testing.T) {
@@ -117,7 +121,8 @@ func TestFetch404ReturnsARC003(t *testing.T) {
 
 	_, err := f.Fetch(t.Context(), server.URL)
 
-	require.ErrorIs(t, err, fetcher.ErrNotFound)
+	require.ErrorIs(t, err, arc.ErrURLNotFound)
+	assertFetcherError(t, err, "http status", http.StatusNotFound)
 }
 
 func TestFetchNonHTMLContentTypeReturnsARC005(t *testing.T) {
@@ -132,7 +137,9 @@ func TestFetchNonHTMLContentTypeReturnsARC005(t *testing.T) {
 
 	_, err := f.Fetch(t.Context(), server.URL)
 
-	require.ErrorIs(t, err, fetcher.ErrNotHTML)
+	require.ErrorIs(t, err, arc.ErrResponseNotHTML)
+	fetchErr := assertFetcherError(t, err, "validate content type", 0)
+	require.Equal(t, "application/pdf", fetchErr.ContentType)
 }
 
 func TestFetchOversizedBodyReturnsARC006(t *testing.T) {
@@ -165,7 +172,8 @@ func TestFetchOversizedBodyReturnsARC006(t *testing.T) {
 
 	_, err := f.Fetch(t.Context(), server.URL)
 
-	require.ErrorIs(t, err, fetcher.ErrBodyTooLarge)
+	require.ErrorIs(t, err, arc.ErrResponseTooLarge)
+	assertFetcherError(t, err, "read body", 0)
 }
 
 func TestFetchTimeoutReturnsARC004(t *testing.T) {
@@ -183,7 +191,9 @@ func TestFetchTimeoutReturnsARC004(t *testing.T) {
 
 	_, err := f.Fetch(ctx, server.URL)
 
-	require.ErrorIs(t, err, fetcher.ErrTransientFailure)
+	require.ErrorIs(t, err, arc.ErrURLFetchTransientFailure)
+	fetchErr := assertFetcherError(t, err, "request", 0)
+	require.NotEmpty(t, fetchErr.URL)
 }
 
 func TestFetchFTPSchemeReturnsARC001(t *testing.T) {
@@ -191,7 +201,8 @@ func TestFetchFTPSchemeReturnsARC001(t *testing.T) {
 
 	_, err := f.Fetch(t.Context(), "ftp://example.com/file.txt")
 
-	require.ErrorIs(t, err, fetcher.ErrUnsupportedScheme)
+	require.ErrorIs(t, err, arc.ErrURLResolutionFailed)
+	assertFetcherError(t, err, "validate scheme", 0)
 }
 
 func TestFetchFileSchemeReturnsARC001(t *testing.T) {
@@ -199,7 +210,8 @@ func TestFetchFileSchemeReturnsARC001(t *testing.T) {
 
 	_, err := f.Fetch(t.Context(), "file:///etc/passwd")
 
-	require.ErrorIs(t, err, fetcher.ErrUnsupportedScheme)
+	require.ErrorIs(t, err, arc.ErrURLResolutionFailed)
+	assertFetcherError(t, err, "validate scheme", 0)
 }
 
 func TestFetchEmptySchemeReturnsARC001(t *testing.T) {
@@ -207,7 +219,8 @@ func TestFetchEmptySchemeReturnsARC001(t *testing.T) {
 
 	_, err := f.Fetch(t.Context(), "not-a-url")
 
-	require.ErrorIs(t, err, fetcher.ErrUnsupportedScheme)
+	require.ErrorIs(t, err, arc.ErrURLResolutionFailed)
+	assertFetcherError(t, err, "validate scheme", 0)
 }
 
 func TestFetch5xxReturnsARC004(t *testing.T) {
@@ -220,5 +233,17 @@ func TestFetch5xxReturnsARC004(t *testing.T) {
 
 	_, err := f.Fetch(t.Context(), server.URL)
 
-	require.ErrorIs(t, err, fetcher.ErrTransientFailure)
+	require.ErrorIs(t, err, arc.ErrURLFetchTransientFailure)
+	assertFetcherError(t, err, "http status", http.StatusInternalServerError)
+}
+
+func assertFetcherError(t *testing.T, err error, op string, statusCode int) *fetcher.FetcherError {
+	t.Helper()
+
+	fetchErr, ok := errors.AsType[*fetcher.FetcherError](err)
+	require.True(t, ok)
+	require.Equal(t, op, fetchErr.Op)
+	require.Equal(t, statusCode, fetchErr.StatusCode)
+
+	return fetchErr
 }

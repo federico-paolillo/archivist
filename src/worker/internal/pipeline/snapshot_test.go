@@ -3,11 +3,13 @@ package pipeline_test
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
+	"codeberg.org/federico-paolillo/archivist/internal/arc"
 	"codeberg.org/federico-paolillo/archivist/internal/artifacts"
 	"codeberg.org/federico-paolillo/archivist/internal/fetcher"
 	"codeberg.org/federico-paolillo/archivist/internal/pipeline"
@@ -417,7 +419,7 @@ func TestMarkdownHandoffFailureCommitsTerminalFailure(t *testing.T) {
 
 	// Simulate markdown extraction failure.
 	handoff := pipeline.MarkdownHandoffFunc(func(_ context.Context, _ *jobs.Job, _ string) error {
-		return pipeline.ErrSnapshotWrite // reuse as a convenient ARC-coded error for testing
+		return arc.ErrSnapshotWrite // reuse as a convenient ARC-coded error for testing
 	})
 
 	p := newTestPipeline(t, database, store, fetch, handoff)
@@ -433,4 +435,36 @@ func TestMarkdownHandoffFailureCommitsTerminalFailure(t *testing.T) {
 
 	notifCount := scalarInt(t, database, `SELECT COUNT(*) FROM notifications WHERE job_id = ? AND status = 'pending'`, jobID)
 	assert.Equal(t, 1, notifCount)
+}
+
+func TestWrappedARCFailurePersistsCleanPublicMessage(t *testing.T) {
+	database := openTestDB(t)
+	seedUser(t, database)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`<html><body><p>Article text</p></body></html>`))
+	}))
+	defer srv.Close()
+
+	seedArticle(t, database, articleID, srv.URL+"/article")
+	seedTelegramJob(t, database, jobID, articleID)
+
+	store, err := artifacts.NewStore(t.TempDir())
+	require.NoError(t, err)
+	defer store.Close()
+
+	handoff := pipeline.MarkdownHandoffFunc(func(_ context.Context, _ *jobs.Job, _ string) error {
+		return fmt.Errorf("jina: HTTP 500 from provider: %w", arc.ErrJinaReaderFailure)
+	})
+
+	p := newTestPipeline(t, database, store, newTestFetcher(srv.URL), handoff)
+
+	err = p.ProcessOne(t.Context())
+	require.NoError(t, err)
+
+	const publicMessage = "[ARC-010] Archivist could not extract this page with the fallback reader."
+	assert.Equal(t, publicMessage, scalarNullableString(t, database, `SELECT error_message FROM articles WHERE id = ?`, articleID))
+	assert.Equal(t, publicMessage, scalarNullableString(t, database, `SELECT error_message FROM jobs WHERE id = ?`, jobID))
 }

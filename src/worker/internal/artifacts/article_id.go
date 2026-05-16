@@ -1,7 +1,6 @@
 package artifacts
 
 import (
-	"errors"
 	"strings"
 )
 
@@ -18,8 +17,6 @@ const (
 	ulidLength   = 26
 	ulidAlphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 )
-
-var ErrInvalidArticleID = errors.New("article id must be a ULID path segment")
 
 func ValidateArticleID(articleID string) error {
 	if len(articleID) != ulidLength {

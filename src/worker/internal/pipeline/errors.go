@@ -1,67 +1,95 @@
 // Package pipeline orchestrates article-processing pipeline stages.
 package pipeline
 
-import (
-	"errors"
-	"strings"
-)
-
-// ErrSnapshotWrite is the ARC-coded public error for snapshot write failures.
-//
-//nolint:staticcheck // ARC error messages must end with a period per docs/conventions/ERRORS.md
-var ErrSnapshotWrite = errors.New("[ARC-007] Archivist could not store the HTML snapshot.")
-
-// ErrLocalUnreadable is the ARC-coded public error for locally unreadable documents.
-//
-//nolint:staticcheck // ARC error messages must end with a period per docs/conventions/ERRORS.md
-var ErrLocalUnreadable = errors.New("[ARC-008] Archivist could not read this page locally.")
-
-// ErrLocalMarkdownExtraction is the ARC-coded public error for local extraction or conversion failures.
-//
-//nolint:staticcheck // ARC error messages must end with a period per docs/conventions/ERRORS.md
-var ErrLocalMarkdownExtraction = errors.New("[ARC-009] Archivist could not extract this page locally.")
-
-// ErrJinaReaderFailure is the ARC-coded public error for Jina Reader fallback failures.
-//
-//nolint:staticcheck // ARC error messages must end with a period per docs/conventions/ERRORS.md
-var ErrJinaReaderFailure = errors.New("[ARC-010] Archivist could not extract this page with the fallback reader.")
-
-// ErrJinaInsufficientBalance is the ARC-coded public error for Jina Reader billing failures.
-//
-//nolint:staticcheck // ARC error messages must end with a period per docs/conventions/ERRORS.md
-var ErrJinaInsufficientBalance = errors.New("[ARC-011] Archivist could not use the fallback reader because the Jina account is out of credit.")
-
-// ErrMarkdownWrite is the ARC-coded public error for Markdown artifact write failures.
-//
-//nolint:staticcheck // ARC error messages must end with a period per docs/conventions/ERRORS.md
-var ErrMarkdownWrite = errors.New("[ARC-012] Archivist could not store the Markdown article.")
-
-// ErrUnknown is the ARC-coded public error for any unexpected implementation failure.
-//
-//nolint:staticcheck // ARC error messages must end with a period per docs/conventions/ERRORS.md
-var ErrUnknown = errors.New("[ARC-999] Archivist could not process the URL.")
-
-// isARCError returns true when err carries an ARC-coded message prefix ("[ARC-").
-func isARCError(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	return strings.HasPrefix(err.Error(), "[ARC-")
+// PipelineError carries stage and job context while preserving both the ARC
+// classification and any lower-level diagnostic cause.
+type PipelineError struct {
+	Stage     string
+	Op        string
+	ArticleID string
+	JobID     string
+	URL       string
+	Err       error
+	Cause     error
 }
 
-// arcCode extracts the ARC-NNN token from an ARC-coded error, or returns "ARC-999".
-func arcCode(err error) string {
-	if err == nil {
+func (e *PipelineError) Error() string {
+	if e == nil {
 		return ""
 	}
 
-	msg := err.Error()
-
-	// Expected format: "[ARC-NNN] ..." — closing bracket at index 8.
-	if strings.HasPrefix(msg, "[ARC-") && len(msg) >= 9 && msg[8] == ']' {
-		return msg[1:8]
+	msg := "pipeline"
+	if e.Stage != "" {
+		msg += ": stage=" + e.Stage
 	}
 
-	return "ARC-999"
+	if e.Op != "" {
+		msg += ": op=" + e.Op
+	}
+
+	if e.ArticleID != "" {
+		msg += ": article_id=" + e.ArticleID
+	}
+
+	if e.JobID != "" {
+		msg += ": job_id=" + e.JobID
+	}
+
+	if e.URL != "" {
+		msg += ": url=" + e.URL
+	}
+
+	if e.Err != nil {
+		msg += ": " + e.Err.Error()
+	}
+
+	if e.Cause != nil {
+		msg += ": cause=" + e.Cause.Error()
+	}
+
+	return msg
+}
+
+func (e *PipelineError) Unwrap() []error {
+	if e == nil {
+		return nil
+	}
+
+	errs := make([]error, 0, 2)
+	if e.Err != nil {
+		errs = append(errs, e.Err)
+	}
+
+	if e.Cause != nil {
+		errs = append(errs, e.Cause)
+	}
+
+	return errs
+}
+
+func pipelineFailure(stage string, op string, err error, cause error, opts ...func(*PipelineError)) error {
+	pipelineErr := &PipelineError{
+		Stage: stage,
+		Op:    op,
+		Err:   err,
+		Cause: cause,
+	}
+	for _, opt := range opts {
+		opt(pipelineErr)
+	}
+
+	return pipelineErr
+}
+
+func withJobContext(articleID, jobID string) func(*PipelineError) {
+	return func(err *PipelineError) {
+		err.ArticleID = articleID
+		err.JobID = jobID
+	}
+}
+
+func withPipelineURL(url string) func(*PipelineError) {
+	return func(err *PipelineError) {
+		err.URL = url
+	}
 }

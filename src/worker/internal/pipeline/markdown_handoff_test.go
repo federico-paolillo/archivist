@@ -3,6 +3,7 @@ package pipeline_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"codeberg.org/federico-paolillo/archivist/internal/arc"
 	"codeberg.org/federico-paolillo/archivist/internal/artifacts"
 	"codeberg.org/federico-paolillo/archivist/internal/markdown"
 	"codeberg.org/federico-paolillo/archivist/internal/pipeline"
@@ -22,16 +24,25 @@ import (
 )
 
 type fakeMarkdownExtractor struct {
-	calls  int
-	inputs []markdown.ExtractInput
-	result markdown.ExtractResult
+	provider markdown.Provider
+	calls    int
+	inputs   []markdown.ExtractInput
+	output   markdown.ExtractOutput
+	err      error
 }
 
-func (e *fakeMarkdownExtractor) ExtractMarkdown(_ context.Context, input markdown.ExtractInput) markdown.ExtractResult {
+func (e *fakeMarkdownExtractor) Provider() markdown.Provider {
+	return e.provider
+}
+
+func (e *fakeMarkdownExtractor) ExtractMarkdown(
+	_ context.Context,
+	input markdown.ExtractInput,
+) (markdown.ExtractOutput, error) {
 	e.calls++
 	e.inputs = append(e.inputs, input)
 
-	return e.result
+	return e.output, e.err
 }
 
 func TestMarkdownExtractionHandoffLocalSuccessWritesMarkdownAndStaysNonTerminal(t *testing.T) {
@@ -49,16 +60,14 @@ func TestMarkdownExtractionHandoffLocalSuccessWritesMarkdownAndStaysNonTerminal(
 	defer store.Close()
 
 	local := &fakeMarkdownExtractor{
-		result: markdown.ExtractResult{
-			Status:   markdown.ResultStatusSuccess,
-			Provider: markdown.ProviderGoReadability,
+		provider: markdown.ProviderGoReadability,
+		output: markdown.ExtractOutput{
 			Markdown: "# Article\n\nReadable text.",
 		},
 	}
 	jina := &fakeMarkdownExtractor{
-		result: markdown.ExtractResult{
-			Status:   markdown.ResultStatusSuccess,
-			Provider: markdown.ProviderJina,
+		provider: markdown.ProviderJina,
+		output: markdown.ExtractOutput{
 			Markdown: "# Fallback",
 		},
 	}
@@ -98,15 +107,12 @@ func TestMarkdownExtractionHandoffLocalUnreadableFallsBackToJina(t *testing.T) {
 	require.NoError(t, store.WriteSnapshot(articleID, strings.NewReader("<html>saved</html>")))
 
 	local := &fakeMarkdownExtractor{
-		result: markdown.ExtractResult{
-			Status:   markdown.ResultStatusLocalUnreadable,
-			Provider: markdown.ProviderGoReadability,
-		},
+		provider: markdown.ProviderGoReadability,
+		err:      arc.ErrLocalUnreadable,
 	}
 	jina := &fakeMarkdownExtractor{
-		result: markdown.ExtractResult{
-			Status:   markdown.ResultStatusSuccess,
-			Provider: markdown.ProviderJina,
+		provider: markdown.ProviderJina,
+		output: markdown.ExtractOutput{
 			Markdown: "# From Jina",
 		},
 	}
@@ -145,17 +151,16 @@ func TestMarkdownExtractionHandoffLocalFailureFallsBackToJina(t *testing.T) {
 	require.NoError(t, store.WriteSnapshot(articleID, strings.NewReader("<html>saved</html>")))
 
 	local := &fakeMarkdownExtractor{
-		result: markdown.ExtractResult{
-			Status:        markdown.ResultStatusFailure,
-			Provider:      markdown.ProviderGoReadability,
-			ErrorCode:     markdown.ErrorCodeLocalExtractionFailed,
-			FailureReason: "convert readable HTML to Markdown: failed",
+		provider: markdown.ProviderGoReadability,
+		err: &markdown.ExtractionError{
+			Provider: markdown.ProviderGoReadability,
+			Reason:   "convert readable HTML to Markdown: failed",
+			Err:      arc.ErrLocalExtractionFailed,
 		},
 	}
 	jina := &fakeMarkdownExtractor{
-		result: markdown.ExtractResult{
-			Status:   markdown.ResultStatusSuccess,
-			Provider: markdown.ProviderJina,
+		provider: markdown.ProviderJina,
+		output: markdown.ExtractOutput{
 			Markdown: "# From Jina",
 		},
 	}
@@ -179,24 +184,26 @@ func TestMarkdownExtractionHandoffJinaFailureReturnsARC010(t *testing.T) {
 	require.NoError(t, store.WriteSnapshot(articleID, strings.NewReader("<html>saved</html>")))
 
 	local := &fakeMarkdownExtractor{
-		result: markdown.ExtractResult{
-			Status:   markdown.ResultStatusLocalUnreadable,
-			Provider: markdown.ProviderGoReadability,
-		},
+		provider: markdown.ProviderGoReadability,
+		err:      arc.ErrLocalUnreadable,
 	}
 	jina := &fakeMarkdownExtractor{
-		result: markdown.ExtractResult{
-			Status:        markdown.ResultStatusFailure,
-			Provider:      markdown.ProviderJina,
-			ErrorCode:     markdown.ErrorCodeJinaFailed,
-			FailureReason: "jina reader returned HTTP 500",
+		provider: markdown.ProviderJina,
+		err: &markdown.ExtractionError{
+			Provider:   markdown.ProviderJina,
+			Reason:     "jina reader returned unexpected HTTP status",
+			StatusCode: http.StatusInternalServerError,
+			Err:        arc.ErrJinaReaderFailure,
 		},
 	}
 
 	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, nil), store, local, jina)
 
 	err = handoff.Handoff(t.Context(), testJob(), "https://example.com/article")
-	require.ErrorIs(t, err, pipeline.ErrJinaReaderFailure)
+	require.ErrorIs(t, err, arc.ErrJinaReaderFailure)
+	pipelineErr := requirePipelineError(t, err, "markdown", "provider jina")
+	require.Equal(t, articleID, pipelineErr.ArticleID)
+	require.Equal(t, jobID, pipelineErr.JobID)
 }
 
 func TestMarkdownExtractionHandoffJinaInsufficientBalanceReturnsARC011(t *testing.T) {
@@ -207,24 +214,24 @@ func TestMarkdownExtractionHandoffJinaInsufficientBalanceReturnsARC011(t *testin
 	require.NoError(t, store.WriteSnapshot(articleID, strings.NewReader("<html>saved</html>")))
 
 	local := &fakeMarkdownExtractor{
-		result: markdown.ExtractResult{
-			Status:   markdown.ResultStatusLocalUnreadable,
-			Provider: markdown.ProviderGoReadability,
-		},
+		provider: markdown.ProviderGoReadability,
+		err:      arc.ErrLocalUnreadable,
 	}
 	jina := &fakeMarkdownExtractor{
-		result: markdown.ExtractResult{
-			Status:        markdown.ResultStatusFailure,
-			Provider:      markdown.ProviderJina,
-			ErrorCode:     markdown.ErrorCodeJinaInsufficientCredit,
-			FailureReason: "jina reader insufficient balance",
+		provider: markdown.ProviderJina,
+		err: &markdown.ExtractionError{
+			Provider:   markdown.ProviderJina,
+			Reason:     "jina reader insufficient balance",
+			StatusCode: http.StatusPaymentRequired,
+			Err:        arc.ErrJinaInsufficientBalance,
 		},
 	}
 
 	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, nil), store, local, jina)
 
 	err = handoff.Handoff(t.Context(), testJob(), "https://example.com/article")
-	require.ErrorIs(t, err, pipeline.ErrJinaInsufficientBalance)
+	require.ErrorIs(t, err, arc.ErrJinaInsufficientBalance)
+	requirePipelineError(t, err, "markdown", "provider jina")
 }
 
 func TestMarkdownExtractionHandoffMarkdownWriteFailureReturnsARC012(t *testing.T) {
@@ -238,9 +245,8 @@ func TestMarkdownExtractionHandoffMarkdownWriteFailureReturnsARC012(t *testing.T
 	require.NoError(t, os.Mkdir(filepath.Join(dataDir, "articles", articleID, "content.md"), 0o700))
 
 	local := &fakeMarkdownExtractor{
-		result: markdown.ExtractResult{
-			Status:   markdown.ResultStatusSuccess,
-			Provider: markdown.ProviderGoReadability,
+		provider: markdown.ProviderGoReadability,
+		output: markdown.ExtractOutput{
 			Markdown: "# Article",
 		},
 	}
@@ -248,7 +254,12 @@ func TestMarkdownExtractionHandoffMarkdownWriteFailureReturnsARC012(t *testing.T
 	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, nil), store, local, nil)
 
 	err = handoff.Handoff(t.Context(), testJob(), "https://example.com/article")
-	require.ErrorIs(t, err, pipeline.ErrMarkdownWrite)
+	require.ErrorIs(t, err, arc.ErrMarkdownWrite)
+	pipelineErr := requirePipelineError(t, err, "markdown", "write markdown")
+
+	var storeErr *artifacts.StoreError
+	require.True(t, errors.As(pipelineErr, &storeErr))
+	require.Equal(t, "promote artifact", storeErr.Op)
 }
 
 func TestMarkdownExtractionFailureCommitsTerminalFailureTransactionally(t *testing.T) {
@@ -266,17 +277,16 @@ func TestMarkdownExtractionFailureCommitsTerminalFailureTransactionally(t *testi
 	defer store.Close()
 
 	local := &fakeMarkdownExtractor{
-		result: markdown.ExtractResult{
-			Status:   markdown.ResultStatusLocalUnreadable,
-			Provider: markdown.ProviderGoReadability,
-		},
+		provider: markdown.ProviderGoReadability,
+		err:      arc.ErrLocalUnreadable,
 	}
 	jina := &fakeMarkdownExtractor{
-		result: markdown.ExtractResult{
-			Status:        markdown.ResultStatusFailure,
-			Provider:      markdown.ProviderJina,
-			ErrorCode:     markdown.ErrorCodeJinaFailed,
-			FailureReason: "jina reader returned HTTP 500",
+		provider: markdown.ProviderJina,
+		err: &markdown.ExtractionError{
+			Provider:   markdown.ProviderJina,
+			Reason:     "jina reader returned unexpected HTTP status",
+			StatusCode: http.StatusInternalServerError,
+			Err:        arc.ErrJinaReaderFailure,
 		},
 	}
 
@@ -288,7 +298,11 @@ func TestMarkdownExtractionFailureCommitsTerminalFailureTransactionally(t *testi
 
 	assert.Equal(t, "failed", scalarString(t, database, `SELECT status FROM articles WHERE id = ?`, articleID))
 	assert.Equal(t, "failed", scalarString(t, database, `SELECT status FROM jobs WHERE id = ?`, jobID))
-	assert.Contains(t, scalarNullableString(t, database, `SELECT error_message FROM articles WHERE id = ?`, articleID), "[ARC-010]")
+	assert.Equal(
+		t,
+		"[ARC-010] Archivist could not extract this page with the fallback reader.",
+		scalarNullableString(t, database, `SELECT error_message FROM articles WHERE id = ?`, articleID),
+	)
 	assert.Equal(t, 1, scalarInt(t, database, `SELECT COUNT(*) FROM notifications WHERE job_id = ? AND status = 'pending'`, jobID))
 }
 
@@ -316,17 +330,16 @@ func TestMarkdownExtractionFailureRollsBackWhenNotificationInsertFails(t *testin
 	defer store.Close()
 
 	local := &fakeMarkdownExtractor{
-		result: markdown.ExtractResult{
-			Status:   markdown.ResultStatusLocalUnreadable,
-			Provider: markdown.ProviderGoReadability,
-		},
+		provider: markdown.ProviderGoReadability,
+		err:      arc.ErrLocalUnreadable,
 	}
 	jina := &fakeMarkdownExtractor{
-		result: markdown.ExtractResult{
-			Status:        markdown.ResultStatusFailure,
-			Provider:      markdown.ProviderJina,
-			ErrorCode:     markdown.ErrorCodeJinaFailed,
-			FailureReason: "jina reader returned HTTP 500",
+		provider: markdown.ProviderJina,
+		err: &markdown.ExtractionError{
+			Provider:   markdown.ProviderJina,
+			Reason:     "jina reader returned unexpected HTTP status",
+			StatusCode: http.StatusInternalServerError,
+			Err:        arc.ErrJinaReaderFailure,
 		},
 	}
 
@@ -363,4 +376,15 @@ func newBufferLogger(t *testing.T, buf *bytes.Buffer) *slog.Logger {
 	}
 
 	return slog.New(slog.NewJSONHandler(buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
+}
+
+func requirePipelineError(t *testing.T, err error, stage string, op string) *pipeline.PipelineError {
+	t.Helper()
+
+	pipelineErr, ok := errors.AsType[*pipeline.PipelineError](err)
+	require.True(t, ok)
+	require.Equal(t, stage, pipelineErr.Stage)
+	require.Equal(t, op, pipelineErr.Op)
+
+	return pipelineErr
 }

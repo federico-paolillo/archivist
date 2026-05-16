@@ -3,7 +3,6 @@ package fetcher
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"mime"
 	"net/url"
@@ -53,24 +52,24 @@ func (f *Fetcher) Fetch(ctx context.Context, rawURL string) (*Result, error) {
 		SetContext(ctx).
 		Get(rawURL)
 	if fetchErr != nil {
-		return nil, classifyRequestError(fetchErr)
+		return nil, classifyRequestError(rawURL, fetchErr)
 	}
 
 	defer func() {
 		_ = resp.Body.Close()
 	}()
 
-	statusErr := classifyHTTPStatus(resp.StatusCode)
+	statusErr := classifyHTTPStatus(rawURL, resp.StatusCode)
 	if statusErr != nil {
 		return nil, statusErr
 	}
 
-	contentTypeErr := validateContentType(resp.GetContentType())
+	contentTypeErr := validateContentType(rawURL, resp.GetContentType())
 	if contentTypeErr != nil {
 		return nil, contentTypeErr
 	}
 
-	body, readErr := readLimited(resp.Body)
+	body, readErr := readLimited(rawURL, resp.Body)
 	if readErr != nil {
 		return nil, readErr
 	}
@@ -86,30 +85,30 @@ func (f *Fetcher) Fetch(ctx context.Context, rawURL string) (*Result, error) {
 	}, nil
 }
 
-// validateScheme returns ErrUnsupportedScheme when rawURL is not http or https.
+// validateScheme returns ARC-001 when rawURL is not http or https.
 func validateScheme(rawURL string) error {
 	parsed, parseErr := url.Parse(rawURL)
 	if parseErr != nil {
-		return ErrUnsupportedScheme
+		return unsupportedScheme(rawURL)
 	}
 
 	scheme := strings.ToLower(parsed.Scheme)
 	if scheme != "http" && scheme != "https" {
-		return ErrUnsupportedScheme
+		return unsupportedScheme(rawURL)
 	}
 
 	return nil
 }
 
-// validateContentType returns ErrNotHTML when the MIME type is not an accepted HTML type.
-func validateContentType(contentType string) error {
+// validateContentType returns ARC-005 when the MIME type is not an accepted HTML type.
+func validateContentType(rawURL, contentType string) error {
 	if contentType == "" {
-		return ErrNotHTML
+		return notHTML(rawURL, contentType)
 	}
 
 	mediaType, _, parseErr := mime.ParseMediaType(contentType)
 	if parseErr != nil {
-		return ErrNotHTML
+		return notHTML(rawURL, contentType)
 	}
 
 	for _, accepted := range acceptedContentTypes {
@@ -118,23 +117,22 @@ func validateContentType(contentType string) error {
 		}
 	}
 
-	return ErrNotHTML
+	return notHTML(rawURL, contentType)
 }
 
 // readLimited reads at most maxBodyBytes from r.
-// It returns ErrBodyTooLarge if the body exceeds that limit.
-func readLimited(r io.Reader) ([]byte, error) {
+// It returns ARC-006 if the body exceeds that limit.
+func readLimited(rawURL string, r io.Reader) ([]byte, error) {
 	limited := io.LimitReader(r, maxBodyBytes+1)
 
 	data, readErr := io.ReadAll(limited)
 	if readErr != nil {
-		return nil, fmt.Errorf("fetcher: reading response body: %w", readErr)
+		return nil, fetchFailure("read body", readErr, "read response body", withURL(rawURL))
 	}
 
 	if len(data) > maxBodyBytes {
-		return nil, ErrBodyTooLarge
+		return nil, bodyTooLarge(rawURL)
 	}
 
 	return data, nil
 }
-

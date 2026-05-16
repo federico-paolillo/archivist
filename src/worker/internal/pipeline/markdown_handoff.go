@@ -2,12 +2,14 @@ package pipeline
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"strings"
 	"time"
 
+	"codeberg.org/federico-paolillo/archivist/internal/arc"
 	"codeberg.org/federico-paolillo/archivist/internal/artifacts"
 	"codeberg.org/federico-paolillo/archivist/internal/markdown"
 	"codeberg.org/federico-paolillo/archivist/pkg/jobs"
@@ -51,7 +53,14 @@ func (h *MarkdownExtractionHandoff) Handoff(ctx context.Context, job *jobs.Job, 
 			slog.Any("err", err),
 		)
 
-		return ErrLocalMarkdownExtraction
+		return pipelineFailure(
+			"markdown",
+			"read snapshot",
+			arc.ErrLocalExtractionFailed,
+			err,
+			withJobContext(job.ArticleID, job.ID),
+			withPipelineURL(canonicalURL),
+		)
 	}
 
 	input := markdown.ExtractInput{
@@ -59,7 +68,7 @@ func (h *MarkdownExtractionHandoff) Handoff(ctx context.Context, job *jobs.Job, 
 		CanonicalURL: canonicalURL,
 	}
 
-	selected, err := h.extract(ctx, job, canonicalURL, input)
+	selected, provider, err := h.extract(ctx, job, canonicalURL, input)
 	if err != nil {
 		return err
 	}
@@ -71,14 +80,21 @@ func (h *MarkdownExtractionHandoff) Handoff(ctx context.Context, job *jobs.Job, 
 			slog.String("article_id", job.ArticleID),
 			slog.String("job_id", job.ID),
 			slog.String("url", canonicalURL),
-			slog.String("provider", string(selected.Provider)),
-			slog.String("selected_provider", string(selected.Provider)),
+			slog.String("provider", string(provider)),
+			slog.String("selected_provider", string(provider)),
 			slog.String("artifact_result", "failure"),
-			slog.String("arc_code", arcCode(ErrMarkdownWrite)),
+			slog.String("arc_code", arc.CodeString(arc.ErrMarkdownWrite)),
 			slog.Any("err", writeErr),
 		)
 
-		return ErrMarkdownWrite
+		return pipelineFailure(
+			"markdown",
+			"write markdown",
+			arc.ErrMarkdownWrite,
+			writeErr,
+			withJobContext(job.ArticleID, job.ID),
+			withPipelineURL(canonicalURL),
+		)
 	}
 
 	h.logger.Info(
@@ -86,8 +102,8 @@ func (h *MarkdownExtractionHandoff) Handoff(ctx context.Context, job *jobs.Job, 
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
 		slog.String("url", canonicalURL),
-		slog.String("provider", string(selected.Provider)),
-		slog.String("selected_provider", string(selected.Provider)),
+		slog.String("provider", string(provider)),
+		slog.String("selected_provider", string(provider)),
 		slog.String("artifact_result", "success"),
 		slog.String("status", "markdown_done"),
 	)
@@ -117,27 +133,29 @@ func (h *MarkdownExtractionHandoff) extract(
 	job *jobs.Job,
 	canonicalURL string,
 	input markdown.ExtractInput,
-) (markdown.ExtractResult, error) {
-	localResult := h.attempt(ctx, job, canonicalURL, h.local, input, "")
-	if localResult.Status == markdown.ResultStatusSuccess {
-		h.logSelectedProvider(job, canonicalURL, localResult.Provider)
+) (markdown.ExtractOutput, markdown.Provider, error) {
+	localOutput, localErr := h.attempt(ctx, job, canonicalURL, h.local, input, "")
+	if localErr == nil {
+		provider := h.local.Provider()
+		h.logSelectedProvider(job, canonicalURL, provider)
 
-		return localResult, nil
+		return localOutput, provider, nil
 	}
 
-	fallbackReason := fallbackReason(localResult)
+	fallbackReason := fallbackReason(localErr)
 	if h.fallback == nil {
-		return markdown.ExtractResult{}, terminalMarkdownError(localResult)
+		return markdown.ExtractOutput{}, "", localErr
 	}
 
-	fallbackResult := h.attempt(ctx, job, canonicalURL, h.fallback, input, fallbackReason)
-	if fallbackResult.Status == markdown.ResultStatusSuccess {
-		h.logSelectedProvider(job, canonicalURL, fallbackResult.Provider)
+	fallbackOutput, fallbackErr := h.attempt(ctx, job, canonicalURL, h.fallback, input, fallbackReason)
+	if fallbackErr == nil {
+		provider := h.fallback.Provider()
+		h.logSelectedProvider(job, canonicalURL, provider)
 
-		return fallbackResult, nil
+		return fallbackOutput, provider, nil
 	}
 
-	return markdown.ExtractResult{}, terminalMarkdownError(fallbackResult)
+	return markdown.ExtractOutput{}, "", fallbackErr
 }
 
 func (h *MarkdownExtractionHandoff) attempt(
@@ -147,30 +165,53 @@ func (h *MarkdownExtractionHandoff) attempt(
 	extractor markdown.MarkdownExtractor,
 	input markdown.ExtractInput,
 	fallbackReason string,
-) markdown.ExtractResult {
+) (markdown.ExtractOutput, error) {
 	start := time.Now()
-	result := extractor.ExtractMarkdown(ctx, input)
+	output, err := extractor.ExtractMarkdown(ctx, input)
 	duration := time.Since(start)
+
+	status := "success"
+	if err != nil {
+		status = "failure"
+		if errors.Is(err, arc.ErrLocalUnreadable) {
+			status = "local_unreadable"
+		}
+	}
 
 	attrs := []slog.Attr{
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
 		slog.String("url", canonicalURL),
-		slog.String("provider", string(result.Provider)),
-		slog.String("status", string(result.Status)),
+		slog.String("provider", string(extractor.Provider())),
+		slog.String("status", status),
 		slog.Duration("duration", duration),
 	}
 	if fallbackReason != "" {
 		attrs = append(attrs, slog.String("fallback_reason", fallbackReason))
 	}
 
-	if result.ErrorCode != "" {
-		attrs = append(attrs, slog.String("arc_code", string(result.ErrorCode)))
+	if err != nil {
+		attrs = append(
+			attrs,
+			slog.String("arc_code", arc.CodeString(err)),
+			slog.Any("err", err),
+		)
 	}
 
 	h.logger.LogAttrs(ctx, slog.LevelInfo, "pipeline: markdown provider attempt", attrs...)
 
-	return result
+	if err != nil {
+		return output, pipelineFailure(
+			"markdown",
+			"provider "+string(extractor.Provider()),
+			err,
+			nil,
+			withJobContext(job.ArticleID, job.ID),
+			withPipelineURL(canonicalURL),
+		)
+	}
+
+	return output, nil
 }
 
 func (h *MarkdownExtractionHandoff) logSelectedProvider(
@@ -188,31 +229,15 @@ func (h *MarkdownExtractionHandoff) logSelectedProvider(
 	)
 }
 
-func fallbackReason(result markdown.ExtractResult) string {
-	if result.Status == markdown.ResultStatusLocalUnreadable {
+func fallbackReason(err error) string {
+	if errors.Is(err, arc.ErrLocalUnreadable) {
 		return "local unreadable"
 	}
 
-	if result.FailureReason != "" {
-		return result.FailureReason
+	extractionErr, ok := errors.AsType[*markdown.ExtractionError](err)
+	if ok && extractionErr.Reason != "" {
+		return extractionErr.Reason
 	}
 
-	return string(result.Status)
-}
-
-func terminalMarkdownError(result markdown.ExtractResult) error {
-	switch result.ErrorCode {
-	case markdown.ErrorCodeJinaInsufficientCredit:
-		return ErrJinaInsufficientBalance
-	case markdown.ErrorCodeJinaFailed:
-		return ErrJinaReaderFailure
-	case markdown.ErrorCodeLocalExtractionFailed:
-		return ErrLocalMarkdownExtraction
-	}
-
-	if result.Status == markdown.ResultStatusLocalUnreadable {
-		return ErrLocalUnreadable
-	}
-
-	return ErrUnknown
+	return err.Error()
 }

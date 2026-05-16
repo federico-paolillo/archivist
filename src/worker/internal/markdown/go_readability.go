@@ -11,6 +11,8 @@ import (
 	htmltomarkdown "github.com/JohannesKaufmann/html-to-markdown/v2"
 	"github.com/JohannesKaufmann/html-to-markdown/v2/converter"
 	"golang.org/x/net/html"
+
+	"codeberg.org/federico-paolillo/archivist/internal/arc"
 )
 
 type documentParser func([]byte) (*html.Node, error)
@@ -31,10 +33,14 @@ func NewGoReadabilityExtractor() *GoReadabilityExtractor {
 	}
 }
 
-func (e *GoReadabilityExtractor) ExtractMarkdown(ctx context.Context, input ExtractInput) ExtractResult {
+func (e *GoReadabilityExtractor) Provider() Provider {
+	return ProviderGoReadability
+}
+
+func (e *GoReadabilityExtractor) ExtractMarkdown(ctx context.Context, input ExtractInput) (ExtractOutput, error) {
 	pageURL, err := url.ParseRequestURI(input.CanonicalURL)
 	if err != nil {
-		return localFailure(fmt.Sprintf("parse canonical URL: %v", err))
+		return ExtractOutput{}, localFailure(arc.ErrLocalExtractionFailed, fmt.Sprintf("parse canonical URL: %v", err))
 	}
 
 	parseDocument := e.parseDocument
@@ -44,23 +50,20 @@ func (e *GoReadabilityExtractor) ExtractMarkdown(ctx context.Context, input Extr
 
 	doc, err := parseDocument(input.HTML)
 	if err != nil {
-		return localFailure(fmt.Sprintf("parse HTML snapshot: %v", err))
+		return ExtractOutput{}, localFailure(arc.ErrLocalExtractionFailed, fmt.Sprintf("parse HTML snapshot: %v", err))
 	}
 
 	if !readability.CheckDocument(doc) {
-		return ExtractResult{
-			Status:   ResultStatusLocalUnreadable,
-			Provider: ProviderGoReadability,
-		}
+		return ExtractOutput{}, localFailure(arc.ErrLocalUnreadable, "local unreadable")
 	}
 
 	article, err := readability.FromDocument(doc, pageURL)
 	if err != nil {
-		return localFailure(fmt.Sprintf("extract readable HTML: %v", err))
+		return ExtractOutput{}, localFailure(arc.ErrLocalExtractionFailed, fmt.Sprintf("extract readable HTML: %v", err))
 	}
 
 	if article.Node == nil {
-		return localFailure("extract readable HTML: empty article node")
+		return ExtractOutput{}, localFailure(arc.ErrLocalExtractionFailed, "extract readable HTML: empty article node")
 	}
 
 	convert := e.convert
@@ -70,20 +73,21 @@ func (e *GoReadabilityExtractor) ExtractMarkdown(ctx context.Context, input Extr
 
 	markdown, err := convert(ctx, article.Node, pageURL)
 	if err != nil {
-		return localFailure(fmt.Sprintf("convert readable HTML to Markdown: %v", err))
+		return ExtractOutput{}, localFailure(
+			arc.ErrLocalExtractionFailed,
+			fmt.Sprintf("convert readable HTML to Markdown: %v", err),
+		)
 	}
 
 	markdown = strings.TrimSpace(markdown)
 	if markdown == "" {
-		return localFailure("convert readable HTML to Markdown: empty Markdown")
+		return ExtractOutput{}, localFailure(arc.ErrLocalExtractionFailed, "convert readable HTML to Markdown: empty Markdown")
 	}
 
-	return ExtractResult{
-		Status:   ResultStatusSuccess,
-		Provider: ProviderGoReadability,
+	return ExtractOutput{
 		Markdown: markdown,
 		Title:    article.Title(),
-	}
+	}, nil
 }
 
 func parseHTMLDocument(input []byte) (*html.Node, error) {
@@ -107,4 +111,3 @@ func convertArticleNode(ctx context.Context, articleNode *html.Node, pageURL *ur
 
 	return string(markdownBytes), nil
 }
-

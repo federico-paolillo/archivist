@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"testing"
 
+	"codeberg.org/federico-paolillo/archivist/internal/arc"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/html"
 )
@@ -13,30 +14,28 @@ import (
 func TestGoReadabilityExtractorExtractsReadableHTML(t *testing.T) {
 	extractor := NewGoReadabilityExtractor()
 
-	result := extractor.ExtractMarkdown(t.Context(), ExtractInput{
+	output, err := extractor.ExtractMarkdown(t.Context(), ExtractInput{
 		HTML:         []byte(readableHTML),
 		CanonicalURL: "https://example.com/articles/readable",
 	})
 
-	require.Equal(t, ResultStatusSuccess, result.Status)
-	require.Equal(t, ProviderGoReadability, result.Provider)
-	require.Empty(t, result.ErrorCode)
-	require.Equal(t, "Readable Article", result.Title)
-	require.Contains(t, result.Markdown, "This paragraph contains enough natural language")
+	require.NoError(t, err)
+	require.Equal(t, ProviderGoReadability, extractor.Provider())
+	require.Equal(t, "Readable Article", output.Title)
+	require.Contains(t, output.Markdown, "This paragraph contains enough natural language")
 }
 
 func TestGoReadabilityExtractorReturnsLocalUnreadable(t *testing.T) {
 	extractor := NewGoReadabilityExtractor()
 
-	result := extractor.ExtractMarkdown(t.Context(), ExtractInput{
+	output, err := extractor.ExtractMarkdown(t.Context(), ExtractInput{
 		HTML:         []byte(`<html><body><nav>home</nav><button>save</button></body></html>`),
 		CanonicalURL: "https://example.com/navigation",
 	})
 
-	require.Equal(t, ResultStatusLocalUnreadable, result.Status)
-	require.Equal(t, ProviderGoReadability, result.Provider)
-	require.Empty(t, result.Markdown)
-	require.Empty(t, result.ErrorCode)
+	require.ErrorIs(t, err, arc.ErrLocalUnreadable)
+	require.Equal(t, ProviderGoReadability, extractor.Provider())
+	require.Empty(t, output.Markdown)
 }
 
 func TestGoReadabilityExtractorMapsParseFailureToARC009(t *testing.T) {
@@ -47,15 +46,16 @@ func TestGoReadabilityExtractorMapsParseFailureToARC009(t *testing.T) {
 		convert: convertArticleNode,
 	}
 
-	result := extractor.ExtractMarkdown(t.Context(), ExtractInput{
+	_, err := extractor.ExtractMarkdown(t.Context(), ExtractInput{
 		HTML:         []byte(readableHTML),
 		CanonicalURL: "https://example.com/articles/readable",
 	})
 
-	require.Equal(t, ResultStatusFailure, result.Status)
-	require.Equal(t, ProviderGoReadability, result.Provider)
-	require.Equal(t, ErrorCodeLocalExtractionFailed, result.ErrorCode)
-	require.Contains(t, result.FailureReason, "parse HTML snapshot")
+	require.ErrorIs(t, err, arc.ErrLocalExtractionFailed)
+	extractionErr, ok := errors.AsType[*ExtractionError](err)
+	require.True(t, ok)
+	require.Equal(t, ProviderGoReadability, extractionErr.Provider)
+	require.Contains(t, extractionErr.Reason, "parse HTML snapshot")
 }
 
 func TestGoReadabilityExtractorMapsConversionFailureToARC009(t *testing.T) {
@@ -66,28 +66,30 @@ func TestGoReadabilityExtractorMapsConversionFailureToARC009(t *testing.T) {
 		},
 	}
 
-	result := extractor.ExtractMarkdown(t.Context(), ExtractInput{
+	_, err := extractor.ExtractMarkdown(t.Context(), ExtractInput{
 		HTML:         []byte(readableHTML),
 		CanonicalURL: "https://example.com/articles/readable",
 	})
 
-	require.Equal(t, ResultStatusFailure, result.Status)
-	require.Equal(t, ProviderGoReadability, result.Provider)
-	require.Equal(t, ErrorCodeLocalExtractionFailed, result.ErrorCode)
-	require.Contains(t, result.FailureReason, "convert readable HTML to Markdown")
+	require.ErrorIs(t, err, arc.ErrLocalExtractionFailed)
+	extractionErr, ok := errors.AsType[*ExtractionError](err)
+	require.True(t, ok)
+	require.Equal(t, ProviderGoReadability, extractionErr.Provider)
+	require.Contains(t, extractionErr.Reason, "convert readable HTML to Markdown")
 }
 
 func TestGoReadabilityExtractorRejectsInvalidCanonicalURL(t *testing.T) {
 	extractor := NewGoReadabilityExtractor()
 
-	result := extractor.ExtractMarkdown(t.Context(), ExtractInput{
+	_, err := extractor.ExtractMarkdown(t.Context(), ExtractInput{
 		HTML:         []byte(readableHTML),
 		CanonicalURL: ":bad-url",
 	})
 
-	require.Equal(t, ResultStatusFailure, result.Status)
-	require.Equal(t, ErrorCodeLocalExtractionFailed, result.ErrorCode)
-	require.NotEmpty(t, result.FailureReason)
+	require.ErrorIs(t, err, arc.ErrLocalExtractionFailed)
+	extractionErr, ok := errors.AsType[*ExtractionError](err)
+	require.True(t, ok)
+	require.NotEmpty(t, extractionErr.Reason)
 }
 
 func TestGoReadabilityExtractorRejectsEmptyMarkdown(t *testing.T) {
@@ -98,13 +100,12 @@ func TestGoReadabilityExtractorRejectsEmptyMarkdown(t *testing.T) {
 		},
 	}
 
-	result := extractor.ExtractMarkdown(t.Context(), ExtractInput{
+	_, err := extractor.ExtractMarkdown(t.Context(), ExtractInput{
 		HTML:         []byte(readableHTML),
 		CanonicalURL: "https://example.com/articles/readable",
 	})
 
-	require.Equal(t, ResultStatusFailure, result.Status)
-	require.Equal(t, ErrorCodeLocalExtractionFailed, result.ErrorCode)
+	require.ErrorIs(t, err, arc.ErrLocalExtractionFailed)
 }
 
 const readableHTML = `<!doctype html>

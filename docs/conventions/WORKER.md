@@ -125,14 +125,13 @@ This rule keeps adapter constructors small, adapter tests free of logger mocks, 
 
 **Carve-out**: an adapter may emit `slog.Debug` for low-value diagnostics that orchestration cannot observe (e.g. internal retry counts). This is the only permitted adapter-level logging. API keys must never appear in any log entry, at any level.
 
-### Adapter result-type contract
+### Adapter error-flow contract
 
-Every adapter result type (`ExtractResult`, `SummarizerResult`, and equivalents) must carry enough data for orchestration to emit a complete log entry without making a second call. Required fields:
+Provider adapters must use idiomatic Go error flow. Successful calls return `(output, nil)`. Failed calls return a zero output plus an `error` that wraps an `internal/arc` sentinel when the failure maps to a persisted ARC failure.
 
-- `Status` / `ResultStatus` — success or failure kind
-- `ErrorCode` — ARC code when applicable
-- `FailureReason` — short human-readable failure description when applicable
-- Provider request id (e.g. `RequestID string`) — when the external provider returns one
+Adapter contracts must not carry ARC codes in result DTO fields. Use typed diagnostic errors such as `markdown.ExtractionError` or `summary.ProviderError` when orchestration needs provider, status code, request id, or fallback-reason metadata. These typed errors must implement `Unwrap() error` so `errors.Is(err, arc.Err...)` and `arc.CodeOf(err)` work through wrapped errors.
+
+Provider interfaces must expose a `Provider() Provider` method so orchestration can log the attempted provider without relying on failure DTOs.
 
 ### Orchestration log field set
 
@@ -154,8 +153,7 @@ Logs must never include API keys or full article/summary content.
 
 All error-building infrastructure for a package must live in `<package>/errors.go`. This includes:
 
-- ARC error code constants
-- Sentinel error values
+- package-specific diagnostic error type definitions
 - Error type definitions
 - Error constructor and classification helpers (e.g. `jinaFailure`, `classifyError`, `isBillingError`)
 
@@ -163,9 +161,13 @@ This keeps primary implementation files (`jina.go`, `anthropic.go`, `go_readabil
 
 When a package is modified, migrate any existing error helpers from implementation files into `errors.go` as part of that change.
 
+ARC code constants, public messages, and ARC sentinel errors belong only in `src/worker/internal/arc`. Other packages must not expose package-local aliases for ARC sentinels unless the alias adds package-specific behavior. Prefer direct `arc.Err*` use plus typed diagnostic errors that preserve operation metadata and unwrap to the ARC sentinel.
+
 ## Error wrapping
 
 Persisted user-facing article-processing failures must use ARC codes from `docs/conventions/ERRORS.md`. Store a short public message on `articles.error_message`, and keep detailed HTTP, filesystem, library, or stack diagnostics in logs or job diagnostic context.
+
+Worker code implements this through `src/worker/internal/arc`. ARC failures may be wrapped with `%w` or typed diagnostic errors for logs and classification. Persistence must call `arc.PublicMessage(err)` or otherwise render from the ARC code; it must not persist `err.Error()` from a wrapped diagnostic error. Unknown non-ARC processing failures must be mapped to `arc.ErrUnknown` before terminal persistence.
 
 When adding additional context to an error, either with fmt.Errorf or by implementing a custom type, you need to decide whether the new error should wrap the original. There is no single answer to this question; it depends on the context in which the new error is created. Wrap an error to expose it to callers. Do not wrap an error when doing so would expose implementation details.
 

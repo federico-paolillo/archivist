@@ -1,11 +1,13 @@
 package markdown
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"codeberg.org/federico-paolillo/archivist/internal/arc"
 	"github.com/imroc/req/v3"
 	"github.com/stretchr/testify/require"
 )
@@ -22,16 +24,14 @@ func TestJinaExtractorIsMarkdownExtractor(t *testing.T) {
 func TestJinaExtractorDisabledReturnsFallbackFailure(t *testing.T) {
 	extractor := NewJinaExtractor(req.NewClient(), false, "")
 
-	result := extractor.ExtractMarkdown(t.Context(), ExtractInput{
+	output, err := extractor.ExtractMarkdown(t.Context(), ExtractInput{
 		HTML:         []byte(`<html><body><p>some content</p></body></html>`),
 		CanonicalURL: "https://example.com/article",
 	})
 
-	require.Equal(t, ResultStatusFailure, result.Status)
-	require.Equal(t, ProviderJina, result.Provider)
-	require.Equal(t, ErrorCodeJinaFailed, result.ErrorCode)
-	require.NotEmpty(t, result.FailureReason)
-	require.Empty(t, result.Markdown)
+	require.ErrorIs(t, err, arc.ErrJinaReaderFailure)
+	require.Equal(t, ProviderJina, extractor.Provider())
+	require.Empty(t, output.Markdown)
 }
 
 func TestJinaExtractorSuccessfulExtractionReturnsMarkdown(t *testing.T) {
@@ -46,15 +46,14 @@ func TestJinaExtractorSuccessfulExtractionReturnsMarkdown(t *testing.T) {
 
 	extractor := newTestJinaExtractor(true, "", server.URL+"/")
 
-	result := extractor.ExtractMarkdown(t.Context(), ExtractInput{
+	output, err := extractor.ExtractMarkdown(t.Context(), ExtractInput{
 		HTML:         []byte(`<html><body><p>some content</p></body></html>`),
 		CanonicalURL: "https://example.com/article",
 	})
 
-	require.Equal(t, ResultStatusSuccess, result.Status)
-	require.Equal(t, ProviderJina, result.Provider)
-	require.Equal(t, expectedMarkdown, result.Markdown)
-	require.Empty(t, result.ErrorCode)
+	require.NoError(t, err)
+	require.Equal(t, ProviderJina, extractor.Provider())
+	require.Equal(t, expectedMarkdown, output.Markdown)
 }
 
 func TestJinaExtractorSuccessfulExtractionPassesAPIKey(t *testing.T) {
@@ -72,12 +71,12 @@ func TestJinaExtractorSuccessfulExtractionPassesAPIKey(t *testing.T) {
 
 	extractor := newTestJinaExtractor(true, apiKey, server.URL+"/")
 
-	result := extractor.ExtractMarkdown(t.Context(), ExtractInput{
+	_, err := extractor.ExtractMarkdown(t.Context(), ExtractInput{
 		HTML:         []byte(`<html><body><p>content</p></body></html>`),
 		CanonicalURL: "https://example.com/article",
 	})
 
-	require.Equal(t, ResultStatusSuccess, result.Status)
+	require.NoError(t, err)
 	require.Equal(t, "Bearer "+apiKey, receivedAuth)
 }
 
@@ -94,12 +93,12 @@ func TestJinaExtractorNoAPIKeyOmitsAuthorizationHeader(t *testing.T) {
 
 	extractor := newTestJinaExtractor(true, "", server.URL+"/")
 
-	result := extractor.ExtractMarkdown(t.Context(), ExtractInput{
+	_, err := extractor.ExtractMarkdown(t.Context(), ExtractInput{
 		HTML:         []byte(`<html><body><p>content</p></body></html>`),
 		CanonicalURL: "https://example.com/article",
 	})
 
-	require.Equal(t, ResultStatusSuccess, result.Status)
+	require.NoError(t, err)
 	require.Empty(t, receivedAuth)
 }
 
@@ -111,15 +110,16 @@ func TestJinaExtractorGeneralFailureMapsToARC010(t *testing.T) {
 
 	extractor := newTestJinaExtractor(true, "", server.URL+"/")
 
-	result := extractor.ExtractMarkdown(t.Context(), ExtractInput{
+	_, err := extractor.ExtractMarkdown(t.Context(), ExtractInput{
 		HTML:         []byte(`<html><body><p>content</p></body></html>`),
 		CanonicalURL: "https://example.com/article",
 	})
 
-	require.Equal(t, ResultStatusFailure, result.Status)
-	require.Equal(t, ProviderJina, result.Provider)
-	require.Equal(t, ErrorCodeJinaFailed, result.ErrorCode)
-	require.NotEmpty(t, result.FailureReason)
+	require.ErrorIs(t, err, arc.ErrJinaReaderFailure)
+	extractionErr, ok := errors.AsType[*ExtractionError](err)
+	require.True(t, ok)
+	require.Equal(t, ProviderJina, extractionErr.Provider)
+	require.Equal(t, http.StatusInternalServerError, extractionErr.StatusCode)
 }
 
 func TestJinaExtractorTransportFailureMapsToARC010(t *testing.T) {
@@ -132,15 +132,16 @@ func TestJinaExtractorTransportFailureMapsToARC010(t *testing.T) {
 
 	extractor := newTestJinaExtractor(true, "", serverURL+"/")
 
-	result := extractor.ExtractMarkdown(t.Context(), ExtractInput{
+	_, err := extractor.ExtractMarkdown(t.Context(), ExtractInput{
 		HTML:         []byte(`<html><body><p>content</p></body></html>`),
 		CanonicalURL: "https://example.com/article",
 	})
 
-	require.Equal(t, ResultStatusFailure, result.Status)
-	require.Equal(t, ProviderJina, result.Provider)
-	require.Equal(t, ErrorCodeJinaFailed, result.ErrorCode)
-	require.NotEmpty(t, result.FailureReason)
+	require.ErrorIs(t, err, arc.ErrJinaReaderFailure)
+	extractionErr, ok := errors.AsType[*ExtractionError](err)
+	require.True(t, ok)
+	require.Equal(t, ProviderJina, extractionErr.Provider)
+	require.NotEmpty(t, extractionErr.Reason)
 }
 
 func TestJinaExtractorInsufficientBalanceMapsToARC011(t *testing.T) {
@@ -151,15 +152,15 @@ func TestJinaExtractorInsufficientBalanceMapsToARC011(t *testing.T) {
 
 	extractor := newTestJinaExtractor(true, "", server.URL+"/")
 
-	result := extractor.ExtractMarkdown(t.Context(), ExtractInput{
+	_, err := extractor.ExtractMarkdown(t.Context(), ExtractInput{
 		HTML:         []byte(`<html><body><p>content</p></body></html>`),
 		CanonicalURL: "https://example.com/article",
 	})
 
-	require.Equal(t, ResultStatusFailure, result.Status)
-	require.Equal(t, ProviderJina, result.Provider)
-	require.Equal(t, ErrorCodeJinaInsufficientCredit, result.ErrorCode)
-	require.NotEmpty(t, result.FailureReason)
+	require.ErrorIs(t, err, arc.ErrJinaInsufficientBalance)
+	extractionErr, ok := errors.AsType[*ExtractionError](err)
+	require.True(t, ok)
+	require.Equal(t, http.StatusPaymentRequired, extractionErr.StatusCode)
 }
 
 func TestJinaExtractorAcceptsTextPlain(t *testing.T) {
@@ -175,12 +176,12 @@ func TestJinaExtractorAcceptsTextPlain(t *testing.T) {
 
 	extractor := newTestJinaExtractor(true, "", server.URL+"/")
 
-	result := extractor.ExtractMarkdown(t.Context(), ExtractInput{
+	_, err := extractor.ExtractMarkdown(t.Context(), ExtractInput{
 		HTML:         []byte(`<html><body><p>content</p></body></html>`),
 		CanonicalURL: "https://example.com/article",
 	})
 
-	require.Equal(t, ResultStatusSuccess, result.Status)
+	require.NoError(t, err)
 	require.Equal(t, "text/plain", receivedAccept)
 }
 
@@ -192,14 +193,12 @@ func TestJinaExtractorEmptyResponseMapsToARC010(t *testing.T) {
 
 	extractor := newTestJinaExtractor(true, "", server.URL+"/")
 
-	result := extractor.ExtractMarkdown(t.Context(), ExtractInput{
+	_, err := extractor.ExtractMarkdown(t.Context(), ExtractInput{
 		HTML:         []byte(`<html><body><p>content</p></body></html>`),
 		CanonicalURL: "https://example.com/article",
 	})
 
-	require.Equal(t, ResultStatusFailure, result.Status)
-	require.Equal(t, ProviderJina, result.Provider)
-	require.Equal(t, ErrorCodeJinaFailed, result.ErrorCode)
+	require.ErrorIs(t, err, arc.ErrJinaReaderFailure)
 }
 
 // newTestJinaExtractor creates a JinaExtractor with a custom base URL for testing.

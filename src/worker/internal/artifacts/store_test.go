@@ -79,6 +79,9 @@ func TestWriteSnapshotCleansTempFileWhenPromotionFails(t *testing.T) {
 	err = store.WriteSnapshot(testArticleID, strings.NewReader("<html>ok</html>"))
 
 	require.Error(t, err)
+	storeErr := requireStoreError(t, err, "promote artifact")
+	require.Equal(t, testArticleID, storeErr.ArticleID)
+	require.Equal(t, SnapshotHTMLFilename, storeErr.Filename)
 	tempFiles, globErr := filepath.Glob(filepath.Join(articleDir, ".snapshot.html.*.tmp"))
 	require.NoError(t, globErr)
 	require.Empty(t, tempFiles)
@@ -101,6 +104,9 @@ func TestWriteSnapshotCleansTempFileWhenSrcFails(t *testing.T) {
 	err = store.WriteSnapshot(testArticleID, &failingReader{})
 
 	require.Error(t, err)
+	storeErr := requireStoreError(t, err, "write temp artifact")
+	require.Equal(t, testArticleID, storeErr.ArticleID)
+	require.Equal(t, SnapshotHTMLFilename, storeErr.Filename)
 
 	articleDir := filepath.Join(dataDir, "articles", testArticleID)
 	tempFiles, globErr := filepath.Glob(filepath.Join(articleDir, ".snapshot.html.*.tmp"))
@@ -122,6 +128,9 @@ func TestOpenSnapshotReturnsNotExistWhenAbsent(t *testing.T) {
 
 	require.Error(t, err)
 	require.True(t, errors.Is(err, fs.ErrNotExist))
+	storeErr := requireStoreError(t, err, "open artifact")
+	require.Equal(t, testArticleID, storeErr.ArticleID)
+	require.Equal(t, SnapshotHTMLFilename, storeErr.Filename)
 }
 
 func TestArtifactAccessRejectsTraversal(t *testing.T) {
@@ -145,15 +154,19 @@ func TestArtifactAccessRejectsTraversal(t *testing.T) {
 	for _, articleID := range traversalIDs {
 		_, openSnapErr := store.OpenSnapshot(articleID)
 		require.ErrorIs(t, openSnapErr, ErrInvalidArticleID)
+		requireStoreError(t, openSnapErr, "validate article id")
 
 		writeSnapErr := store.WriteSnapshot(articleID, strings.NewReader("<html>no</html>"))
 		require.ErrorIs(t, writeSnapErr, ErrInvalidArticleID)
+		requireStoreError(t, writeSnapErr, "validate article dir id")
 
 		_, openMDErr := store.OpenMarkdown(articleID)
 		require.ErrorIs(t, openMDErr, ErrInvalidArticleID)
+		requireStoreError(t, openMDErr, "validate article id")
 
 		writeMDErr := store.WriteMarkdown(articleID, strings.NewReader("# no"))
 		require.ErrorIs(t, writeMDErr, ErrInvalidArticleID)
+		requireStoreError(t, writeMDErr, "validate article dir id")
 	}
 }
 
@@ -164,6 +177,7 @@ func TestNewStoreRejectsEmptyDataDir(t *testing.T) {
 
 	require.Nil(t, store)
 	require.True(t, errors.Is(err, ErrEmptyDataDir))
+	requireStoreError(t, err, "validate data dir")
 }
 
 func TestMarkdownRoundTrip(t *testing.T) {
@@ -250,6 +264,9 @@ func TestWriteMarkdownCleansTempFileWhenPromotionFails(t *testing.T) {
 	err = store.WriteMarkdown(testArticleID, strings.NewReader("# Article"))
 
 	require.Error(t, err)
+	storeErr := requireStoreError(t, err, "promote artifact")
+	require.Equal(t, testArticleID, storeErr.ArticleID)
+	require.Equal(t, ContentMDFilename, storeErr.Filename)
 	tempFiles, globErr := filepath.Glob(filepath.Join(articleDir, ".content.md.*.tmp"))
 	require.NoError(t, globErr)
 	require.Empty(t, tempFiles)
@@ -272,6 +289,9 @@ func TestWriteMarkdownCleansTempFileWhenSrcFails(t *testing.T) {
 	err = store.WriteMarkdown(testArticleID, &failingReader{})
 
 	require.Error(t, err)
+	storeErr := requireStoreError(t, err, "write temp artifact")
+	require.Equal(t, testArticleID, storeErr.ArticleID)
+	require.Equal(t, ContentMDFilename, storeErr.Filename)
 
 	articleDir := filepath.Join(dataDir, "articles", testArticleID)
 	tempFiles, globErr := filepath.Glob(filepath.Join(articleDir, ".content.md.*.tmp"))
@@ -293,6 +313,21 @@ func TestOpenMarkdownReturnsNotExistWhenAbsent(t *testing.T) {
 
 	require.Error(t, err)
 	require.True(t, errors.Is(err, fs.ErrNotExist))
+	storeErr := requireStoreError(t, err, "open artifact")
+	require.Equal(t, testArticleID, storeErr.ArticleID)
+	require.Equal(t, ContentMDFilename, storeErr.Filename)
+}
+
+func requireStoreError(t *testing.T, err error, op string) *StoreError {
+	t.Helper()
+
+	require.ErrorIs(t, err, ErrStore)
+
+	storeErr, ok := errors.AsType[*StoreError](err)
+	require.True(t, ok)
+	require.Equal(t, op, storeErr.Op)
+
+	return storeErr
 }
 
 // failingReader always returns an error on Read.

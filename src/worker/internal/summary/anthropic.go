@@ -7,6 +7,8 @@ import (
 	anthropic "github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
 	"github.com/imroc/req/v3"
+
+	"codeberg.org/federico-paolillo/archivist/internal/arc"
 )
 
 // systemPrompt instructs Claude to produce text-only summaries.
@@ -57,31 +59,32 @@ func newAdapter(httpClient *req.Client, apiKey, model, baseURL string) *Anthropi
 	}
 }
 
+func (a *AnthropicAdapter) Provider() Provider {
+	return ProviderAnthropic
+}
+
 // Summarize sends the Markdown source to Claude and returns a text summary.
 // It classifies Anthropic errors into ARC-013, ARC-014, and ARC-015.
-func (a *AnthropicAdapter) Summarize(ctx context.Context, req SummarizerRequest) SummarizerResult {
+func (a *AnthropicAdapter) Summarize(ctx context.Context, req SummarizerRequest) (SummarizerOutput, error) {
 	msg, err := a.client.Messages.New(ctx, a.buildParams(req))
 	if err != nil {
-		return classifyError(err)
+		return SummarizerOutput{}, classifyError(err)
 	}
 
 	text := a.extractText(msg)
 	if text == "" {
-		return SummarizerResult{
-			Status:        ResultStatusFailure,
-			Provider:      ProviderAnthropic,
-			ErrorCode:     ErrorCodeProviderFailure,
-			FailureReason: "provider returned empty text output",
-			RequestID:     msg.ID,
-		}
+		return SummarizerOutput{}, providerFailure(
+			arc.ErrSummarizerProviderFailure,
+			"provider returned empty text output",
+			msg.ID,
+			0,
+		)
 	}
 
-	return SummarizerResult{
-		Status:    ResultStatusSuccess,
-		Provider:  ProviderAnthropic,
+	return SummarizerOutput{
 		Summary:   text,
 		RequestID: msg.ID,
-	}
+	}, nil
 }
 
 func (a *AnthropicAdapter) buildParams(req SummarizerRequest) anthropic.MessageNewParams {

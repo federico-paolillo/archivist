@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/imroc/req/v3"
+
+	"codeberg.org/federico-paolillo/archivist/internal/arc"
 )
 
 const (
@@ -31,34 +33,31 @@ func NewJinaExtractor(client *req.Client, enabled bool, apiKey string) *JinaExtr
 	}
 }
 
-func (e *JinaExtractor) ExtractMarkdown(ctx context.Context, input ExtractInput) ExtractResult {
+func (e *JinaExtractor) Provider() Provider {
+	return ProviderJina
+}
+
+func (e *JinaExtractor) ExtractMarkdown(ctx context.Context, input ExtractInput) (ExtractOutput, error) {
 	if !e.enabled {
-		return ExtractResult{
-			Status:        ResultStatusFailure,
-			Provider:      ProviderJina,
-			ErrorCode:     ErrorCodeJinaFailed,
-			FailureReason: "jina extractor is disabled",
-		}
+		return ExtractOutput{}, jinaFailure(arc.ErrJinaReaderFailure, "jina extractor is disabled", 0)
 	}
 
 	markdown, err := e.fetch(ctx, input.CanonicalURL)
 	if err != nil {
-		return jinaFailure(err.code, err.reason)
+		return ExtractOutput{}, err
 	}
 
 	markdown = strings.TrimSpace(markdown)
 	if markdown == "" {
-		return jinaFailure(ErrorCodeJinaFailed, "jina reader returned empty markdown")
+		return ExtractOutput{}, jinaFailure(arc.ErrJinaReaderFailure, "jina reader returned empty markdown", 0)
 	}
 
-	return ExtractResult{
-		Status:   ResultStatusSuccess,
-		Provider: ProviderJina,
+	return ExtractOutput{
 		Markdown: markdown,
-	}
+	}, nil
 }
 
-func (e *JinaExtractor) fetch(ctx context.Context, canonicalURL string) (string, *jinaError) {
+func (e *JinaExtractor) fetch(ctx context.Context, canonicalURL string) (string, error) {
 	requestURL := e.baseURL + canonicalURL
 
 	r := e.httpClient.R().
@@ -71,26 +70,20 @@ func (e *JinaExtractor) fetch(ctx context.Context, canonicalURL string) (string,
 
 	resp, err := r.Get(requestURL)
 	if err != nil {
-		return "", &jinaError{
-			code:   ErrorCodeJinaFailed,
-			reason: fmt.Sprintf("jina reader request failed: %v", err),
-		}
+		return "", jinaFailure(arc.ErrJinaReaderFailure, fmt.Sprintf("jina reader request failed: %v", err), 0)
 	}
 
 	if resp.StatusCode == http.StatusPaymentRequired {
-		return "", &jinaError{
-			code:   ErrorCodeJinaInsufficientCredit,
-			reason: fmt.Sprintf("jina reader insufficient balance: HTTP %d", resp.StatusCode),
-		}
+		return "", jinaFailure(
+			arc.ErrJinaInsufficientBalance,
+			"jina reader insufficient balance",
+			resp.StatusCode,
+		)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", &jinaError{
-			code:   ErrorCodeJinaFailed,
-			reason: fmt.Sprintf("jina reader returned HTTP %d", resp.StatusCode),
-		}
+		return "", jinaFailure(arc.ErrJinaReaderFailure, "jina reader returned unexpected HTTP status", resp.StatusCode)
 	}
 
 	return resp.String(), nil
 }
-

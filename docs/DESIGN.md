@@ -252,3 +252,14 @@ Do not add sliding expiry, refresh tokens, multiple concurrent sessions per user
 **Consequences:** v0 no longer depends on key-ring management for UI/API cookie auth. v0 explicitly requires server-side auth session state, reversing the previous no-session-store line. Multi-replica deployment requires a shared `ISessionStore` implementation, with Redis recommended, plus shared login throttling state. Gateway restart still invalidates all sessions in v0 because the in-memory store is wiped; this is intentional and keeps the prior restart-invalidation behavior. `[Authorize]`, `HttpContext.User`, and `User.Identity.IsAuthenticated` continue to work through the standard ASP.NET Core pipeline, so downstream endpoint code and filters remain normal.
 
 **Amendment History:** 2026-05-05 amendment supersedes the original ASP.NET Core cookie-ticket design under this same decision id. 2026-05-13 amendment defines HTTPS auth checks in terms of the effective public request context after trusted forwarded-header processing.
+
+### DSGN-016: Worker ARC Errors Use Idiomatic Go Error Flow
+
+**Date:** 2026-05-16
+**Status:** accepted
+
+**Context:** Worker article-processing failures need stable ARC public messages for SQLite persistence, while provider adapters and orchestration also need diagnostic details for logs. The previous code mixed public `errors.New("[ARC-NNN] ...")` sentinels with result DTOs carrying code-only fields, creating two competing failure patterns.
+
+**Decision:** Worker ARC classification is implemented by `src/worker/internal/arc`, which owns ARC code constants, public messages, and typed sentinel errors. Worker functions return `error` for failures. Provider adapters return `(output, error)`, wrap ARC sentinels with `%w` or typed diagnostic errors when needed, and do not put ARC codes in result DTO fields. Package diagnostic errors preserve operation metadata and unwrap to ARC sentinels or lower-level causes where callers need `errors.Is` or `errors.As`; packages must not add low-value ARC alias surfaces. Pipeline orchestration uses `errors.Is`, `errors.As`, and `arc.CodeOf` for classification, logs diagnostic errors separately, and persists public article/job errors by rendering the ARC code through `arc.PublicMessage`.
+
+**Consequences:** Wrapped provider, HTTP, SDK, and filesystem details remain available to logs without leaking into `articles.error_message` or `jobs.error_message`. Terminal public text is rendered only when the pipeline persists terminal article/job failure state; diagnostic `err.Error()` strings must not be persisted as public ARC text. Rebuilds must not reintroduce adapter result fields such as `ErrorCode` or `ResultStatus` for failure classification. `docs/conventions/ERRORS.md` remains the canonical human ARC catalog; `internal/arc` is the Go implementation of that catalog.
