@@ -81,11 +81,21 @@ JINA_ENABLED
 JINA_API_KEY
 ```
 
+The Worker uses configuro in `src/worker/pkg/app/config` and loads environment variables with the `ARCHIVIST_` prefix. Canonical deployment variables are `ARCHIVIST_SQLITE_PATH`, `ARCHIVIST_DATA_DIR`, `ARCHIVIST_JINA_ENABLED`, `ARCHIVIST_JINA_API_KEY`, `ARCHIVIST_LLM_PROVIDER`, `ARCHIVIST_LLM_API_KEY`, and `ARCHIVIST_LLM_MODEL`.
+
+Because configuro maps underscores to nested keys, Worker config structs must use the canonical nested shape from WCFG-001: `SQLite.Path`, `Data.Dir`, `Jina.Enabled`, `Jina.API.Key`, `LLM.Provider`, `LLM.API.Key`, and `LLM.Model`. Production Worker code outside `pkg/app/config` must not read environment variables directly or apply manual override logic.
+
+`SQLITE_PATH`, `DATA_DIR`, and `LLM_API_KEY` when `LLM_PROVIDER=anthropic` are required at `config.Load()` time. `LLM_PROVIDER=anthropic` is the only supported v0 provider value. `LLM_MODEL` defaults to `claude-3-5-haiku-20241022`.
+
+`pkg/app.NewApp` must validate config before constructing services and must return either an error or a fully wired Worker composition root. Worker command handlers must not re-check for missing DB, artifact store, provider adapters, or processing pipeline services that `NewApp` guarantees.
+
 `JINA_API_KEY` is optional unless a task or deployment requires authenticated Jina Reader requests. It is secret material and must not be logged.
 
 Whenever you introduce a worker configuration key, document it in `docs/conventions/GENERAL.md`, `docs/ARCHITECTURE.md`, and any affected feature spec or task. Add sensible defaults only for non-secret values.
 
 Always extend worker configuration tests to assert default values, required values, and environment variable loading.
+
+The canonical corrections for Worker runtime configuration are `docs/specs/worker-runtime-configuration/tasks/WCFG-001-canonical-worker-config-loading.md` and `docs/specs/worker-runtime-configuration/tasks/WCFG-002-non-optional-worker-composition.md`.
 
 ## Composition Root and Poor Man's DI
 

@@ -290,6 +290,8 @@ VITE_API_BASE_PATH
 
 Gateway uses the default ASP.NET Core application configuration sources, appends `ARCHIVIST_`-prefixed environment variables, and creates the builder without command-line arguments. Standalone Gateway keys remain flat, for example `ARCHIVIST_SQLITE_PATH`. Option-bound groups use hierarchy with double underscores in environment variables, for example `ARCHIVIST_Telegram__BotToken`, `ARCHIVIST_Telegram__AllowedUserId`, and `ARCHIVIST_Telegram__WebhookSecret`.
 
+Worker uses configuro from `src/worker/pkg/app/config`, loads `ARCHIVIST_`-prefixed environment variables, and exposes runtime values through the config structs. Canonical Worker environment variables are `ARCHIVIST_SQLITE_PATH`, `ARCHIVIST_DATA_DIR`, `ARCHIVIST_JINA_ENABLED`, `ARCHIVIST_JINA_API_KEY`, `ARCHIVIST_LLM_PROVIDER`, `ARCHIVIST_LLM_API_KEY`, and `ARCHIVIST_LLM_MODEL`. `SQLITE_PATH`, `DATA_DIR`, and `LLM_API_KEY` for the Anthropic provider are required when `config.Load()` runs; missing required values fail startup before the Worker composition root is built.
+
 `JINA_API_KEY` is optional configuration for authenticated Jina Reader requests and must be treated as secret material when supplied.
 
 `AUTH_BOOTSTRAP_PASSWORD` is required only before the personal user's `password_hash` has been initialized. It must be exactly 2048 printable ASCII characters and must be treated as secret material.

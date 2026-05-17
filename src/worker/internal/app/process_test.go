@@ -72,12 +72,6 @@ func TestProcessCommandOnceProcessesQueuedJob(t *testing.T) {
 	)
 }
 
-func TestProcessLoopFailsWhenSnapshotPipelineIsMissing(t *testing.T) {
-	err := process(t.Context(), &pkgapp.App{}, true, time.Millisecond)
-
-	require.ErrorIs(t, err, errSnapshotPipelineNotConfigured)
-}
-
 func TestProcessLoopExitsWhenContextIsCanceledWhileIdle(t *testing.T) {
 	application, _ := newProcessTestApp(t)
 	seedProcessUser(t, application.DB)
@@ -108,8 +102,9 @@ func newProcessTestApp(t *testing.T) (*pkgapp.App, *config.Root) {
 	logLevel := new(slog.LevelVar)
 
 	cfg := config.Default()
-	cfg.SqlitePath = filepath.Join(t.TempDir(), "archive.db")
-	cfg.DataDir = t.TempDir()
+	cfg.SQLite.Path = filepath.Join(t.TempDir(), "archive.db")
+	cfg.Data.Dir = t.TempDir()
+	cfg.LLM.API.Key = "llm-secret"
 
 	application, err := pkgapp.NewApp(logger, logLevel, cfg)
 	require.NoError(t, err)

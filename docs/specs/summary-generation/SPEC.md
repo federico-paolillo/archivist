@@ -4,7 +4,7 @@ slug: summary-generation
 title: Summary Generation
 status: draft
 owner: null
-depends_on: [markdown-extraction]
+depends_on: [markdown-extraction, worker-runtime-configuration]
 impacts: [worker, gateway, filesystem, sqlite]
 canonical: true
 ---

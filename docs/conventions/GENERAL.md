@@ -66,7 +66,7 @@ Before any task is marked done, run the validation required by that task or its 
 
 Runtime configuration is supplied through environment variables or equivalent deployment secret mechanisms.
 
-Gateway configuration uses logical keys in code and documentation. Standalone Gateway values stay flat; multiple settings with the same conceptual prefix are grouped into a hierarchical section. Gateway accepts `ARCHIVIST_`-prefixed environment variables, using `__` for hierarchy. For example, `SQLITE_PATH` maps to `ARCHIVIST_SQLITE_PATH`, while `Telegram:BotToken` maps to `ARCHIVIST_Telegram__BotToken`.
+Gateway and Worker configuration use logical keys in code and documentation. Environment-based deployment supplies runtime values with the `ARCHIVIST_` prefix. Standalone keys map directly to prefixed environment variables, for example `SQLITE_PATH` maps to `ARCHIVIST_SQLITE_PATH`. Gateway option-bound groups use ASP.NET hierarchy with double underscores, for example `Telegram:BotToken` maps to `ARCHIVIST_Telegram__BotToken`. Worker option-bound groups use configuro-compatible uppercase snake-case keys listed below, for example `JINA_API_KEY` maps to `ARCHIVIST_JINA_API_KEY`.
 
 Known v0 configuration keys are:
 
@@ -95,6 +95,8 @@ VITE_API_BASE_PATH
 `VITE_API_BASE_PATH` is UI build-time configuration. It defaults to `/api` and is not secret material.
 
 Feature specs or tasks that add configuration keys must update this file or the relevant module convention file, plus any affected architecture or design decisions.
+
+Worker configuration corrections are tracked by `docs/specs/worker-runtime-configuration/tasks/WCFG-001-canonical-worker-config-loading.md`. Rebuild agents must not rely on historical diary entries that mention legacy application-prefixed Worker environment variables.
 
 ## Security
 

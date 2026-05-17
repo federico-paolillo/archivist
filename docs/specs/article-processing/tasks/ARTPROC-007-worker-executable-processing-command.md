@@ -155,3 +155,4 @@ ExecPlan:
 ## Notes
 
 - This task was added retroactively after review found that completed pipeline code was not reachable from the Worker executable.
+- The configuration key reconciliation listed as out of scope here is corrected by `docs/specs/worker-runtime-configuration/tasks/WCFG-001-canonical-worker-config-loading.md`.

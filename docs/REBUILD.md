@@ -111,9 +111,10 @@ Project-specific ordering:
 2. authn
 3. article-processing
 4. markdown-extraction
-5. summary-generation
-6. ui-endpoints
-7. ui
+5. worker-runtime-configuration
+6. summary-generation
+7. ui-endpoints
+8. ui
 ```
 
 Task-level cross-feature dependencies in feature `PLAN.md` files further constrain this order. In particular, the shared persistence foundation from `TELING-001` must precede auth password persistence, article processing orchestration, and UI endpoint work; final success notification behavior is completed by `SUMGEN-005`; and the browser UI starts only after auth and UI article endpoint contracts are implemented and validated.

@@ -94,3 +94,4 @@ Manual checks:
 - Missing pipeline configuration fails clearly.
 - Idle daemon mode exits cleanly on cancellation.
 - Worker validation passes.
+- Worker runtime configuration key reconciliation is handled by `docs/specs/worker-runtime-configuration/tasks/WCFG-001-canonical-worker-config-loading.md`.

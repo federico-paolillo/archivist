@@ -11,15 +11,7 @@ import (
 
 const defaultProcessIdleSleep = time.Second
 
-var errSnapshotPipelineNotConfigured = errors.New(
-	"worker: snapshot pipeline is not configured; SQLITE_PATH and DATA_DIR are required",
-)
-
 func process(ctx context.Context, a *pkgapp.App, once bool, idleSleep time.Duration) error {
-	if a.SnapshotPipeline == nil {
-		return errSnapshotPipelineNotConfigured
-	}
-
 	if idleSleep <= 0 {
 		return errors.New("worker: idle sleep must be positive")
 	}

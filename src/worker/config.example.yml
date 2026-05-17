@@ -1,13 +1,16 @@
 app:
-  name: myapp
-debug: false
-claude:
-  path: claude
-  model: ""
-  bare: false
-  skipPermissions: false
-harness:
-  dir: .harness
-loop:
-  maxTries: 2
-  sessionTimeout: ""
+  name: archivist-worker
+debug: true
+sqlite:
+  path: /data/archivist.db
+data:
+  dir: /data
+jina:
+  enabled: false
+  api:
+    key: ""
+llm:
+  provider: anthropic
+  model: claude-3-5-haiku-20241022
+  api:
+    key: ""

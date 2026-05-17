@@ -2,6 +2,7 @@ package app
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -15,6 +16,8 @@ import (
 	"codeberg.org/federico-paolillo/archivist/pkg/jobs"
 	"github.com/imroc/req/v3"
 )
+
+var ErrNilConfig = errors.New("app: config is nil")
 
 // App is the composition root. Add your application's dependencies as fields.
 type App struct {
@@ -32,10 +35,25 @@ type App struct {
 }
 
 func NewApp(logger *slog.Logger, logLevel *slog.LevelVar, cfg *config.Root) (*App, error) {
-	application := &App{
-		Logger:   logger,
-		LogLevel: logLevel,
-		Config:   cfg,
+	if cfg == nil {
+		return nil, ErrNilConfig
+	}
+
+	validateErr := cfg.Validate()
+	if validateErr != nil {
+		return nil, fmt.Errorf("app: invalid config: %w", validateErr)
+	}
+
+	database, err := createDB(cfg.SQLite.Path)
+	if err != nil {
+		return nil, err
+	}
+
+	store, err := artifacts.NewStore(cfg.Data.Dir)
+	if err != nil {
+		_ = database.Close()
+
+		return nil, fmt.Errorf("app: failed to create artifact store: %w", err)
 	}
 
 	httpClient := req.NewClient().
@@ -43,45 +61,37 @@ func NewApp(logger *slog.Logger, logLevel *slog.LevelVar, cfg *config.Root) (*Ap
 		SetTimeout(20 * time.Second).
 		DisableForceHttpVersion()
 
-	application.Fetcher = fetcher.New(httpClient)
-	application.LocalMarkdown = markdown.NewGoReadabilityExtractor()
-	application.JinaMarkdown = markdown.NewJinaExtractor(httpClient, cfg.JinaEnabled, cfg.JinaAPIKey)
+	fetcherService := fetcher.New(httpClient)
+	localMarkdown := markdown.NewGoReadabilityExtractor()
+	jinaMarkdown := markdown.NewJinaExtractor(httpClient, cfg.Jina.Enabled, cfg.Jina.API.Key)
+	jobsRepository := jobs.NewSQLiteRepository(database)
+	markdownHandoff := pipeline.NewMarkdownExtractionHandoff(
+		logger,
+		store,
+		localMarkdown,
+		jinaMarkdown,
+	)
 
-	if cfg.SqlitePath != "" {
-		database, err := createDB(cfg.SqlitePath)
-		if err != nil {
-			return nil, err
-		}
+	application := &App{
+		Logger:   logger,
+		LogLevel: logLevel,
+		Config:   cfg,
 
-		application.DB = database
-		application.Jobs = jobs.NewSQLiteRepository(database)
+		DB:            database,
+		Jobs:          jobsRepository,
+		Fetcher:       fetcherService,
+		ArtifactStore: store,
+		LocalMarkdown: localMarkdown,
+		JinaMarkdown:  jinaMarkdown,
 	}
 
-	if cfg.DataDir != "" {
-		store, err := artifacts.NewStore(cfg.DataDir)
-		if err != nil {
-			return nil, fmt.Errorf("app: failed to create artifact store: %w", err)
-		}
-
-		application.ArtifactStore = store
-	}
-
-	if application.Jobs != nil && application.ArtifactStore != nil {
-		markdownHandoff := pipeline.NewMarkdownExtractionHandoff(
-			logger,
-			application.ArtifactStore,
-			application.LocalMarkdown,
-			application.JinaMarkdown,
-		)
-
-		application.SnapshotPipeline = pipeline.NewSnapshotPipeline(
-			logger,
-			application.Jobs,
-			application.ArtifactStore,
-			application.Fetcher,
-			markdownHandoff,
-		)
-	}
+	application.SnapshotPipeline = pipeline.NewSnapshotPipeline(
+		logger,
+		application.Jobs,
+		application.ArtifactStore,
+		application.Fetcher,
+		markdownHandoff,
+	)
 
 	return application, nil
 }
@@ -104,21 +114,8 @@ func createDB(path string) (*sql.DB, error) {
 
 // Close releases any resources held by the App (database connections, os.Root handles, etc.).
 func (a *App) Close() error {
-	var closeErr error
-
-	if a.ArtifactStore != nil {
-		err := a.ArtifactStore.Close()
-		if err != nil {
-			closeErr = fmt.Errorf("app: failed to close artifact store: %w", err)
-		}
-	}
-
-	if a.DB != nil {
-		err := a.DB.Close()
-		if err != nil {
-			closeErr = fmt.Errorf("app: failed to close database: %w", err)
-		}
-	}
-
-	return closeErr
+	return errors.Join(
+		a.ArtifactStore.Close(),
+		a.DB.Close(),
+	)
 }

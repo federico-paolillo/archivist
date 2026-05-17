@@ -3,6 +3,7 @@ package runner_test
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 
 func TestRunnerReturnsNotOkWhenProgramFails(t *testing.T) {
 	ctx := t.Context()
+	setRequiredWorkerConfig(t)
 
 	testProgram := func(
 		_ context.Context,
@@ -30,7 +32,7 @@ func TestRunnerReturnsNotOkWhenProgramFails(t *testing.T) {
 
 func TestRunnerReturnsOkWhenProgramSucceeds(t *testing.T) {
 	ctx := t.Context()
-	t.Setenv("APP_ARTIFACTS_DATA__DIR", t.TempDir())
+	setRequiredWorkerConfig(t)
 
 	testProgram := func(
 		_ context.Context,
@@ -47,7 +49,7 @@ func TestRunnerReturnsOkWhenProgramSucceeds(t *testing.T) {
 
 func TestRunnerReturnsOkWhenAllProgramSucceeds(t *testing.T) {
 	ctx := t.Context()
-	t.Setenv("APP_ARTIFACTS_DATA__DIR", t.TempDir())
+	setRequiredWorkerConfig(t)
 
 	testProgram1 := func(
 		_ context.Context,
@@ -72,6 +74,7 @@ func TestRunnerReturnsOkWhenAllProgramSucceeds(t *testing.T) {
 
 func TestRunnerReturnsOkWhenOneProgramFails(t *testing.T) {
 	ctx := t.Context()
+	setRequiredWorkerConfig(t)
 
 	testProgram1 := func(
 		_ context.Context,
@@ -93,4 +96,12 @@ func TestRunnerReturnsOkWhenOneProgramFails(t *testing.T) {
 	statusCode := runner.RunMany(ctx, testProgram1, testProgram2)
 
 	require.Equal(t, runner.NotOk, statusCode)
+}
+
+func setRequiredWorkerConfig(t *testing.T) {
+	t.Helper()
+
+	t.Setenv("ARCHIVIST_SQLITE_PATH", filepath.Join(t.TempDir(), "archive.db"))
+	t.Setenv("ARCHIVIST_DATA_DIR", t.TempDir())
+	t.Setenv("ARCHIVIST_LLM_API_KEY", "llm-secret")
 }

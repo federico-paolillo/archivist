@@ -16,80 +16,79 @@ func TestNewAppReturnsApp(t *testing.T) {
 
 	logLevel := new(slog.LevelVar)
 
-	cfg := config.Default()
+	cfg := newValidConfig(t)
 
 	application, err := app.NewApp(logger, logLevel, cfg)
-
 	require.NoError(t, err)
-
 	require.NotNil(t, application)
+
+	t.Cleanup(func() {
+		require.NoError(t, application.Close())
+	})
 
 	require.Equal(t, logger, application.Logger)
 	require.Equal(t, logLevel, application.LogLevel)
 	require.Equal(t, cfg, application.Config)
 
-	// Without SqlitePath, DB and Jobs are nil (no database configured).
-	assert.Nil(t, application.DB)
-	assert.Nil(t, application.Jobs)
-
 	require.NotNil(t, application.Fetcher)
 	require.NotNil(t, application.LocalMarkdown)
 	require.NotNil(t, application.JinaMarkdown)
-
-	// Without DataDir, ArtifactStore is nil.
-	assert.Nil(t, application.ArtifactStore)
-
-	// Without both SqlitePath and DataDir, SnapshotPipeline is nil.
-	assert.Nil(t, application.SnapshotPipeline)
-}
-
-func TestNewAppWithSQLitePathOpensDatabase(t *testing.T) {
-	logger := slogt.New(t)
-
-	logLevel := new(slog.LevelVar)
-
-	cfg := config.Default()
-	cfg.SqlitePath = ":memory:"
-
-	application, err := app.NewApp(logger, logLevel, cfg)
-
-	require.NoError(t, err)
-	require.NotNil(t, application)
-
-	t.Cleanup(func() {
-		application.Close()
-	})
-
-	assert.NotNil(t, application.DB)
-	assert.NotNil(t, application.Jobs)
-
-	// DataDir not configured, so ArtifactStore and SnapshotPipeline are nil.
-	assert.Nil(t, application.ArtifactStore)
-	assert.Nil(t, application.SnapshotPipeline)
-}
-
-func TestNewAppWithSQLiteAndDataDirWiresSnapshotPipeline(t *testing.T) {
-	logger := slogt.New(t)
-
-	logLevel := new(slog.LevelVar)
-
-	cfg := config.Default()
-	cfg.SqlitePath = ":memory:"
-	cfg.DataDir = t.TempDir()
-
-	application, err := app.NewApp(logger, logLevel, cfg)
-
-	require.NoError(t, err)
-	require.NotNil(t, application)
-
-	t.Cleanup(func() {
-		application.Close()
-	})
-
 	assert.NotNil(t, application.DB)
 	assert.NotNil(t, application.Jobs)
 	assert.NotNil(t, application.ArtifactStore)
-	assert.NotNil(t, application.LocalMarkdown)
-	assert.NotNil(t, application.JinaMarkdown)
 	assert.NotNil(t, application.SnapshotPipeline)
+}
+
+func TestNewAppRejectsNilConfig(t *testing.T) {
+	logger := slogt.New(t)
+	logLevel := new(slog.LevelVar)
+
+	application, err := app.NewApp(logger, logLevel, nil)
+
+	require.ErrorIs(t, err, app.ErrNilConfig)
+	assert.Nil(t, application)
+}
+
+func TestNewAppRejectsMissingSQLitePath(t *testing.T) {
+	cfg := newValidConfig(t)
+	cfg.SQLite.Path = ""
+
+	application, err := app.NewApp(slogt.New(t), new(slog.LevelVar), cfg)
+
+	require.Error(t, err)
+	require.ErrorContains(t, err, "SQLITE_PATH is required")
+	assert.Nil(t, application)
+}
+
+func TestNewAppRejectsMissingDataDir(t *testing.T) {
+	cfg := newValidConfig(t)
+	cfg.Data.Dir = ""
+
+	application, err := app.NewApp(slogt.New(t), new(slog.LevelVar), cfg)
+
+	require.Error(t, err)
+	require.ErrorContains(t, err, "DATA_DIR is required")
+	assert.Nil(t, application)
+}
+
+func TestNewAppRejectsMissingAnthropicAPIKey(t *testing.T) {
+	cfg := newValidConfig(t)
+	cfg.LLM.API.Key = ""
+
+	application, err := app.NewApp(slogt.New(t), new(slog.LevelVar), cfg)
+
+	require.Error(t, err)
+	require.ErrorContains(t, err, "LLM_API_KEY is required when LLM_PROVIDER=anthropic")
+	assert.Nil(t, application)
+}
+
+func newValidConfig(t *testing.T) *config.Root {
+	t.Helper()
+
+	cfg := config.Default()
+	cfg.SQLite.Path = ":memory:"
+	cfg.Data.Dir = t.TempDir()
+	cfg.LLM.API.Key = "llm-secret"
+
+	return cfg
 }
