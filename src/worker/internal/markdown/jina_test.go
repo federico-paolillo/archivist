@@ -25,7 +25,7 @@ func TestJinaExtractorSuccessfulExtractionReturnsMarkdown(t *testing.T) {
 	const expectedMarkdown = "# Article Title\n\nSome content for the article."
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(expectedMarkdown))
 	}))
@@ -51,6 +51,7 @@ func TestJinaExtractorSuccessfulExtractionPassesAPIKey(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		receivedAuth = r.Header.Get("Authorization")
 
+		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("# Markdown content"))
 	}))
@@ -73,6 +74,7 @@ func TestJinaExtractorNoAPIKeyOmitsAuthorizationHeader(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		receivedAuth = r.Header.Get("Authorization")
 
+		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("# Markdown content"))
 	}))
@@ -91,7 +93,9 @@ func TestJinaExtractorNoAPIKeyOmitsAuthorizationHeader(t *testing.T) {
 
 func TestJinaExtractorGeneralFailureMapsToARC010(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"error":{"message":"provider unavailable"}}`))
 	}))
 	t.Cleanup(server.Close)
 
@@ -133,7 +137,9 @@ func TestJinaExtractorTransportFailureMapsToARC010(t *testing.T) {
 
 func TestJinaExtractorInsufficientBalanceMapsToARC011(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusPaymentRequired)
+		_, _ = w.Write([]byte(`{"error":{"message":"anything"}}`))
 	}))
 	t.Cleanup(server.Close)
 
@@ -156,6 +162,7 @@ func TestJinaExtractorAcceptsTextPlain(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		receivedAccept = r.Header.Get("Accept")
 
+		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("# Content"))
 	}))
@@ -172,8 +179,193 @@ func TestJinaExtractorAcceptsTextPlain(t *testing.T) {
 	require.Equal(t, "text/plain", receivedAccept)
 }
 
+func TestJinaExtractorAcceptsTextMarkdown(t *testing.T) {
+	const expectedMarkdown = "# Markdown content"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(expectedMarkdown))
+	}))
+	t.Cleanup(server.Close)
+
+	extractor := newTestJinaExtractor("", server.URL+"/")
+
+	output, err := extractor.ExtractMarkdown(t.Context(), ExtractInput{
+		HTML:         []byte(`<html><body><p>content</p></body></html>`),
+		CanonicalURL: "https://example.com/article",
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, expectedMarkdown, output.Markdown)
+}
+
+func TestJinaExtractorRejectsJSONSuccessContentType(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"content":"# Not markdown"}`))
+	}))
+	t.Cleanup(server.Close)
+
+	extractor := newTestJinaExtractor("", server.URL+"/")
+
+	_, err := extractor.ExtractMarkdown(t.Context(), ExtractInput{
+		HTML:         []byte(`<html><body><p>content</p></body></html>`),
+		CanonicalURL: "https://example.com/article",
+	})
+
+	require.ErrorIs(t, err, arc.ErrJinaReaderFailure)
+	extractionErr, ok := errors.AsType[*ExtractionError](err)
+	require.True(t, ok)
+	require.Equal(t, "jina reader returned unexpected content type", extractionErr.Reason)
+}
+
+func TestJinaExtractorRejectsMissingSuccessContentType(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(server.Close)
+
+	extractor := newTestJinaExtractor("", server.URL+"/")
+
+	_, err := extractor.ExtractMarkdown(t.Context(), ExtractInput{
+		HTML:         []byte(`<html><body><p>content</p></body></html>`),
+		CanonicalURL: "https://example.com/article",
+	})
+
+	require.ErrorIs(t, err, arc.ErrJinaReaderFailure)
+	extractionErr, ok := errors.AsType[*ExtractionError](err)
+	require.True(t, ok)
+	require.Equal(t, "jina reader returned unexpected content type", extractionErr.Reason)
+}
+
+func TestJinaExtractorRejectsMalformedSuccessContentType(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/plain; charset=")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("# Content"))
+	}))
+	t.Cleanup(server.Close)
+
+	extractor := newTestJinaExtractor("", server.URL+"/")
+
+	_, err := extractor.ExtractMarkdown(t.Context(), ExtractInput{
+		HTML:         []byte(`<html><body><p>content</p></body></html>`),
+		CanonicalURL: "https://example.com/article",
+	})
+
+	require.ErrorIs(t, err, arc.ErrJinaReaderFailure)
+}
+
+func TestJinaExtractorOversizedSuccessBodyMapsToARC010(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(strings.Repeat("a", maxJinaMarkdownBytes+1)))
+	}))
+	t.Cleanup(server.Close)
+
+	extractor := newTestJinaExtractor("", server.URL+"/")
+
+	_, err := extractor.ExtractMarkdown(t.Context(), ExtractInput{
+		HTML:         []byte(`<html><body><p>content</p></body></html>`),
+		CanonicalURL: "https://example.com/article",
+	})
+
+	require.ErrorIs(t, err, arc.ErrJinaReaderFailure)
+	extractionErr, ok := errors.AsType[*ExtractionError](err)
+	require.True(t, ok)
+	require.Equal(t, jinaReadLimitExceededMsg, extractionErr.Reason)
+}
+
+func TestJinaExtractorOversizedErrorBodyMapsToARC010(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(strings.Repeat("a", maxJinaDiagnosticBytes+1)))
+	}))
+	t.Cleanup(server.Close)
+
+	extractor := newTestJinaExtractor("", server.URL+"/")
+
+	_, err := extractor.ExtractMarkdown(t.Context(), ExtractInput{
+		HTML:         []byte(`<html><body><p>content</p></body></html>`),
+		CanonicalURL: "https://example.com/article",
+	})
+
+	require.ErrorIs(t, err, arc.ErrJinaReaderFailure)
+	require.NotErrorIs(t, err, arc.ErrJinaInsufficientBalance)
+	extractionErr, ok := errors.AsType[*ExtractionError](err)
+	require.True(t, ok)
+	require.Equal(t, jinaReadLimitExceededMsg, extractionErr.Reason)
+	require.Equal(t, http.StatusForbidden, extractionErr.StatusCode)
+}
+
+func TestJinaExtractorNon402JSONInsufficientBalanceMapsToARC011(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`{"error":{"code":"invalid_request_error","message":"Insufficient Balance"}}`))
+	}))
+	t.Cleanup(server.Close)
+
+	extractor := newTestJinaExtractor("", server.URL+"/")
+
+	_, err := extractor.ExtractMarkdown(t.Context(), ExtractInput{
+		HTML:         []byte(`<html><body><p>content</p></body></html>`),
+		CanonicalURL: "https://example.com/article",
+	})
+
+	require.ErrorIs(t, err, arc.ErrJinaInsufficientBalance)
+	extractionErr, ok := errors.AsType[*ExtractionError](err)
+	require.True(t, ok)
+	require.Equal(t, http.StatusForbidden, extractionErr.StatusCode)
+}
+
+func TestJinaExtractorNon402TextInsufficientBalanceMapsToARC011(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusTooManyRequests)
+		_, _ = w.Write([]byte("request failed: out_of_tokens"))
+	}))
+	t.Cleanup(server.Close)
+
+	extractor := newTestJinaExtractor("", server.URL+"/")
+
+	_, err := extractor.ExtractMarkdown(t.Context(), ExtractInput{
+		HTML:         []byte(`<html><body><p>content</p></body></html>`),
+		CanonicalURL: "https://example.com/article",
+	})
+
+	require.ErrorIs(t, err, arc.ErrJinaInsufficientBalance)
+	extractionErr, ok := errors.AsType[*ExtractionError](err)
+	require.True(t, ok)
+	require.Equal(t, http.StatusTooManyRequests, extractionErr.StatusCode)
+}
+
+func TestJinaExtractorNon402UnrelatedErrorMapsToARC010(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`{"error":{"message":"invalid API key"}}`))
+	}))
+	t.Cleanup(server.Close)
+
+	extractor := newTestJinaExtractor("", server.URL+"/")
+
+	_, err := extractor.ExtractMarkdown(t.Context(), ExtractInput{
+		HTML:         []byte(`<html><body><p>content</p></body></html>`),
+		CanonicalURL: "https://example.com/article",
+	})
+
+	require.ErrorIs(t, err, arc.ErrJinaReaderFailure)
+	require.NotErrorIs(t, err, arc.ErrJinaInsufficientBalance)
+}
+
 func TestJinaExtractorEmptyResponseMapsToARC010(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(http.StatusOK)
 	}))
 	t.Cleanup(server.Close)

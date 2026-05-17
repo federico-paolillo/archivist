@@ -387,3 +387,38 @@ Canonical Updates:
 - `docs/DESIGN.md`
 - `docs/conventions/GENERAL.md`
 - `docs/conventions/WORKER.md`
+
+---
+
+## 2026-05-17 — MDEXT-004: Bounded Jina Response Handling
+
+Status:
+- done
+
+Summary:
+- Closed review findings 7 and 8 for Jina Reader fallback response handling.
+- Jina success responses are now content-type checked and read through a hard limit instead of using the unbounded `resp.String()` path.
+- Jina insufficient-balance classification now checks bounded non-OK response bodies in addition to HTTP 402.
+
+Changes:
+- Updated `src/worker/internal/markdown/jina.go` to disable automatic response-body reads for the Jina request, close the response body explicitly, validate text Markdown-compatible success content types, and read success/error bodies through bounded readers.
+- Updated `src/worker/internal/markdown/errors.go` with Jina non-OK classification helpers for HTTP 402 and normalized insufficient-balance markers in bounded response bodies.
+- Extended `src/worker/internal/markdown/jina_test.go` with success content-type variants, non-text/missing/malformed success content-type rejection, oversized success/error bodies, and non-402 balance markers.
+
+Decisions:
+- Successful Jina Markdown responses are capped at 10 MiB, matching the snapshot fetch ceiling.
+- Non-OK Jina diagnostic bodies are capped at 64 KiB to support classification without retaining large provider/proxy responses.
+- Accepted success content types are `text/plain`, `text/markdown`, and `text/x-markdown`.
+
+Validation:
+- `cd src/worker && go test ./internal/markdown` — passed.
+- `cd src/worker && go tool lefthook run build` — passed.
+- `cd src/worker && go tool lefthook run format` — passed.
+- `cd src/worker && go tool lefthook run lint` — passed.
+- `cd src/worker && go tool lefthook run test` — passed.
+
+Follow-ups:
+- None.
+
+Canonical Updates:
+- `docs/specs/markdown-extraction/tasks/MDEXT-004-worker-jina-reader-fallback.md`

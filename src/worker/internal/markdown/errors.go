@@ -2,6 +2,10 @@ package markdown
 
 import (
 	"fmt"
+	"net/http"
+	"strings"
+
+	"codeberg.org/federico-paolillo/archivist/internal/arc"
 )
 
 const (
@@ -56,4 +60,56 @@ func localFailure(err error, reason string) error {
 
 func jinaFailure(err error, reason string, statusCode int) error {
 	return extractionFailure(ProviderJina, err, reason, statusCode)
+}
+
+func classifyJinaHTTPError(statusCode int, body []byte) error {
+	if statusCode == http.StatusPaymentRequired || containsInsufficientBalanceMarker(body) {
+		return jinaFailure(arc.ErrJinaInsufficientBalance, "jina reader insufficient balance", statusCode)
+	}
+
+	return jinaFailure(arc.ErrJinaReaderFailure, "jina reader returned unexpected HTTP status", statusCode)
+}
+
+func containsInsufficientBalanceMarker(body []byte) bool {
+	normalized := normalizeJinaErrorBody(string(body))
+	markers := []string{
+		"insufficient balance",
+		"insufficient credit",
+		"insufficient credits",
+		"insufficient quota",
+		"out of balance",
+		"out of credit",
+		"out of credits",
+		"out of token",
+		"out of tokens",
+	}
+
+	for _, marker := range markers {
+		if strings.Contains(normalized, marker) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func normalizeJinaErrorBody(body string) string {
+	body = strings.ToLower(body)
+	replacer := strings.NewReplacer(
+		"_", " ",
+		"-", " ",
+		".", " ",
+		":", " ",
+		"\"", " ",
+		"'", " ",
+		"{", " ",
+		"}", " ",
+		"[", " ",
+		"]", " ",
+		"\n", " ",
+		"\r", " ",
+		"\t", " ",
+	)
+
+	return strings.Join(strings.Fields(replacer.Replace(body)), " ")
 }

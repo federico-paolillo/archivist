@@ -34,7 +34,7 @@ This task includes:
 - Supporting required `JINA_API_KEY` for authenticated Reader requests.
 - Mapping general Jina failures to `ARC-010`.
 - Mapping insufficient balance failures to `ARC-011` when exposed by status, code, or response body.
-- Tests for disabled Jina, successful fallback, general failure, timeout/transport failure, and insufficient balance.
+- Tests for successful fallback, general failure, timeout/transport failure, insufficient balance, bounded response reads, and non-text success responses.
 
 ## Out of Scope
 
@@ -169,3 +169,5 @@ ExecPlan:
 - Current planning verification found `github.com/jina-ai/client-go`, but it targets older Jina client semantics and is not a Reader-specific SDK.
 - `JinaExtractor` does not accept a logger and must not emit structured log entries. Structured logging for provider attempt, selected provider, ARC code, duration, and artifact write result is owned by MDEXT-005 pipeline orchestration per `docs/conventions/WORKER.md`.
 - Worker runtime configuration key reconciliation is corrected by `docs/specs/worker-runtime-configuration/tasks/WCFG-001-canonical-worker-config-loading.md`; rebuilds must use the canonical `ARCHIVIST_` mapping there instead of historical implementation notes.
+- Jina Reader responses must be read through hard limits: successful Markdown responses are capped at 10 MiB and non-OK diagnostic bodies are capped at 64 KiB. Successful responses must have a text Markdown-compatible content type (`text/plain`, `text/markdown`, or `text/x-markdown`). Oversized bodies, missing or invalid success content types, and non-text success content types map to `ARC-010`.
+- Jina insufficient balance must map to `ARC-011` when exposed by HTTP 402 or by bounded non-OK response text/JSON containing known insufficient-balance markers. Other non-OK responses remain `ARC-010`.

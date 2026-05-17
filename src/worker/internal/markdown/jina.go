@@ -2,7 +2,10 @@ package markdown
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
+	"mime"
 	"net/http"
 	"strings"
 
@@ -12,8 +15,13 @@ import (
 )
 
 const (
-	jinaReaderBaseURL = "https://r.jina.ai/"
+	jinaReaderBaseURL        = "https://r.jina.ai/"
+	maxJinaMarkdownBytes     = 10 * 1024 * 1024
+	maxJinaDiagnosticBytes   = 64 * 1024
+	jinaReadLimitExceededMsg = "jina reader response body exceeds size limit"
 )
+
+var acceptedJinaContentTypes = []string{"text/plain", "text/markdown", "text/x-markdown"}
 
 type JinaExtractor struct {
 	apiKey     string
@@ -56,7 +64,8 @@ func (e *JinaExtractor) fetch(ctx context.Context, canonicalURL string) (string,
 
 	r := e.httpClient.R().
 		SetContext(ctx).
-		SetHeader("Accept", "text/plain")
+		SetHeader("Accept", "text/plain").
+		DisableAutoReadResponse()
 
 	if e.apiKey != "" {
 		r = r.SetBearerAuthToken(e.apiKey)
@@ -66,18 +75,59 @@ func (e *JinaExtractor) fetch(ctx context.Context, canonicalURL string) (string,
 	if err != nil {
 		return "", jinaFailure(arc.ErrJinaReaderFailure, fmt.Sprintf("jina reader request failed: %v", err), 0)
 	}
-
-	if resp.StatusCode == http.StatusPaymentRequired {
-		return "", jinaFailure(
-			arc.ErrJinaInsufficientBalance,
-			"jina reader insufficient balance",
-			resp.StatusCode,
-		)
-	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", jinaFailure(arc.ErrJinaReaderFailure, "jina reader returned unexpected HTTP status", resp.StatusCode)
+		body, readErr := readJinaBody(resp.Body, maxJinaDiagnosticBytes)
+		if readErr != nil {
+			return "", jinaFailure(arc.ErrJinaReaderFailure, readErr.Error(), resp.StatusCode)
+		}
+
+		return "", classifyJinaHTTPError(resp.StatusCode, body)
 	}
 
-	return resp.String(), nil
+	if !isAcceptedJinaContentType(resp.GetContentType()) {
+		return "", jinaFailure(arc.ErrJinaReaderFailure, "jina reader returned unexpected content type", resp.StatusCode)
+	}
+
+	body, readErr := readJinaBody(resp.Body, maxJinaMarkdownBytes)
+	if readErr != nil {
+		return "", jinaFailure(arc.ErrJinaReaderFailure, readErr.Error(), resp.StatusCode)
+	}
+
+	return string(body), nil
+}
+
+func isAcceptedJinaContentType(contentType string) bool {
+	if contentType == "" {
+		return false
+	}
+
+	mediaType, _, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		return false
+	}
+
+	for _, accepted := range acceptedJinaContentTypes {
+		if strings.EqualFold(mediaType, accepted) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func readJinaBody(r io.Reader, maxBytes int64) ([]byte, error) {
+	data, err := io.ReadAll(io.LimitReader(r, maxBytes+1))
+	if err != nil {
+		return nil, fmt.Errorf("read jina reader response body: %w", err)
+	}
+
+	if int64(len(data)) > maxBytes {
+		return nil, errors.New(jinaReadLimitExceededMsg)
+	}
+
+	return data, nil
 }
