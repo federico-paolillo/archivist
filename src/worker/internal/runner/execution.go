@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -28,25 +29,18 @@ func runManyPrograms(
 	signalChan := make(chan os.Signal, 1)
 
 	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(signalChan)
 
-	// We buffer for n-programs. So that each program can report a failure without blocking
-	// TODO: We currently consume just the first program error
+	// We buffer for n-programs so that each program can report a failure without blocking.
 
 	errChan := make(chan error, programsCount)
 
 	var wg sync.WaitGroup
 
-	wg.Add(programsCount)
-
 	for _, p := range programs {
-		go runOneProgram(
-			ctx,
-			&wg,
-			errChan,
-			appRoot,
-			cfg,
-			p,
-		)
+		wg.Go(func() {
+			runOneProgram(ctx, errChan, appRoot, cfg, p)
+		})
 	}
 
 	err := waitForTermination(
@@ -54,6 +48,7 @@ func runManyPrograms(
 		errChan,
 		signalChan,
 		&wg,
+		programsCount,
 	)
 	if err != nil {
 		logger.Error(
@@ -72,14 +67,18 @@ func waitForTermination(
 	errChan chan error,
 	signalChan chan os.Signal,
 	wg *sync.WaitGroup,
+	programsCount int,
 ) error {
-	var err error
+	var firstErr error
+
+	remainingResults := programsCount
 
 	// As soon as one program fails, finishes, or the context is cancelled we give up execution
-	// TODO: We should consume all errors. The channel has a finite number of values
 
 	select {
-	case err = <-errChan:
+	case firstErr = <-errChan:
+		remainingResults--
+
 		cancel()
 	case <-signalChan:
 		cancel()
@@ -89,20 +88,28 @@ func waitForTermination(
 
 	wg.Wait()
 
-	return err
+	errs := make([]error, 0, programsCount)
+	if firstErr != nil {
+		errs = append(errs, firstErr)
+	}
+
+	for range remainingResults {
+		err := <-errChan
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	return errors.Join(errs...)
 }
 
 func runOneProgram(
 	ctx context.Context,
-	wg *sync.WaitGroup,
 	errChan chan<- error,
 	appRoot *app.App,
 	cfg *config.Root,
 	program ProgramE,
 ) {
-	defer wg.Done()
-
 	// errChan has one buffer space for each program. We don't have to worry about blocking write
-
 	errChan <- program(ctx, appRoot, cfg)
 }

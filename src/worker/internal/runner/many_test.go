@@ -72,7 +72,7 @@ func TestRunnerReturnsOkWhenAllProgramSucceeds(t *testing.T) {
 	require.Equal(t, runner.Ok, statusCode)
 }
 
-func TestRunnerReturnsOkWhenOneProgramFails(t *testing.T) {
+func TestRunnerReturnsNotOkWhenOneProgramFails(t *testing.T) {
 	ctx := t.Context()
 	setRequiredWorkerConfig(t)
 
@@ -91,6 +91,40 @@ func TestRunnerReturnsOkWhenOneProgramFails(t *testing.T) {
 		_ *config.Root,
 	) error {
 		return errors.New("failure is expected")
+	}
+
+	statusCode := runner.RunMany(ctx, testProgram1, testProgram2)
+
+	require.Equal(t, runner.NotOk, statusCode)
+}
+
+func TestRunnerReturnsNotOkWhenProgramFailsAfterEarlierSuccess(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+
+	setRequiredWorkerConfig(t)
+
+	firstProgramDone := make(chan struct{})
+
+	testProgram1 := func(
+		_ context.Context,
+		_ *app.App,
+		_ *config.Root,
+	) error {
+		close(firstProgramDone)
+
+		return nil
+	}
+
+	testProgram2 := func(
+		ctx context.Context,
+		_ *app.App,
+		_ *config.Root,
+	) error {
+		<-firstProgramDone
+		<-ctx.Done()
+
+		return errors.New("failure after earlier success")
 	}
 
 	statusCode := runner.RunMany(ctx, testProgram1, testProgram2)
