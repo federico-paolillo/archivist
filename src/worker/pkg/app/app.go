@@ -65,7 +65,7 @@ func NewApp(logger *slog.Logger, logLevel *slog.LevelVar, cfg *config.Root) (*Ap
 
 	fetcherService := fetcher.New(httpClient)
 	localMarkdown := markdown.NewGoReadabilityExtractor()
-	jinaMarkdown := markdown.NewJinaExtractor(httpClient, cfg.Jina.Enabled, cfg.Jina.API.Key)
+	jinaMarkdown := markdown.NewJinaExtractor(httpClient, cfg.Jina.API.Key)
 	summarizer := summary.NewAnthropicAdapter(httpClient, cfg.LLM.API.Key, cfg.LLM.Model)
 	jobsRepository := jobs.NewSQLiteRepository(database)
 	markdownHandoff := pipeline.NewMarkdownExtractionHandoff(

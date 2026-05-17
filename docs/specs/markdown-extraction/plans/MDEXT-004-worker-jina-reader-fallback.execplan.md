@@ -49,12 +49,12 @@ Add only ExecPlan-specific context:
 3. If no suitable official SDK exists, implement a small internal HTTP adapter for Reader API.
 4. Define or reuse the Worker-owned `MarkdownExtractor` contract and result types.
 5. Implement Jina extraction against the article canonical URL.
-6. Gate calls behind `JINA_ENABLED`.
-7. Load optional `JINA_API_KEY` without logging it.
+6. Keep Jina callable whenever local extraction needs fallback; do not add a runtime toggle.
+7. Load required `JINA_API_KEY` without logging it.
 8. Map general Jina failures to `ARC-010`.
 9. Map insufficient balance to `ARC-011` when exposed by status, code, or response body.
 10. Keep SDK or adapter types private to the Jina package.
-11. Add tests for disabled fallback, success, provider failure, timeout/transport failure, insufficient balance, and abstraction boundaries.
+11. Add tests for success, provider failure, timeout/transport failure, insufficient balance, and abstraction boundaries.
 12. Record the SDK selection outcome in `DIARY.md` when implementation is performed.
 
 ## Validation Plan
@@ -87,7 +87,7 @@ Manual checks:
 ## Rollback / Recovery Notes
 
 - Failed extraction remains terminal in v0; manual requeue is performed by sending the URL again.
-- Disabling `JINA_ENABLED` should avoid external fallback calls and leave local extraction behavior intact.
+- Failed Jina fallback remains terminal in v0; operators restore provider availability by correcting the required Jina configuration or account state and requeueing manually.
 
 ## Completion Criteria
 

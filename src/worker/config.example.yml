@@ -6,9 +6,8 @@ sqlite:
 data:
   dir: /data
 jina:
-  enabled: false
   api:
-    key: ""
+    key: "jina-secret"
 llm:
   provider: anthropic
   model: claude-3-5-haiku-20241022

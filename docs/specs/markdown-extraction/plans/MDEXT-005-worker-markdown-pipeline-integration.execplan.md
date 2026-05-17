@@ -54,7 +54,7 @@ Add only ExecPlan-specific context:
 3. Read snapshot HTML through the artifact layer.
 4. Call the local `MarkdownExtractor` with snapshot bytes and canonical URL.
 5. On local success, retain the Markdown and selected provider metadata.
-6. On local unreadable or local extraction failure, log the fallback reason and call the Jina `MarkdownExtractor` when enabled.
+6. On local unreadable or local extraction failure, log the fallback reason and call the Jina `MarkdownExtractor`.
 7. On Jina success, retain the Markdown and selected provider metadata.
 8. On Jina failure, map the terminal public error to the Jina ARC code; use `ARC-011` for insufficient balance.
 9. Atomically write `content.md` before any downstream summary-generation handoff.

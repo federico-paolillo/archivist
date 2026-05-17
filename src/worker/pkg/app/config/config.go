@@ -40,8 +40,7 @@ type API struct {
 }
 
 type Jina struct {
-	Enabled bool `config:"ENABLED"`
-	API     API  `config:"API"`
+	API API `config:"API"`
 }
 
 type LLM struct {
@@ -56,9 +55,6 @@ func Default() *Root {
 			Name: "archivist-worker",
 		},
 		Debug: true,
-		Jina: Jina{
-			Enabled: false,
-		},
 		LLM: LLM{
 			Provider: ProviderAnthropic,
 			Model:    DefaultLLMModel,
@@ -75,6 +71,10 @@ func (r Root) Validate() error {
 
 	if strings.TrimSpace(r.Data.Dir) == "" {
 		problems = append(problems, "DATA_DIR is required")
+	}
+
+	if strings.TrimSpace(r.Jina.API.Key) == "" {
+		problems = append(problems, "JINA_API_KEY is required")
 	}
 
 	switch r.LLM.Provider {

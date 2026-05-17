@@ -53,7 +53,7 @@ Scenario: no direct env overrides exist
 ## Done When
 
 - Legacy application-prefixed Worker config loading is removed.
-- `ARCHIVIST_SQLITE_PATH`, `ARCHIVIST_DATA_DIR`, `ARCHIVIST_JINA_ENABLED`, `ARCHIVIST_JINA_API_KEY`, `ARCHIVIST_LLM_PROVIDER`, `ARCHIVIST_LLM_API_KEY`, and `ARCHIVIST_LLM_MODEL` are covered by tests.
+- `ARCHIVIST_SQLITE_PATH`, `ARCHIVIST_DATA_DIR`, `ARCHIVIST_JINA_API_KEY`, `ARCHIVIST_LLM_PROVIDER`, `ARCHIVIST_LLM_API_KEY`, and `ARCHIVIST_LLM_MODEL` are covered by tests.
 - Required-value and unsupported-provider tests are present.
 - Canonical docs identify `WCFG-001` as the corrective task.
 - Worker validation passes.

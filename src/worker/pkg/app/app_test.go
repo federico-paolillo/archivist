@@ -85,6 +85,17 @@ func TestNewAppRejectsMissingAnthropicAPIKey(t *testing.T) {
 	assert.Nil(t, application)
 }
 
+func TestNewAppRejectsMissingJinaAPIKey(t *testing.T) {
+	cfg := newValidConfig(t)
+	cfg.Jina.API.Key = ""
+
+	application, err := app.NewApp(slogt.New(t), new(slog.LevelVar), cfg)
+
+	require.Error(t, err)
+	require.ErrorContains(t, err, "JINA_API_KEY is required")
+	assert.Nil(t, application)
+}
+
 func TestNewAppRejectsUnsupportedLLMProvider(t *testing.T) {
 	cfg := newValidConfig(t)
 	cfg.LLM.Provider = "unsupported"
@@ -102,6 +113,7 @@ func newValidConfig(t *testing.T) *config.Root {
 	cfg := config.Default()
 	cfg.SQLite.Path = ":memory:"
 	cfg.Data.Dir = t.TempDir()
+	cfg.Jina.API.Key = "jina-secret"
 	cfg.LLM.API.Key = "llm-secret"
 
 	return cfg

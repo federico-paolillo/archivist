@@ -347,3 +347,43 @@ Canonical Updates:
 - `docs/specs/markdown-extraction/PLAN.md` (feature status: done; MDEXT-005 row: done)
 - `docs/specs/markdown-extraction/SPEC.md` (status: done)
 - `docs/specs/INDEX.md` (markdown-extraction status: done)
+
+---
+
+## 2026-05-17 — MDEXT-004/MDEXT-005: Mandatory Jina Fallback Configuration
+
+Status:
+- done
+
+Summary:
+- Superseded the optional Jina fallback model. Jina remains the fallback after local extraction fails, but it is always wired and always callable.
+- Removed the Jina runtime toggle from the extractor and composition root.
+- Required `JINA_API_KEY` through Worker config validation so missing Jina credentials fail before app composition.
+
+Decisions:
+- Local go-readability remains first in the extraction order.
+- Jina Reader is mandatory fallback infrastructure, not a user-disabled provider.
+- Pipeline orchestration should not branch on Jina enablement.
+
+Validation:
+- `cd src/worker && go test ./pkg/app/config ./pkg/app ./internal/markdown ./internal/pipeline` passed.
+- `cd src/worker && go tool lefthook run build` passed.
+- `cd src/worker && go tool lefthook run format` passed.
+- `cd src/worker && go tool lefthook run lint` passed.
+- `cd src/worker && go tool lefthook run test` passed after updating Worker app and runner test fixtures for the required Jina key.
+- Stale toggle scan passed for active canonical docs and Worker sources.
+
+Follow-ups:
+- None.
+
+Canonical Updates:
+- `docs/specs/markdown-extraction/SPEC.md`
+- `docs/specs/markdown-extraction/PLAN.md`
+- `docs/specs/markdown-extraction/tasks/MDEXT-004-worker-jina-reader-fallback.md`
+- `docs/specs/markdown-extraction/tasks/MDEXT-005-worker-markdown-pipeline-integration.md`
+- `docs/specs/markdown-extraction/plans/MDEXT-004-worker-jina-reader-fallback.execplan.md`
+- `docs/specs/markdown-extraction/plans/MDEXT-005-worker-markdown-pipeline-integration.execplan.md`
+- `docs/ARCHITECTURE.md`
+- `docs/DESIGN.md`
+- `docs/conventions/GENERAL.md`
+- `docs/conventions/WORKER.md`

@@ -77,7 +77,7 @@ MDEXT-005 -> SUMGEN-002
 - Deterministic artifact paths in `docs/conventions/ARTIFACTS.md`.
 - ARC error-code catalog in `docs/conventions/ERRORS.md`.
 - Worker-owned `MarkdownExtractor` contract shared by local and Jina implementations.
-- Worker configuration for `JINA_ENABLED` and optional `JINA_API_KEY`.
+- Worker configuration for required `JINA_API_KEY`.
 - Gateway terminal notification content selection for summary-complete success in `summary-generation`.
 
 ---

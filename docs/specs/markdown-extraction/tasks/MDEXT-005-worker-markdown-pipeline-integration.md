@@ -24,7 +24,7 @@ As the Worker, I need the article-processing pipeline to progress from HTML snap
 
 This task includes:
 
-- Pipeline sequence after HTML snapshotting: local extractor, optional Jina extractor fallback, Markdown artifact write, and summary-generation handoff.
+- Pipeline sequence after HTML snapshotting: local extractor, mandatory Jina extractor fallback, Markdown artifact write, and summary-generation handoff.
 - Calling only the Worker-owned `MarkdownExtractor` contract from orchestration code.
 - Structured logs for provider attempts, fallback decisions, selected provider, ARC code, and artifact write result.
 - Markdown-success handoff to summary generation in final v0 after `content.md` is promoted.

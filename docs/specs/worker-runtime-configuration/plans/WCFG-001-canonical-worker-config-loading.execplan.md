@@ -14,10 +14,10 @@ Correct Worker runtime configuration so documented deployment keys configure the
 ## Implementation Sequence
 
 1. Change Worker configuro env prefix from `APP` to `ARCHIVIST`.
-2. Reshape `config.Root` into configuro-bound nested structs for `SQLite.Path`, `Data.Dir`, `Jina.Enabled`, `Jina.API.Key`, `LLM.Provider`, `LLM.API.Key`, and `LLM.Model`.
-3. Add defaults for app name, debug, disabled Jina, Anthropic provider, and the v0 Anthropic model.
-4. Add load-time validation through configuro validation: require `SQLITE_PATH`, `DATA_DIR`, and `LLM_API_KEY` when provider is Anthropic; reject unsupported providers.
-5. Remove manual Jina environment overrides.
+2. Reshape `config.Root` into configuro-bound nested structs for `SQLite.Path`, `Data.Dir`, `Jina.API.Key`, `LLM.Provider`, `LLM.API.Key`, and `LLM.Model`.
+3. Add defaults for app name, debug, Anthropic provider, and the v0 Anthropic model.
+4. Add load-time validation through configuro validation: require `SQLITE_PATH`, `DATA_DIR`, `JINA_API_KEY`, and `LLM_API_KEY` when provider is Anthropic; reject unsupported providers.
+5. Remove manual Jina environment overrides and any Jina runtime toggle.
 6. Update Worker consumers to read the new config shape.
 7. Update tests for defaults, canonical env loading, required values, and unsupported providers.
 8. Update canonical ALM, architecture, and convention docs.

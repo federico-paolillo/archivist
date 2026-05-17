@@ -16,7 +16,6 @@ const (
 )
 
 type JinaExtractor struct {
-	enabled    bool
 	apiKey     string
 	baseURL    string
 	httpClient *req.Client
@@ -24,9 +23,8 @@ type JinaExtractor struct {
 
 var _ MarkdownExtractor = (*JinaExtractor)(nil)
 
-func NewJinaExtractor(client *req.Client, enabled bool, apiKey string) *JinaExtractor {
+func NewJinaExtractor(client *req.Client, apiKey string) *JinaExtractor {
 	return &JinaExtractor{
-		enabled:    enabled,
 		apiKey:     apiKey,
 		baseURL:    jinaReaderBaseURL,
 		httpClient: client,
@@ -38,10 +36,6 @@ func (e *JinaExtractor) Provider() Provider {
 }
 
 func (e *JinaExtractor) ExtractMarkdown(ctx context.Context, input ExtractInput) (ExtractOutput, error) {
-	if !e.enabled {
-		return ExtractOutput{}, jinaFailure(arc.ErrJinaReaderFailure, "jina extractor is disabled", 0)
-	}
-
 	markdown, err := e.fetch(ctx, input.CanonicalURL)
 	if err != nil {
 		return ExtractOutput{}, err

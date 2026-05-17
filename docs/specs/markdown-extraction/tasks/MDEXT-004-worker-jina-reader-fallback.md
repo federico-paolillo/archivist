@@ -30,8 +30,8 @@ This task includes:
 - Implementing the shared Worker-owned `MarkdownExtractor` contract for the Jina extractor.
 - Keeping Jina SDK/client or adapter types inside the Jina implementation.
 - Calling Jina Reader with the article canonical URL.
-- Supporting `JINA_ENABLED`.
-- Supporting optional `JINA_API_KEY` for authenticated Reader requests.
+- Keeping Jina callable whenever local extraction needs fallback, without a runtime toggle.
+- Supporting required `JINA_API_KEY` for authenticated Reader requests.
 - Mapping general Jina failures to `ARC-010`.
 - Mapping insufficient balance failures to `ARC-011` when exposed by status, code, or response body.
 - Tests for disabled Jina, successful fallback, general failure, timeout/transport failure, and insufficient balance.
@@ -64,7 +64,7 @@ Expected outputs, files, behavior, or interfaces:
 - Worker Jina `MarkdownExtractor` implementation.
 - Jina Reader client or adapter isolated behind the extractor implementation.
 - Provider failure classification for Jina fallback.
-- Worker configuration support for optional `JINA_API_KEY`.
+- Worker configuration support for required `JINA_API_KEY`.
 
 ## Expected Affected Areas
 
@@ -120,10 +120,10 @@ Scenario: Jina reports insufficient balance
 - Jina fallback implements `MarkdownExtractor`.
 - Worker pipeline code does not import Jina SDK/client or adapter types.
 - Jina fallback can return Markdown from the canonical URL.
-- `JINA_ENABLED` gates fallback usage.
-- `JINA_API_KEY` is loaded without being required when unauthenticated Reader use is acceptable.
+- Jina fallback has no runtime toggle.
+- `JINA_API_KEY` is loaded as required Worker configuration.
 - Jina failures map to ARC-coded public errors.
-- Tests cover success, disabled fallback, general failure, and insufficient balance.
+- Tests cover success, general failure, and insufficient balance.
 - Task status and `PLAN.md` are updated if the task is completed.
 - `DIARY.md` has an entry if implementation is performed.
 

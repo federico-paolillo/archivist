@@ -1,6 +1,9 @@
 package config_test
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"codeberg.org/federico-paolillo/archivist/pkg/app/config"
@@ -26,7 +29,6 @@ func TestConfigurationDefaults(t *testing.T) {
 	assert.True(t, cfg.Debug)
 	assert.Equal(t, "", cfg.SQLite.Path)
 	assert.Equal(t, "", cfg.Data.Dir)
-	assert.False(t, cfg.Jina.Enabled)
 	assert.Equal(t, "", cfg.Jina.API.Key)
 	assert.Equal(t, config.ProviderAnthropic, cfg.LLM.Provider)
 	assert.Equal(t, config.DefaultLLMModel, cfg.LLM.Model)
@@ -65,13 +67,11 @@ func TestConfigurationLoadsDataDir(t *testing.T) {
 
 func TestConfigurationLoadsJina(t *testing.T) {
 	setRequiredWorkerConfig(t)
-	t.Setenv("ARCHIVIST_JINA_ENABLED", "true")
 	t.Setenv("ARCHIVIST_JINA_API_KEY", "jina-secret")
 
 	cfg, err := config.Load()
 
 	require.NoError(t, err)
-	assert.True(t, cfg.Jina.Enabled)
 	assert.Equal(t, "jina-secret", cfg.Jina.API.Key)
 }
 
@@ -103,6 +103,7 @@ func TestConfigurationRequiresSQLitePath(t *testing.T) {
 func TestConfigurationRequiresDataDir(t *testing.T) {
 	clearWorkerConfigEnv(t)
 	t.Setenv("ARCHIVIST_SQLITE_PATH", "/data/archive.db")
+	t.Setenv("ARCHIVIST_JINA_API_KEY", "jina-secret")
 	t.Setenv("ARCHIVIST_LLM_API_KEY", "llm-secret")
 
 	_, err := config.Load()
@@ -111,10 +112,23 @@ func TestConfigurationRequiresDataDir(t *testing.T) {
 	require.ErrorContains(t, err, "DATA_DIR is required")
 }
 
+func TestConfigurationRequiresJinaAPIKey(t *testing.T) {
+	clearWorkerConfigEnv(t)
+	t.Setenv("ARCHIVIST_SQLITE_PATH", "/data/archive.db")
+	t.Setenv("ARCHIVIST_DATA_DIR", "/data")
+	t.Setenv("ARCHIVIST_LLM_API_KEY", "llm-secret")
+
+	_, err := config.Load()
+
+	require.Error(t, err)
+	require.ErrorContains(t, err, "JINA_API_KEY is required")
+}
+
 func TestConfigurationRequiresLLMAPIKeyForAnthropic(t *testing.T) {
 	clearWorkerConfigEnv(t)
 	t.Setenv("ARCHIVIST_SQLITE_PATH", "/data/archive.db")
 	t.Setenv("ARCHIVIST_DATA_DIR", "/data")
+	t.Setenv("ARCHIVIST_JINA_API_KEY", "jina-secret")
 
 	_, err := config.Load()
 
@@ -139,6 +153,7 @@ func setRequiredWorkerConfig(t *testing.T) {
 
 	t.Setenv("ARCHIVIST_SQLITE_PATH", "/data/archive.db")
 	t.Setenv("ARCHIVIST_DATA_DIR", "/data")
+	t.Setenv("ARCHIVIST_JINA_API_KEY", "jina-secret")
 	t.Setenv("ARCHIVIST_LLM_API_KEY", "llm-secret")
 }
 
@@ -150,7 +165,6 @@ func clearWorkerConfigEnv(t *testing.T) {
 		"ARCHIVIST_DEBUG",
 		"ARCHIVIST_SQLITE_PATH",
 		"ARCHIVIST_DATA_DIR",
-		"ARCHIVIST_JINA_ENABLED",
 		"ARCHIVIST_JINA_API_KEY",
 		"ARCHIVIST_LLM_PROVIDER",
 		"ARCHIVIST_LLM_API_KEY",
@@ -158,4 +172,50 @@ func clearWorkerConfigEnv(t *testing.T) {
 	} {
 		t.Setenv(key, "")
 	}
+}
+
+func TestProductionWorkerCodeDoesNotReferenceJinaEnabledGate(t *testing.T) {
+	forbidden := []string{
+		"JINA" + "_ENABLED",
+		"Jina" + ".Enabled",
+		"cfg.Jina" + ".Enabled",
+	}
+
+	root := filepath.Clean("../../..")
+	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+
+		if entry.IsDir() {
+			switch entry.Name() {
+			case ".git", "tmp", "vendor":
+				return filepath.SkipDir
+			default:
+				return nil
+			}
+		}
+
+		if strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+
+		switch filepath.Ext(path) {
+		case ".go", ".yml", ".yaml":
+		default:
+			return nil
+		}
+
+		content, readErr := os.ReadFile(path)
+		if readErr != nil {
+			return readErr
+		}
+
+		for _, needle := range forbidden {
+			require.NotContains(t, string(content), needle, path)
+		}
+
+		return nil
+	})
+	require.NoError(t, err)
 }

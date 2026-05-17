@@ -143,9 +143,6 @@ func (h *MarkdownExtractionHandoff) extract(
 	}
 
 	fallbackReason := fallbackReason(localErr)
-	if h.fallback == nil {
-		return markdown.ExtractOutput{}, "", localErr
-	}
 
 	fallbackOutput, fallbackErr := h.attempt(ctx, job, canonicalURL, h.fallback, input, fallbackReason)
 	if fallbackErr == nil {

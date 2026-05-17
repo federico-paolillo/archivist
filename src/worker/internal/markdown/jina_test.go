@@ -16,22 +16,9 @@ import (
 var _ MarkdownExtractor = (*JinaExtractor)(nil)
 
 func TestJinaExtractorIsMarkdownExtractor(t *testing.T) {
-	var extractor MarkdownExtractor = NewJinaExtractor(req.NewClient(), false, "")
+	var extractor MarkdownExtractor = NewJinaExtractor(req.NewClient(), "test-api-key")
 
 	require.NotNil(t, extractor)
-}
-
-func TestJinaExtractorDisabledReturnsFallbackFailure(t *testing.T) {
-	extractor := NewJinaExtractor(req.NewClient(), false, "")
-
-	output, err := extractor.ExtractMarkdown(t.Context(), ExtractInput{
-		HTML:         []byte(`<html><body><p>some content</p></body></html>`),
-		CanonicalURL: "https://example.com/article",
-	})
-
-	require.ErrorIs(t, err, arc.ErrJinaReaderFailure)
-	require.Equal(t, ProviderJina, extractor.Provider())
-	require.Empty(t, output.Markdown)
 }
 
 func TestJinaExtractorSuccessfulExtractionReturnsMarkdown(t *testing.T) {
@@ -44,7 +31,7 @@ func TestJinaExtractorSuccessfulExtractionReturnsMarkdown(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	extractor := newTestJinaExtractor(true, "", server.URL+"/")
+	extractor := newTestJinaExtractor("test-api-key", server.URL+"/")
 
 	output, err := extractor.ExtractMarkdown(t.Context(), ExtractInput{
 		HTML:         []byte(`<html><body><p>some content</p></body></html>`),
@@ -69,7 +56,7 @@ func TestJinaExtractorSuccessfulExtractionPassesAPIKey(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	extractor := newTestJinaExtractor(true, apiKey, server.URL+"/")
+	extractor := newTestJinaExtractor(apiKey, server.URL+"/")
 
 	_, err := extractor.ExtractMarkdown(t.Context(), ExtractInput{
 		HTML:         []byte(`<html><body><p>content</p></body></html>`),
@@ -91,7 +78,7 @@ func TestJinaExtractorNoAPIKeyOmitsAuthorizationHeader(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	extractor := newTestJinaExtractor(true, "", server.URL+"/")
+	extractor := newTestJinaExtractor("", server.URL+"/")
 
 	_, err := extractor.ExtractMarkdown(t.Context(), ExtractInput{
 		HTML:         []byte(`<html><body><p>content</p></body></html>`),
@@ -108,7 +95,7 @@ func TestJinaExtractorGeneralFailureMapsToARC010(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	extractor := newTestJinaExtractor(true, "", server.URL+"/")
+	extractor := newTestJinaExtractor("", server.URL+"/")
 
 	_, err := extractor.ExtractMarkdown(t.Context(), ExtractInput{
 		HTML:         []byte(`<html><body><p>content</p></body></html>`),
@@ -130,7 +117,7 @@ func TestJinaExtractorTransportFailureMapsToARC010(t *testing.T) {
 	serverURL := server.URL
 	server.Close()
 
-	extractor := newTestJinaExtractor(true, "", serverURL+"/")
+	extractor := newTestJinaExtractor("", serverURL+"/")
 
 	_, err := extractor.ExtractMarkdown(t.Context(), ExtractInput{
 		HTML:         []byte(`<html><body><p>content</p></body></html>`),
@@ -150,7 +137,7 @@ func TestJinaExtractorInsufficientBalanceMapsToARC011(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	extractor := newTestJinaExtractor(true, "", server.URL+"/")
+	extractor := newTestJinaExtractor("", server.URL+"/")
 
 	_, err := extractor.ExtractMarkdown(t.Context(), ExtractInput{
 		HTML:         []byte(`<html><body><p>content</p></body></html>`),
@@ -174,7 +161,7 @@ func TestJinaExtractorAcceptsTextPlain(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	extractor := newTestJinaExtractor(true, "", server.URL+"/")
+	extractor := newTestJinaExtractor("", server.URL+"/")
 
 	_, err := extractor.ExtractMarkdown(t.Context(), ExtractInput{
 		HTML:         []byte(`<html><body><p>content</p></body></html>`),
@@ -191,7 +178,7 @@ func TestJinaExtractorEmptyResponseMapsToARC010(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	extractor := newTestJinaExtractor(true, "", server.URL+"/")
+	extractor := newTestJinaExtractor("", server.URL+"/")
 
 	_, err := extractor.ExtractMarkdown(t.Context(), ExtractInput{
 		HTML:         []byte(`<html><body><p>content</p></body></html>`),
@@ -204,10 +191,10 @@ func TestJinaExtractorEmptyResponseMapsToARC010(t *testing.T) {
 // newTestJinaExtractor creates a JinaExtractor with a custom base URL for testing.
 // It trims the trailing slash from baseURL before constructing the extractor so that
 // the concatenation baseURL+canonicalURL matches how httptest.Server routes requests.
-func newTestJinaExtractor(enabled bool, apiKey, baseURL string) *JinaExtractor {
+func newTestJinaExtractor(apiKey, baseURL string) *JinaExtractor {
 	baseURL = strings.TrimSuffix(baseURL, "/") + "/"
 
-	extractor := NewJinaExtractor(req.NewClient(), enabled, apiKey)
+	extractor := NewJinaExtractor(req.NewClient(), apiKey)
 	extractor.baseURL = baseURL
 
 	return extractor

@@ -251,8 +251,14 @@ func TestMarkdownExtractionHandoffMarkdownWriteFailureReturnsARC012(t *testing.T
 			Markdown: "# Article",
 		},
 	}
+	jina := &fakeMarkdownExtractor{
+		provider: markdown.ProviderJina,
+		output: markdown.ExtractOutput{
+			Markdown: "# Fallback",
+		},
+	}
 
-	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, nil), store, local, nil)
+	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, nil), store, local, jina)
 
 	err = handoff.Handoff(t.Context(), testJob(), "https://example.com/article")
 	require.ErrorIs(t, err, arc.ErrMarkdownWrite)

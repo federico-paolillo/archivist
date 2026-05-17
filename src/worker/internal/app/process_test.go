@@ -104,6 +104,7 @@ func newProcessTestApp(t *testing.T) (*pkgapp.App, *config.Root) {
 	cfg := config.Default()
 	cfg.SQLite.Path = filepath.Join(t.TempDir(), "archive.db")
 	cfg.Data.Dir = t.TempDir()
+	cfg.Jina.API.Key = "jina-secret"
 	cfg.LLM.API.Key = "llm-secret"
 
 	application, err := pkgapp.NewApp(logger, logLevel, cfg)

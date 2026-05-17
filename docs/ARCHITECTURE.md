@@ -53,7 +53,7 @@ The system favors a small, rebuildable deployment over horizontal scale. SQLite 
   - fetch article HTML over plain HTTP(S);
   - store the raw HTML snapshot;
   - extract readable content with go-readability v2 first;
-  - fall back to Jina Reader when local readability cannot produce Markdown and Jina is enabled;
+  - fall back to Jina Reader when local readability cannot produce Markdown;
   - convert selected local extracted content to Markdown;
   - call the configured LLM summarizer;
   - persist text-only summaries;
@@ -185,7 +185,7 @@ The worker fetches article HTML using direct HTTP(S) requests. v0 does not use P
 The worker attempts Markdown extraction in this order:
 
 1. go-readability v2 from the saved HTML snapshot.
-2. Jina Reader fallback when go-readability `CheckDocument()` returns false, local extraction fails, or local Markdown conversion fails, and Jina is enabled.
+2. Jina Reader fallback when go-readability `CheckDocument()` returns false, local extraction fails, or local Markdown conversion fails.
 
 The Worker logs critical extraction decisions, including fallback from go-readability to Jina. If both local extraction and Jina fallback fail, the job becomes terminally failed.
 
@@ -282,7 +282,6 @@ AUTH_BOOTSTRAP_PASSWORD
 LLM_PROVIDER
 LLM_API_KEY
 LLM_MODEL
-JINA_ENABLED
 JINA_API_KEY
 GATEWAY_PUBLIC_HOSTS
 VITE_API_BASE_PATH
@@ -290,9 +289,9 @@ VITE_API_BASE_PATH
 
 Gateway uses the default ASP.NET Core application configuration sources, appends `ARCHIVIST_`-prefixed environment variables, and creates the builder without command-line arguments. Standalone Gateway keys remain flat, for example `ARCHIVIST_SQLITE_PATH`. Option-bound groups use hierarchy with double underscores in environment variables, for example `ARCHIVIST_Telegram__BotToken`, `ARCHIVIST_Telegram__AllowedUserId`, and `ARCHIVIST_Telegram__WebhookSecret`.
 
-Worker uses configuro from `src/worker/pkg/app/config`, loads `ARCHIVIST_`-prefixed environment variables, and exposes runtime values through the config structs. Canonical Worker environment variables are `ARCHIVIST_SQLITE_PATH`, `ARCHIVIST_DATA_DIR`, `ARCHIVIST_JINA_ENABLED`, `ARCHIVIST_JINA_API_KEY`, `ARCHIVIST_LLM_PROVIDER`, `ARCHIVIST_LLM_API_KEY`, and `ARCHIVIST_LLM_MODEL`. `SQLITE_PATH`, `DATA_DIR`, and `LLM_API_KEY` for the Anthropic provider are required when `config.Load()` runs; missing required values fail startup before the Worker composition root is built.
+Worker uses configuro from `src/worker/pkg/app/config`, loads `ARCHIVIST_`-prefixed environment variables, and exposes runtime values through the config structs. Canonical Worker environment variables are `ARCHIVIST_SQLITE_PATH`, `ARCHIVIST_DATA_DIR`, `ARCHIVIST_JINA_API_KEY`, `ARCHIVIST_LLM_PROVIDER`, `ARCHIVIST_LLM_API_KEY`, and `ARCHIVIST_LLM_MODEL`. `SQLITE_PATH`, `DATA_DIR`, `JINA_API_KEY`, and `LLM_API_KEY` for the Anthropic provider are required when `config.Load()` runs; missing required values fail startup before the Worker composition root is built.
 
-`JINA_API_KEY` is optional configuration for authenticated Jina Reader requests and must be treated as secret material when supplied.
+`JINA_API_KEY` is required configuration for Jina Reader fallback and must be treated as secret material.
 
 `AUTH_BOOTSTRAP_PASSWORD` is required only before the personal user's `password_hash` has been initialized. It must be exactly 2048 printable ASCII characters and must be treated as secret material.
 

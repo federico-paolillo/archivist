@@ -137,5 +137,6 @@ func setRequiredWorkerConfig(t *testing.T) {
 
 	t.Setenv("ARCHIVIST_SQLITE_PATH", filepath.Join(t.TempDir(), "archive.db"))
 	t.Setenv("ARCHIVIST_DATA_DIR", t.TempDir())
+	t.Setenv("ARCHIVIST_JINA_API_KEY", "jina-secret")
 	t.Setenv("ARCHIVIST_LLM_API_KEY", "llm-secret")
 }

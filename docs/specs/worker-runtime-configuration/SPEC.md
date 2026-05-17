@@ -33,13 +33,12 @@ Make Worker runtime configuration match the canonical deployment surface and pre
 - REQ-003: Worker config must use configuro-compatible structure for canonical keys:
   - `ARCHIVIST_SQLITE_PATH` -> `SQLite.Path`
   - `ARCHIVIST_DATA_DIR` -> `Data.Dir`
-  - `ARCHIVIST_JINA_ENABLED` -> `Jina.Enabled`
   - `ARCHIVIST_JINA_API_KEY` -> `Jina.API.Key`
   - `ARCHIVIST_LLM_PROVIDER` -> `LLM.Provider`
   - `ARCHIVIST_LLM_API_KEY` -> `LLM.API.Key`
   - `ARCHIVIST_LLM_MODEL` -> `LLM.Model`
-- REQ-004: `SQLITE_PATH`, `DATA_DIR`, and `LLM_API_KEY` when `LLM_PROVIDER=anthropic` are required at `config.Load()` time.
-- REQ-005: `JINA_API_KEY` remains optional.
+- REQ-004: `SQLITE_PATH`, `DATA_DIR`, `JINA_API_KEY`, and `LLM_API_KEY` when `LLM_PROVIDER=anthropic` are required at `config.Load()` time.
+- REQ-005: `JINA_API_KEY` is required and the old Jina runtime toggle is not a supported Worker configuration key.
 - REQ-006: `LLM_PROVIDER=anthropic` is the only supported v0 provider value.
 - REQ-007: Worker config tests must cover defaults, required values, environment loading, and unsupported provider validation.
 - REQ-008: Worker composition must treat `config.Load()` and `NewApp` validation as the boundary for required runtime values, so returned `App` instances have DB, job repository, artifact store, provider adapters, and processing pipeline wired.
@@ -49,13 +48,13 @@ Make Worker runtime configuration match the canonical deployment surface and pre
 
 ```gherkin
 Scenario: canonical environment variables configure the Worker
-  Given ARCHIVIST_SQLITE_PATH, ARCHIVIST_DATA_DIR, and ARCHIVIST_LLM_API_KEY are set
-  And optional Jina and LLM values are set with ARCHIVIST-prefixed canonical names
+  Given ARCHIVIST_SQLITE_PATH, ARCHIVIST_DATA_DIR, ARCHIVIST_JINA_API_KEY, and ARCHIVIST_LLM_API_KEY are set
+  And optional LLM values are set with ARCHIVIST-prefixed canonical names
   When Worker configuration loads
   Then configuro binds those values to the Worker config structs
 
 Scenario: missing required values fail at load time
-  Given one of SQLITE_PATH, DATA_DIR, or required Anthropic LLM_API_KEY is missing
+  Given one of SQLITE_PATH, DATA_DIR, JINA_API_KEY, or required Anthropic LLM_API_KEY is missing
   When Worker configuration loads
   Then loading fails with a configuration validation error
 

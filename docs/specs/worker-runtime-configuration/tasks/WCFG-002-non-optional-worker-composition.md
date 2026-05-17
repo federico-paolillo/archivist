@@ -35,7 +35,7 @@ Remove partial Worker composition after strict runtime configuration made requir
 
 ```gherkin
 Scenario: valid config builds a full Worker graph
-  Given Worker config contains required SQLite, data, and Anthropic API key values
+  Given Worker config contains required SQLite, data, Jina API key, and Anthropic API key values
   When NewApp runs
   Then DB, Jobs, ArtifactStore, Fetcher, Markdown providers, and SnapshotPipeline are present
 

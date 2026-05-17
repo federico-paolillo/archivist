@@ -66,8 +66,8 @@ Not included:
 - REQ-002: The Worker must read the saved HTML snapshot from `{DATA_DIR}/articles/{article_id}/snapshot.html`.
 - REQ-003: The Worker must attempt local extraction first with `codeberg.org/readeck/go-readability/v2`.
 - REQ-004: The Worker must call `CheckDocument()` before accepting local readability output.
-- REQ-005: If `CheckDocument()` returns false, the Worker must log the fallback decision and call Jina Reader when Jina is enabled.
-- REQ-006: If local readability extraction or local Markdown conversion fails, the Worker must call Jina Reader when Jina is enabled.
+- REQ-005: If `CheckDocument()` returns false, the Worker must log the fallback decision and call Jina Reader.
+- REQ-006: If local readability extraction or local Markdown conversion fails, the Worker must call Jina Reader.
 - REQ-007: Local extraction must convert readable HTML to Markdown with `github.com/JohannesKaufmann/html-to-markdown/v2`.
 - REQ-008: Jina fallback must use the article canonical URL by default.
 - REQ-009: Jina integration must prefer an official Jina Reader Go SDK if one exists at implementation time.
