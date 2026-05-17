@@ -16,12 +16,16 @@ import (
 
 // buildAnthropicResponse returns a minimal Anthropic Messages API response body.
 func buildAnthropicResponse(text string) string {
+	return buildAnthropicResponseWithStopReason(text, "end_turn")
+}
+
+func buildAnthropicResponseWithStopReason(text string, stopReason string) string {
 	resp := map[string]any{
 		"id":            "msg_test123",
 		"type":          "message",
 		"role":          "assistant",
 		"model":         "claude-3-5-haiku-20241022",
-		"stop_reason":   "end_turn",
+		"stop_reason":   stopReason,
 		"stop_sequence": nil,
 		"content": []map[string]any{
 			{"type": "text", "text": text},
@@ -151,6 +155,76 @@ func TestAnthropicAdapterRequestTooLargeIsARC014(t *testing.T) {
 	providerErr, ok := errors.AsType[*summary.ProviderError](err)
 	require.True(t, ok)
 	require.Equal(t, http.StatusRequestEntityTooLarge, providerErr.StatusCode)
+}
+
+func TestAnthropicAdapterInvalidRequestContextOverflowIsARC014(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(buildAnthropicErrorResponse(
+			"invalid_request_error",
+			"input tokens and max_tokens exceed the model context window",
+		)))
+	}))
+	t.Cleanup(srv.Close)
+
+	adapter := newTestAdapter(t, srv)
+
+	_, err := adapter.Summarize(t.Context(), summary.SummarizerRequest{
+		MarkdownSource: "# Article\n\nSome content.",
+	})
+
+	require.ErrorIs(t, err, arc.ErrSummarizerRequestTooLarge)
+	providerErr, ok := errors.AsType[*summary.ProviderError](err)
+	require.True(t, ok)
+	require.Equal(t, http.StatusBadRequest, providerErr.StatusCode)
+}
+
+func TestAnthropicAdapterInvalidRequestNonSizeErrorIsARC013(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(buildAnthropicErrorResponse(
+			"invalid_request_error",
+			"Prefilling assistant messages is not supported for this model.",
+		)))
+	}))
+	t.Cleanup(srv.Close)
+
+	adapter := newTestAdapter(t, srv)
+
+	_, err := adapter.Summarize(t.Context(), summary.SummarizerRequest{
+		MarkdownSource: "# Article\n\nSome content.",
+	})
+
+	require.ErrorIs(t, err, arc.ErrSummarizerProviderFailure)
+	require.NotErrorIs(t, err, arc.ErrSummarizerRequestTooLarge)
+	providerErr, ok := errors.AsType[*summary.ProviderError](err)
+	require.True(t, ok)
+	require.Equal(t, http.StatusBadRequest, providerErr.StatusCode)
+}
+
+func TestAnthropicAdapterModelContextWindowStopReasonIsARC014(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(buildAnthropicResponseWithStopReason(
+			"partial summary",
+			"model_context_window_exceeded",
+		)))
+	}))
+	t.Cleanup(srv.Close)
+
+	adapter := newTestAdapter(t, srv)
+
+	_, err := adapter.Summarize(t.Context(), summary.SummarizerRequest{
+		MarkdownSource: "# Article\n\nSome content.",
+	})
+
+	require.ErrorIs(t, err, arc.ErrSummarizerRequestTooLarge)
+	providerErr, ok := errors.AsType[*summary.ProviderError](err)
+	require.True(t, ok)
+	require.Equal(t, "msg_test123", providerErr.RequestID)
 }
 
 func TestAnthropicAdapterBillingErrorIsARC015(t *testing.T) {

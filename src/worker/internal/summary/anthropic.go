@@ -20,6 +20,8 @@ const systemPrompt = "You are a helpful assistant that summarizes articles. " +
 // maxSummaryTokens is the maximum number of tokens for the generated summary.
 const maxSummaryTokens = 1024
 
+const stopReasonModelContextWindowExceeded = "model_context_window_exceeded"
+
 // AnthropicAdapter implements SummarizerService using the official Anthropic Go SDK.
 // All Anthropic SDK types are private to this file.
 type AnthropicAdapter struct {
@@ -69,6 +71,15 @@ func (a *AnthropicAdapter) Summarize(ctx context.Context, req SummarizerRequest)
 	msg, err := a.client.Messages.New(ctx, a.buildParams(req))
 	if err != nil {
 		return SummarizerOutput{}, classifyError(err)
+	}
+
+	if msg.StopReason == stopReasonModelContextWindowExceeded {
+		return SummarizerOutput{}, providerFailure(
+			arc.ErrSummarizerRequestTooLarge,
+			"context window exceeded",
+			msg.ID,
+			0,
+		)
 	}
 
 	text := a.extractText(msg)

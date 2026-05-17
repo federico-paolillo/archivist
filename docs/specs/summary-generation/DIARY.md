@@ -211,3 +211,33 @@ Follow-ups:
 
 Canonical Updates:
 - None. The canonical task/spec already required this behavior; this entry records the corrective implementation.
+
+## 2026-05-17 — SUMGEN-003: Anthropic Context Overflow Classification
+
+Status:
+- completed
+
+Summary:
+- Corrected Anthropic summary adapter error classification so provider signals for context-window overflow and request/token-size overflow map to `ARC-014` instead of falling through to generic `ARC-013`.
+
+Changes:
+- Extended `src/worker/internal/summary/errors.go` to classify Anthropic HTTP 400 `invalid_request_error` responses as `ARC-014` only when the decoded provider error message indicates context-window, prompt-length, request-size, or token-limit overflow.
+- Extended `src/worker/internal/summary/anthropic.go` to classify successful responses with `stop_reason = "model_context_window_exceeded"` as `ARC-014`.
+- Added adapter regression tests for invalid-request context overflow, unrelated invalid-request errors, and response-level context-window stop reason.
+
+Decisions:
+- No public interfaces, configuration keys, ARC codes, schemas, provider abstractions, task statuses, or feature plan rows changed.
+- The invalid-request mapping is intentionally conservative: it requires Anthropic `invalid_request_error` plus size/context wording.
+
+Validation:
+- `go test ./internal/summary` — passed.
+- `go tool lefthook run build` — passed.
+- `go tool lefthook run format` — passed.
+- `go tool lefthook run lint` — passed.
+- `go tool lefthook run test` — passed.
+
+Follow-ups:
+- None.
+
+Canonical Updates:
+- None. `SPEC.md`, `SUMGEN-003`, and the linked ExecPlan already required context-window overflow and request-too-large failures to map to `ARC-014`.

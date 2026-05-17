@@ -1,9 +1,11 @@
 package summary
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"codeberg.org/federico-paolillo/archivist/internal/arc"
 	anthropic "github.com/anthropics/anthropic-sdk-go"
@@ -86,5 +88,60 @@ func isBillingError(apiErr *anthropic.Error) bool {
 }
 
 func isTooLargeError(apiErr *anthropic.Error) bool {
-	return apiErr.StatusCode == http.StatusRequestEntityTooLarge
+	return apiErr.StatusCode == http.StatusRequestEntityTooLarge ||
+		isContextOverflowError(apiErr)
+}
+
+func isContextOverflowError(apiErr *anthropic.Error) bool {
+	if apiErr.Type() != anthropic.ErrorTypeInvalidRequestError {
+		return false
+	}
+
+	var body struct {
+		Error struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+
+	err := json.Unmarshal([]byte(apiErr.RawJSON()), &body)
+	if err != nil {
+		return false
+	}
+
+	return isSizeOrContextMessage(body.Error.Message)
+}
+
+func isSizeOrContextMessage(message string) bool {
+	msg := strings.ToLower(message)
+
+	if containsAny(msg, []string{
+		"context window",
+		"context_window",
+		"prompt too long",
+		"prompt_too_long",
+		"request too large",
+		"request_too_large",
+	}) {
+		return true
+	}
+
+	return strings.Contains(msg, "token") && containsAny(msg, []string{
+		"input token",
+		"prompt token",
+		"total token",
+		"too long",
+		"too large",
+		"exceed the model",
+		"exceeds the model",
+	})
+}
+
+func containsAny(s string, needles []string) bool {
+	for _, needle := range needles {
+		if strings.Contains(s, needle) {
+			return true
+		}
+	}
+
+	return false
 }
