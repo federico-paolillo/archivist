@@ -78,3 +78,30 @@ Canonical Updates:
 - `docs/ARCHITECTURE.md`
 - `docs/conventions/GENERAL.md`
 - `docs/conventions/WORKER.md`
+
+## 2026-05-17 — WCFG-002: Composition Root HTTP Client Singleton
+
+Status:
+- done
+
+Summary:
+- Exposed the shared Worker `*req.Client` as `App.HTTPClient`.
+- Routed fetcher, Jina Markdown extraction, and Anthropic summarization construction through the `App` graph instead of a hidden local variable.
+- Extended the composition-root test to assert the HTTP client singleton exists and retains the configured timeout.
+
+Decisions:
+- No service constructor signatures changed because fetcher, Jina, and Anthropic adapters already accept injected `*req.Client` values.
+- `App.Close` remains unchanged because the req client has no required close lifecycle; close ownership stays with SQLite and the artifact store.
+
+Validation:
+- `cd src/worker && go test ./pkg/app` passed.
+- `cd src/worker && go tool lefthook run build` passed.
+- `cd src/worker && go tool lefthook run format` passed.
+- `cd src/worker && go tool lefthook run lint` passed.
+- `cd src/worker && go tool lefthook run test` passed.
+
+Follow-ups:
+- None.
+
+Canonical Updates:
+- None. Existing `docs/conventions/WORKER.md` composition-root and HTTP client rules already require this behavior.

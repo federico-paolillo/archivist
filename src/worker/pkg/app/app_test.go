@@ -3,6 +3,7 @@ package app_test
 import (
 	"log/slog"
 	"testing"
+	"time"
 
 	"codeberg.org/federico-paolillo/archivist/internal/summary"
 	"codeberg.org/federico-paolillo/archivist/internal/testutils/slogt"
@@ -32,6 +33,8 @@ func TestNewAppReturnsApp(t *testing.T) {
 	require.Equal(t, cfg, application.Config)
 
 	require.NotNil(t, application.Fetcher)
+	require.NotNil(t, application.HTTPClient)
+	assert.Equal(t, 20*time.Second, application.HTTPClient.GetClient().Timeout)
 	require.NotNil(t, application.LocalMarkdown)
 	require.NotNil(t, application.JinaMarkdown)
 	assert.NotNil(t, application.DB)

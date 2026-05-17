@@ -26,6 +26,7 @@ type App struct {
 	LogLevel *slog.LevelVar
 	Config   *config.Root
 
+	HTTPClient       *req.Client
 	DB               *sql.DB
 	Jobs             jobs.Repository
 	Fetcher          *fetcher.Fetcher
@@ -63,10 +64,19 @@ func NewApp(logger *slog.Logger, logLevel *slog.LevelVar, cfg *config.Root) (*Ap
 		SetTimeout(20 * time.Second).
 		DisableForceHttpVersion()
 
-	fetcherService := fetcher.New(httpClient)
+	application := &App{
+		Logger:   logger,
+		LogLevel: logLevel,
+		Config:   cfg,
+
+		HTTPClient: httpClient,
+		DB:         database,
+	}
+
+	fetcherService := fetcher.New(application.HTTPClient)
 	localMarkdown := markdown.NewGoReadabilityExtractor()
-	jinaMarkdown := markdown.NewJinaExtractor(httpClient, cfg.Jina.API.Key)
-	summarizer := summary.NewAnthropicAdapter(httpClient, cfg.LLM.API.Key, cfg.LLM.Model)
+	jinaMarkdown := markdown.NewJinaExtractor(application.HTTPClient, cfg.Jina.API.Key)
+	summarizer := summary.NewAnthropicAdapter(application.HTTPClient, cfg.LLM.API.Key, cfg.LLM.Model)
 	jobsRepository := jobs.NewSQLiteRepository(database)
 	markdownHandoff := pipeline.NewMarkdownExtractionHandoff(
 		logger,
@@ -75,19 +85,12 @@ func NewApp(logger *slog.Logger, logLevel *slog.LevelVar, cfg *config.Root) (*Ap
 		jinaMarkdown,
 	)
 
-	application := &App{
-		Logger:   logger,
-		LogLevel: logLevel,
-		Config:   cfg,
-
-		DB:            database,
-		Jobs:          jobsRepository,
-		Fetcher:       fetcherService,
-		ArtifactStore: store,
-		LocalMarkdown: localMarkdown,
-		JinaMarkdown:  jinaMarkdown,
-		Summarizer:    summarizer,
-	}
+	application.Jobs = jobsRepository
+	application.Fetcher = fetcherService
+	application.ArtifactStore = store
+	application.LocalMarkdown = localMarkdown
+	application.JinaMarkdown = jinaMarkdown
+	application.Summarizer = summarizer
 
 	application.SnapshotPipeline = pipeline.NewSnapshotPipeline(
 		logger,
