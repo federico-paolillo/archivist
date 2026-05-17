@@ -53,7 +53,7 @@ func runManyPrograms(
 	if err != nil {
 		logger.Error(
 			"runner: failed to run a program",
-			slog.Any("err", err),
+			slog.Any("error", err),
 		)
 
 		return NotOk

@@ -50,7 +50,8 @@ func (h *MarkdownExtractionHandoff) Handoff(ctx context.Context, job *jobs.Job, 
 			slog.String("article_id", job.ArticleID),
 			slog.String("job_id", job.ID),
 			slog.String("url", canonicalURL),
-			slog.Any("err", err),
+			slog.String("arc_code", arc.CodeString(arc.ErrLocalExtractionFailed)),
+			slog.Any("error", err),
 		)
 
 		return pipelineFailure(
@@ -84,7 +85,7 @@ func (h *MarkdownExtractionHandoff) Handoff(ctx context.Context, job *jobs.Job, 
 			slog.String("selected_provider", string(provider)),
 			slog.String("artifact_result", "failure"),
 			slog.String("arc_code", arc.CodeString(arc.ErrMarkdownWrite)),
-			slog.Any("err", writeErr),
+			slog.Any("error", writeErr),
 		)
 
 		return pipelineFailure(
@@ -191,7 +192,7 @@ func (h *MarkdownExtractionHandoff) attempt(
 		attrs = append(
 			attrs,
 			slog.String("arc_code", arc.CodeString(err)),
-			slog.Any("err", err),
+			slog.Any("error", err),
 		)
 	}
 

@@ -142,7 +142,7 @@ func (p *SnapshotPipeline) persistFailure(
 		slog.String("status", "failed"),
 		slog.Duration("duration", duration),
 		slog.String("arc_code", arc.CodeString(processingErr)),
-		slog.Any("err", processingErr),
+		slog.Any("error", processingErr),
 	)
 
 	errorMessage, ok := arc.PublicMessage(processingErr)
@@ -204,7 +204,8 @@ func (p *SnapshotPipeline) fetchHTML(ctx context.Context, job *jobs.Job, article
 		"pipeline: unexpected fetch error",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
-		slog.Any("err", fetchErr),
+		slog.String("arc_code", arc.CodeString(arc.ErrUnknown)),
+		slog.Any("error", fetchErr),
 	)
 
 	return nil, pipelineFailure(
@@ -226,7 +227,8 @@ func (p *SnapshotPipeline) writeSnapshot(_ context.Context, job *jobs.Job, resul
 			slog.String("article_id", job.ArticleID),
 			slog.String("job_id", job.ID),
 			slog.String("artifact_result", "failure"),
-			slog.Any("err", snapshotErr),
+			slog.String("arc_code", arc.CodeString(arc.ErrSnapshotWrite)),
+			slog.Any("error", snapshotErr),
 		)
 
 		return pipelineFailure(
@@ -262,7 +264,8 @@ func (p *SnapshotPipeline) updateCanonicalURL(
 			slog.String("article_id", job.ArticleID),
 			slog.String("job_id", job.ID),
 			slog.String("final_url", finalURL),
-			slog.Any("err", canonicalErr),
+			slog.String("arc_code", arc.CodeString(arc.ErrUnknown)),
+			slog.Any("error", canonicalErr),
 		)
 
 		return pipelineFailure(
@@ -314,7 +317,8 @@ func (p *SnapshotPipeline) invokeMarkdownHandoff(ctx context.Context, job *jobs.
 		"pipeline: unexpected markdown handoff error",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
-		slog.Any("err", mdErr),
+		slog.String("arc_code", arc.CodeString(arc.ErrUnknown)),
+		slog.Any("error", mdErr),
 	)
 
 	return pipelineFailure(

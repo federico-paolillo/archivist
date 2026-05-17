@@ -1,102 +1,25 @@
 # Worker Code Review
 
-Review scope: `src/worker`.
+Review scope: `src/worker` plus canonical worker-relevant ALM documents.
 
-Review method: six read-only GPT-5.5 medium-effort subagent review slices, consolidated against canonical repository documents and local code evidence.
+Review method: six read-only subagent review slices plus coordinator verification. Prior findings in the previous report were rechecked; resolved, stale, and blocked-scope findings were removed from the active list.
 
 Validation:
 
-- `cd src/worker && go build ./...`: passed
-- `cd src/worker && go tool golangci-lint run`: passed
-- `cd src/worker && go test -race -shuffle=on ./...`: passed outside the sandbox
-- Initial sandbox test run failed only because `httptest` could not bind local ports.
+- `cd src/worker && go tool lefthook run build`: passed
+- `cd src/worker && go tool lefthook run format`: passed
+- `cd src/worker && go tool lefthook run lint`: passed
+- `cd src/worker && go tool lefthook run test`: passed
 
 ## Overall
 
-The worker does not fully meet completed-task expectations. The largest gaps are executable wiring, canonical configuration, and incomplete `SUMGEN-003` completion despite the task being marked done.
+The worker has materially improved since the prior review: executable processing, canonical configuration, summary adapter wiring, Jina response bounding, Jina balance classification, runner error aggregation, and stale duplicate persistence code are resolved.
 
-Core snapshot/Markdown non-terminal boundaries, active job terminal failure persistence, ARC public error persistence, `req/v3` use, and provider abstraction boundaries are mostly sound.
-
-Missing `SUMGEN-002`, `SUMGEN-004`, and `SUMGEN-005` behavior is blocked todo, not a defect.
+The remaining issues are concentrated in security hardening, queue specificity, artifact write robustness, summary error classification, logging consistency, Pure DI consistency, and ALM task/dependency metadata. Missing `SUMGEN-002`, `SUMGEN-004`, and `SUMGEN-005` implementation remains blocked scope and is not reported as a code defect.
 
 ## Findings
 
-### 1. Worker Binary Does Not Process Jobs
-
-Severity: High
-
-Area: Worker execution
-
-References:
-
-- `src/worker/cmd/app/main.go:11`
-- `src/worker/internal/app/program.go:30`
-- `src/worker/pkg/app/app.go:77`
-- `docs/ARCHITECTURE.md:49`
-
-What is wrong:
-
-The binary runs only the CLI `version` command surface. No production path invokes `SnapshotPipeline.ProcessOne` or a processing loop.
-
-Why:
-
-Queued jobs will not be dequeued or processed by the worker executable, violating the worker's core architecture responsibility.
-
-Recommended fix:
-
-Add a default worker command or daemon path that builds `App`, validates `SnapshotPipeline != nil`, runs `ProcessOne` in a cancellable loop or explicit one-shot mode, and tests processing through the executable path.
-
-### 2. Canonical Worker Config Is Not Loaded
-
-Severity: High
-
-Area: Worker configuration
-
-References:
-
-- `src/worker/pkg/app/config/config.go:4`
-- `src/worker/pkg/app/config/load.go:12`
-- `docs/conventions/WORKER.md:58`
-- `docs/conventions/GENERAL.md:71`
-
-What is wrong:
-
-Code loads `APP_*` keys such as `APP_SQLITEPATH`, `APP_DATADIR`, and `APP_JINA_ENABLED`. Canonical worker keys are `DATA_DIR`, `SQLITE_PATH`, `JINA_ENABLED`, `JINA_API_KEY`, `LLM_PROVIDER`, `LLM_API_KEY`, and `LLM_MODEL`.
-
-Why:
-
-Documented deployment configuration will not configure SQLite, `/data`, Jina, or LLM settings correctly.
-
-Recommended fix:
-
-Bind canonical unprefixed environment variables directly. Add tests for defaults, required values, and environment loading.
-
-### 3. `SUMGEN-003` Is Marked Done But Not Complete
-
-Severity: High
-
-Area: Summary generation
-
-References:
-
-- `docs/specs/summary-generation/tasks/SUMGEN-003-summarizer-provider-adapter.md:118`
-- `src/worker/pkg/app/config/config.go:4`
-- `src/worker/pkg/app/app.go:20`
-- `src/worker/internal/summary/anthropic.go:34`
-
-What is wrong:
-
-`SummarizerService` and the Anthropic adapter exist, but config lacks `LLM_PROVIDER`, `LLM_API_KEY`, and `LLM_MODEL`, and `NewApp` does not construct or expose a summarizer.
-
-Why:
-
-The task explicitly requires provider/model/API-key configuration support. The adapter cannot be selected or used through Pure DI.
-
-Recommended fix:
-
-Add summary config with `LLM_PROVIDER=anthropic`, required `LLM_API_KEY`, default `LLM_MODEL=claude-3-5-haiku-20241022`; wire `summary.SummarizerService` in `App`; cover it in `app_test.go`.
-
-### 4. Fetcher Has SSRF Exposure
+### 1. Fetcher Has SSRF Exposure
 
 Severity: High
 
@@ -105,116 +28,23 @@ Area: Fetching / security
 References:
 
 - `src/worker/internal/fetcher/fetcher.go:45`
+- `src/worker/internal/fetcher/fetcher.go:51`
 - `src/worker/internal/fetcher/fetcher.go:88`
-- `src/worker/pkg/app/app.go:41`
+- `src/worker/pkg/app/app.go:61`
 
 What is wrong:
 
-URL validation allows any `http`/`https` URL and follows redirects without rejecting loopback, private, link-local, metadata, Docker-internal, or special IP ranges.
+The fetcher validates only that the input URL uses `http` or `https`, then lets the shared client follow redirects. It does not reject loopback, private, link-local, metadata-service, Docker-internal, or other special address ranges for either the initial URL or redirected targets.
 
 Why:
 
-An article URL can make the worker fetch internal network resources.
+An article URL can make the worker fetch internal network resources. This is a standard SSRF class risk for any server-side URL fetcher.
 
 Recommended fix:
 
 Enforce SSRF policy in the fetch layer and dial path: validate initial and redirected targets, resolve DNS safely, block private/special ranges and localhost names, and add direct/private-redirect tests.
 
-### 5. Runner Can Ignore Later Program Errors
-
-Severity: High
-
-Area: Runner reliability
-
-References:
-
-- `src/worker/internal/runner/execution.go:52`
-- `src/worker/internal/runner/execution.go:78`
-
-What is wrong:
-
-`waitForTermination` consumes only the first program result. If the first result is `nil`, later errors can be ignored.
-
-Why:
-
-Multi-program worker mode can report `Ok` while a program failed.
-
-Recommended fix:
-
-Drain exactly `programsCount` results, aggregate errors with `errors.Join`, return `NotOk` on any error, and add a "success first, failure later" test.
-
-### 6. Jina Fallback Runs Even When Disabled
-
-Severity: Medium
-
-Area: Markdown fallback behavior
-
-References:
-
-- `src/worker/internal/pipeline/markdown_handoff.go:145`
-- `src/worker/internal/markdown/jina.go:40`
-- `src/worker/pkg/app/app.go:47`
-- `docs/specs/markdown-extraction/SPEC.md:69`
-
-What is wrong:
-
-Fallback is always wired. When `JINA_ENABLED=false`, local extraction failure becomes an `ARC-010` Jina failure.
-
-Why:
-
-The spec says call Jina only when enabled. Disabled fallback should preserve local `ARC-008` or `ARC-009`.
-
-Recommended fix:
-
-Wire fallback only when enabled, or make handoff return the local error when fallback is disabled.
-
-### 7. Jina Response Handling Is Unbounded
-
-Severity: Medium
-
-Area: Jina response handling
-
-References:
-
-- `src/worker/internal/markdown/jina.go:71`
-- `src/worker/internal/markdown/jina.go:88`
-
-What is wrong:
-
-Jina response body is read via `resp.String()` with no size limit and no response content-type validation.
-
-Why:
-
-An unexpected provider or proxy response can cause memory pressure or write non-Markdown content into `content.md`.
-
-Recommended fix:
-
-Read through a hard limit, validate accepted text content types, and add oversized/non-text tests.
-
-### 8. Jina Balance Errors Are Underclassified
-
-Severity: Medium
-
-Area: Jina error mapping
-
-References:
-
-- `src/worker/internal/markdown/jina.go:76`
-- `docs/specs/markdown-extraction/tasks/MDEXT-004-worker-jina-reader-fallback.md:35`
-
-What is wrong:
-
-Insufficient balance maps to `ARC-011` only for HTTP 402.
-
-Why:
-
-The task requires mapping by status, code, or response body when exposed.
-
-Recommended fix:
-
-Parse non-OK Jina error bodies/codes for known insufficient-balance markers before generic `ARC-010`.
-
-### 9. Artifact Temp Creation Escapes Rooted API
+### 2. Artifact Temp Creation Escapes Rooted API
 
 Severity: Medium
 
@@ -222,71 +52,51 @@ Area: Artifact writes
 
 References:
 
+- `src/worker/internal/artifacts/store.go:36`
 - `src/worker/internal/artifacts/store.go:114`
 - `src/worker/internal/artifacts/store.go:119`
-- `src/worker/internal/artifacts/store.go:148`
+- `src/worker/internal/artifacts/store.go:121`
+- `docs/conventions/WORKER.md:48`
 
 What is wrong:
 
-`Store` creates directories via `os.Root`, then uses absolute `os.CreateTemp`.
+`Store` opens `DATA_DIR` with `os.OpenRoot` and uses rooted APIs for directory creation and final rename, but temp files are created with absolute `os.CreateTemp(absDir, ...)`.
 
 Why:
 
-This reintroduces a symlink/TOCTOU gap outside the rooted API.
+This reintroduces a symlink/TOCTOU gap outside the rooted API for the temp write step.
 
 Recommended fix:
 
-Create temp files relative to a rooted article directory handle and rename within the same rooted scope; add symlink-escape regression tests.
+Create temp files relative to a rooted article-directory handle and rename within the same rooted scope. Add symlink-escape regression tests for artifact writes.
 
-### 10. Duplicate Persistence Package Encodes Stale Semantics
+### 3. Article Processing Claim Does Not Filter Job Type
 
-Severity: Medium
-
-Area: Persistence design
-
-References:
-
-- `src/worker/pkg/app/persistence/repository.go:77`
-- `src/worker/pkg/app/persistence/repository.go:195`
-- `src/worker/pkg/app/persistence/sqlite.go:64`
-- `src/worker/pkg/db/schema.go:46`
-
-What is wrong:
-
-`pkg/app/persistence` duplicates `pkg/db` and `pkg/jobs`, is unused by production code, and has divergent terminal/schema behavior.
-
-Why:
-
-It is a false persistence source of truth and can reintroduce pre-summary or non-Telegram notification behavior.
-
-Recommended fix:
-
-Delete it or migrate any useful tests into `pkg/db` or `pkg/jobs`.
-
-### 11. Claim Does Not Filter Job Type
-
-Severity: Medium
+Severity: Medium - Deferred. We are not going to fix this. In v0 we don't have any other job types.
 
 Area: Queue sequencing
 
 References:
 
+- `src/worker/pkg/jobs/repository.go:34`
 - `src/worker/pkg/jobs/repository.go:70`
+- `src/worker/pkg/jobs/repository.go:76`
 - `src/worker/pkg/jobs/job.go:13`
+- `docs/specs/article-processing/SPEC.md:67`
 
 What is wrong:
 
-`ClaimQueued` claims any queued job with an article row, not only `article_processing`.
+`ClaimQueued` selects any queued job with an article row. It does not constrain the claimed job to `article_processing`.
 
 Why:
 
-Future queued job types could be run through article fetch/snapshot/Markdown processing.
+Future queued job types could be claimed and run through the article fetch/snapshot/Markdown pipeline.
 
 Recommended fix:
 
-Add `type = 'article_processing'` to the claim subquery and test non-article jobs are skipped.
+Make claiming type-specific, for example `ClaimQueuedArticleProcessing` or `ClaimQueued(ctx, jobs.TypeArticleProcessing)`. Add `AND type = ?` to the claim query and test that a queued non-article-processing job remains queued.
 
-### 12. Anthropic Context-Overflow Mapping Is Incomplete
+### 4. Anthropic Context-Overflow Mapping Is Incomplete
 
 Severity: Medium
 
@@ -295,124 +105,218 @@ Area: Summary provider error mapping
 References:
 
 - `src/worker/internal/summary/errors.go:71`
-- `docs/specs/summary-generation/SPEC.md:75`
+- `src/worker/internal/summary/errors.go:88`
+- `docs/specs/summary-generation/tasks/SUMGEN-003-summarizer-provider-adapter.md:34`
+- `docs/specs/summary-generation/plans/SUMGEN-003-summarizer-provider-adapter.execplan.md:56`
 
 What is wrong:
 
-`ARC-014` is mapped only for HTTP 413.
+`ARC-014` is mapped only for HTTP 413. Other Anthropic context-window overflow or request-size signals fall through to `ARC-013`.
 
 Why:
 
-Canonical behavior also requires context-window overflow or preflight size failures to map to `ARC-014`.
+`SUMGEN-003` requires both request-too-large and context-window overflow failures to map to `ARC-014`.
 
 Recommended fix:
 
-Recognize provider error types/messages for context/request-size overflow and add regression tests.
+Classify Anthropic context-window overflow provider signals as `ARC-014` in addition to HTTP 413. Add a focused adapter regression test for that provider error shape.
 
-### 13. Raw URLs Leak Into Logs and Diagnostic Errors
+### 5. Raw URLs Leak Into Logs and Diagnostic Errors
 
-Severity: Medium
+Severity: Medium - Deferred. We are accepting this risk for now. I am the only v0 user anyway.
 
 Area: Logging / privacy
 
 References:
 
 - `src/worker/internal/fetcher/errors.go:31`
-- `src/worker/internal/pipeline/snapshot.go:97`
-- `src/worker/internal/pipeline/markdown_handoff.go:181`
+- `src/worker/internal/pipeline/errors.go:38`
+- `src/worker/internal/pipeline/snapshot.go:98`
+- `src/worker/internal/pipeline/snapshot.go:141`
+- `src/worker/internal/pipeline/markdown_handoff.go:178`
 
 What is wrong:
 
-Logs and diagnostic errors include full URLs, including query strings, fragments, and userinfo.
+Pipeline logs and diagnostic error strings include full article URLs, including any query strings, fragments, or userinfo.
 
 Why:
 
-Signed URLs and tokens can leak to stdout logging systems.
+Signed URLs, tokens, and credentials embedded in URLs can leak to stdout logging systems and diagnostic error text.
 
 Recommended fix:
 
-Add a URL redaction helper for logs/errors; strip query, fragment, and userinfo by default.
+Add a URL redaction helper for logs/errors. Strip query, fragment, and userinfo by default while keeping enough host/path context for diagnosis.
 
-### 14. Config Example Is Stale
+### 6. Worker Logging Field Names Drift From Canonical Convention
 
 Severity: Medium
-
-Area: Configuration documentation
-
-References:
-
-- `src/worker/config.example.yml:1`
-- `docs/conventions/WORKER.md:58`
-
-What is wrong:
-
-Example config contains unrelated keys like `claude`, `harness`, and `loop`, and omits canonical worker keys.
-
-Why:
-
-It misleads deployment and contradicts docs.
-
-Recommended fix:
-
-Replace it with canonical worker config examples, omitting secret values.
-
-### 15. Logging Field Names Drift
-
-Severity: Low
 
 Area: Structured logging consistency
 
 References:
 
 - `docs/conventions/GENERAL.md:44`
-- `src/worker/internal/pipeline/snapshot.go:131`
-- `src/worker/internal/runner/many.go:34`
+- `docs/conventions/WORKER.md:159`
+- `src/worker/internal/pipeline/snapshot.go:145`
+- `src/worker/internal/pipeline/markdown_handoff.go:87`
+- `src/worker/internal/runner/many.go:36`
 
 What is wrong:
 
-Code uses `err` while convention names `error`; some stage failure logs omit known `arc_code`.
+The canonical article-processing log field set uses `error`, but worker code emits `err` in observable failure logs. Some stage failure logs also omit known `arc_code`, such as snapshot write failure.
 
 Why:
 
-This weakens log querying and consistency.
+The drift weakens log querying and makes rebuild agents choose between inconsistent conventions and implementation precedent.
 
 Recommended fix:
 
-Standardize error field naming and include `arc_code` on stage-level ARC failures.
+Standardize worker structured logs on `slog.Any("error", err)` for observable failures and include `arc_code` where the ARC code is known, or update the canonical convention if `err` is intentionally the project-wide field name.
 
-### 16. Minor Go 1.26 Runner Idiom Gaps
+### 7. Shared HTTP Client Is Not Exposed As An App Singleton
 
-Severity: Low
+Severity: Medium
 
-Area: Modern Go idioms
+Area: Composition root / Pure DI
 
 References:
 
-- `src/worker/internal/runner/execution.go:28`
-- `src/worker/internal/runner/execution.go:37`
+- `src/worker/pkg/app/app.go:24`
+- `src/worker/pkg/app/app.go:61`
+- `src/worker/pkg/app/app.go:66`
+- `docs/conventions/WORKER.md:114`
+- `docs/conventions/WORKER.md:116`
 
 What is wrong:
 
-Runner uses manual `WaitGroup.Add` plus `go`, and does not call `signal.Stop`.
+`NewApp` creates the shared `*req.Client` as a local variable and injects it into services, but `App` has no field for the long-lived HTTP client.
 
 Why:
 
-This misses the modern `WaitGroup.Go` idiom and leaves signal ownership less explicit.
+Worker conventions say long-lived singletons, including HTTP clients, live as fields of `App`, and every `App` field must be covered in `app_test.go`. The current shape hides a shared singleton from the composition root contract.
 
 Recommended fix:
 
-Use `wg.Go` and defer `signal.Stop(signalChan)` after `signal.Notify`.
+Add `HTTPClient *req.Client` to `App`, assign it in `NewApp`, pass it from the `App` graph into fetcher/Jina/Anthropic, and assert it in `app_test.go`.
+
+### 8. Job Repository Uses Global ULID Generation State
+
+Severity: Medium
+
+Area: Composition root / Pure DI
+
+References:
+
+- `src/worker/pkg/jobs/repository.go:14`
+- `src/worker/pkg/jobs/repository.go:16`
+- `src/worker/pkg/jobs/repository.go:214`
+- `src/worker/pkg/jobs/repository.go:239`
+- `docs/conventions/WORKER.md:101`
+- `docs/conventions/WORKER.md:113`
+
+What is wrong:
+
+Notification ID generation uses package-level mutable ULID entropy and a mutex. `SQLiteRepository` resolves that hidden dependency internally instead of receiving an ID generator collaborator.
+
+Why:
+
+This conflicts with the Worker Pure DI rule: collaborators should be explicit constructor parameters, not hidden globals.
+
+Recommended fix:
+
+Introduce a small ID generator dependency for `SQLiteRepository`, wire the production ULID generator in `pkg/app.NewApp`, and inject deterministic generators in repository tests.
+
+### 9. `SUMGEN-002` Is Blocked Despite Satisfied Dependencies
+
+Severity: Medium
+
+Area: ALM consistency
+
+References:
+
+- `docs/specs/summary-generation/PLAN.md:54`
+- `docs/specs/summary-generation/tasks/SUMGEN-002-worker-summary-artifact-access.md:5`
+- `docs/specs/summary-generation/tasks/SUMGEN-002-worker-summary-artifact-access.md:6`
+- `docs/specs/markdown-extraction/PLAN.md:58`
+- `docs/specs/worker-runtime-configuration/PLAN.md:23`
+
+What is wrong:
+
+`SUMGEN-002` is marked `blocked`, but its listed dependencies are already done in canonical plans.
+
+Why:
+
+Agents may execute only `ready` tasks. A rebuild or implementation agent would incorrectly skip the next executable worker summary task.
+
+Recommended fix:
+
+If no real blocker remains, mark `SUMGEN-002` ready in both task frontmatter and `summary-generation/PLAN.md`. If a blocker still exists, document the blocker explicitly in the canonical task or spec.
+
+### 10. Summary Dependency Metadata Omits `WCFG-002`
+
+Severity: Medium
+
+Area: ALM consistency
+
+References:
+
+- `docs/specs/worker-runtime-configuration/PLAN.md:23`
+- `docs/specs/worker-runtime-configuration/PLAN.md:24`
+- `docs/specs/summary-generation/PLAN.md:54`
+- `docs/specs/summary-generation/PLAN.md:56`
+- `docs/specs/summary-generation/tasks/SUMGEN-002-worker-summary-artifact-access.md:6`
+
+What is wrong:
+
+`worker-runtime-configuration` says `WCFG-001` and `WCFG-002` both block `SUMGEN-002` and `SUMGEN-004`, but the summary feature records only `WCFG-001` in its PLAN rows, and task frontmatter omits worker config dependencies.
+
+Why:
+
+This creates contradictory cross-feature dependency data for rebuild ordering and task selection.
+
+Recommended fix:
+
+Update `summary-generation` PLAN rows and task frontmatter to include the canonical worker-runtime dependencies, including `WCFG-002`, or remove the reverse block from worker-runtime docs if it is no longer required.
+
+### 11. `ARTPROC-005` Reverse Block Metadata Omits `ARTPROC-007`
+
+Severity: Low
+
+Area: ALM consistency
+
+References:
+
+- `docs/specs/article-processing/PLAN.md:24`
+- `docs/specs/article-processing/PLAN.md:66`
+- `docs/specs/article-processing/tasks/ARTPROC-005-worker-snapshot-pipeline-orchestration.md:7`
+- `docs/specs/article-processing/tasks/ARTPROC-007-worker-executable-processing-command.md:6`
+
+What is wrong:
+
+The article-processing DAG and task table say `ARTPROC-005` blocks `ARTPROC-007`, and `ARTPROC-007` depends on `ARTPROC-005`. The `ARTPROC-005` task frontmatter omits `ARTPROC-007` from `blocks`.
+
+Why:
+
+This stale reverse-dependency metadata can mislead agents that use task frontmatter for dependency or concurrency checks.
+
+Recommended fix:
+
+Add `ARTPROC-007` to `ARTPROC-005` frontmatter `blocks`.
 
 ## Passed Areas
 
-No findings for:
+No active findings for:
 
+- Worker executable `process` command wiring through the CLI registration path.
+- Canonical Worker config loading with `ARCHIVIST_` environment variables.
+- Summary adapter construction and exposure from `pkg/app.NewApp`.
+- Runner aggregation of later program errors.
 - Active SQLite schema consistency in `pkg/db`.
 - Active terminal failure transaction behavior in `pkg/jobs`.
 - ARC public message persistence in pipeline failure handling.
-- Snapshot and Markdown success staying non-terminal.
+- Snapshot and Markdown success staying non-terminal while summary tasks remain blocked.
 - Provider abstraction boundaries: pipeline does not import provider SDK types.
 - Official Anthropic SDK use inside the adapter.
 - Production outbound HTTP using `req/v3`.
 - Fetcher HTML MIME and 10 MiB article body enforcement.
-
+- Jina response size/content-type enforcement and insufficient-balance classification.

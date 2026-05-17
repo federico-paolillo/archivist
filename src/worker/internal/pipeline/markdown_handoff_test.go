@@ -198,13 +198,20 @@ func TestMarkdownExtractionHandoffJinaFailureReturnsARC010(t *testing.T) {
 		},
 	}
 
-	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, nil), store, local, jina)
+	var logs bytes.Buffer
+	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, &logs), store, local, jina)
 
 	err = handoff.Handoff(t.Context(), testJob(), "https://example.com/article")
 	require.ErrorIs(t, err, arc.ErrJinaReaderFailure)
 	pipelineErr := requirePipelineError(t, err, "markdown", "provider jina")
 	require.Equal(t, articleID, pipelineErr.ArticleID)
 	require.Equal(t, jobID, pipelineErr.JobID)
+
+	logText := logs.String()
+	assert.Contains(t, logText, `"provider":"jina"`)
+	assert.Contains(t, logText, `"arc_code":"ARC-010"`)
+	assert.Contains(t, logText, `"error":`)
+	assert.NotContains(t, logText, `"err":`)
 }
 
 func TestMarkdownExtractionHandoffJinaInsufficientBalanceReturnsARC011(t *testing.T) {
@@ -258,7 +265,8 @@ func TestMarkdownExtractionHandoffMarkdownWriteFailureReturnsARC012(t *testing.T
 		},
 	}
 
-	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, nil), store, local, jina)
+	var logs bytes.Buffer
+	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, &logs), store, local, jina)
 
 	err = handoff.Handoff(t.Context(), testJob(), "https://example.com/article")
 	require.ErrorIs(t, err, arc.ErrMarkdownWrite)
@@ -267,6 +275,12 @@ func TestMarkdownExtractionHandoffMarkdownWriteFailureReturnsARC012(t *testing.T
 	var storeErr *artifacts.StoreError
 	require.True(t, errors.As(pipelineErr, &storeErr))
 	require.Equal(t, "promote artifact", storeErr.Op)
+
+	logText := logs.String()
+	assert.Contains(t, logText, `"artifact_result":"failure"`)
+	assert.Contains(t, logText, `"arc_code":"ARC-012"`)
+	assert.Contains(t, logText, `"error":`)
+	assert.NotContains(t, logText, `"err":`)
 }
 
 func TestMarkdownExtractionFailureCommitsTerminalFailureTransactionally(t *testing.T) {

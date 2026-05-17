@@ -520,3 +520,28 @@ Canonical Updates:
 - `docs/conventions/WORKER.md` — added CLI command boundary convention and executable-surface test requirement.
 - `docs/BOOKKEEPING.md` — added executable/service-boundary quality gate.
 - `docs/REBUILD.md` — added executable/service-boundary rebuild validation rule.
+
+---
+
+## 2026-05-17 - ARTPROC-005/ARTPROC-007: Worker Structured Log Field Correction
+
+Status:
+- done
+
+Summary:
+- Corrected Worker snapshot pipeline and runner observable failure logs to use the canonical structured field name `error` instead of `err`.
+- Added missing `arc_code` fields to snapshot-stage failure logs where the ARC mapping is known.
+
+Decisions:
+- No canonical convention change was needed; `docs/conventions/GENERAL.md` and `docs/conventions/WORKER.md` already require the `error` field and `arc_code` when available.
+- Completed task statuses were not reopened for this review correction.
+
+Validation:
+- Added snapshot write failure log assertions for `artifact_result`, `error`, `arc_code`, and absence of `err`.
+- `rg 'slog\\.Any\\("err"' src/worker -g '*.go'` returned no production Worker matches.
+
+Follow-ups:
+- None.
+
+Canonical Updates:
+- None.

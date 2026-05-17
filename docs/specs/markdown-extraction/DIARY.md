@@ -422,3 +422,28 @@ Follow-ups:
 
 Canonical Updates:
 - `docs/specs/markdown-extraction/tasks/MDEXT-004-worker-jina-reader-fallback.md`
+
+---
+
+## 2026-05-17 - MDEXT-005: Worker Structured Log Field Correction
+
+Status:
+- done
+
+Summary:
+- Corrected Markdown extraction orchestration failure logs to use the canonical structured field name `error` instead of `err`.
+- Added the missing `arc_code` field to markdown snapshot-read failure logs.
+
+Decisions:
+- No canonical convention change was needed; `docs/conventions/GENERAL.md` and `docs/conventions/WORKER.md` already require the `error` field and `arc_code` when available.
+- Completed task statuses were not reopened for this review correction.
+
+Validation:
+- Added Markdown provider and Markdown artifact write failure log assertions for `error`, `arc_code`, and absence of `err`.
+- `rg 'slog\\.Any\\("err"' src/worker -g '*.go'` returned no production Worker matches.
+
+Follow-ups:
+- None.
+
+Canonical Updates:
+- None.

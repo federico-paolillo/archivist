@@ -1,11 +1,14 @@
 package pipeline_test
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -293,6 +296,43 @@ func TestSnapshotNonHTMLFailureMapsToARC005(t *testing.T) {
 	// snapshot.html must NOT exist.
 	_, openErr := store.OpenSnapshot(articleID)
 	assert.Error(t, openErr)
+}
+
+func TestSnapshotWriteFailureLogsCanonicalErrorFieldAndARCCode(t *testing.T) {
+	database := openTestDB(t)
+	seedUser(t, database)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`<html><body><p>Hello article</p></body></html>`))
+	}))
+	defer srv.Close()
+
+	seedArticle(t, database, articleID, srv.URL+"/article")
+	seedTelegramJob(t, database, jobID, articleID)
+
+	dataDir := t.TempDir()
+	store, err := artifacts.NewStore(dataDir)
+	require.NoError(t, err)
+	defer store.Close()
+
+	require.NoError(t, os.MkdirAll(filepath.Join(dataDir, "articles", articleID, "snapshot.html"), 0o700))
+
+	var logs bytes.Buffer
+	logger := newBufferLogger(t, &logs)
+	repo := jobs.NewSQLiteRepository(database)
+	p := pipeline.NewSnapshotPipeline(logger, repo, store, newTestFetcher(srv.URL), nil)
+
+	processed, err := p.ProcessOne(t.Context())
+	require.NoError(t, err)
+	require.True(t, processed)
+
+	logText := logs.String()
+	assert.Contains(t, logText, `"artifact_result":"failure"`)
+	assert.Contains(t, logText, `"arc_code":"ARC-007"`)
+	assert.Contains(t, logText, `"error":`)
+	assert.NotContains(t, logText, `"err":`)
 }
 
 // TestSnapshotTransactionRollbackOnNotificationFailure demonstrates that a failed

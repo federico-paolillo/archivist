@@ -33,7 +33,7 @@ func RunMany(
 	if err != nil {
 		logger.Error(
 			"runner: failed to load configuration",
-			slog.Any("err", err),
+			slog.Any("error", err),
 		)
 
 		return NotOk
@@ -47,7 +47,7 @@ func RunMany(
 	if err != nil {
 		logger.Error(
 			"runner: failed to create app",
-			slog.Any("err", err),
+			slog.Any("error", err),
 		)
 
 		return NotOk
@@ -58,7 +58,7 @@ func RunMany(
 		if err != nil {
 			logger.Error(
 				"runner: failed to close app",
-				slog.Any("err", err),
+				slog.Any("error", err),
 			)
 		}
 	}()
