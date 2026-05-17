@@ -11,6 +11,7 @@ import (
 	"codeberg.org/federico-paolillo/archivist/internal/fetcher"
 	"codeberg.org/federico-paolillo/archivist/internal/markdown"
 	"codeberg.org/federico-paolillo/archivist/internal/pipeline"
+	"codeberg.org/federico-paolillo/archivist/internal/summary"
 	"codeberg.org/federico-paolillo/archivist/pkg/app/config"
 	"codeberg.org/federico-paolillo/archivist/pkg/db"
 	"codeberg.org/federico-paolillo/archivist/pkg/jobs"
@@ -31,6 +32,7 @@ type App struct {
 	ArtifactStore    *artifacts.Store
 	LocalMarkdown    markdown.MarkdownExtractor
 	JinaMarkdown     markdown.MarkdownExtractor
+	Summarizer       summary.SummarizerService
 	SnapshotPipeline *pipeline.SnapshotPipeline
 }
 
@@ -64,6 +66,7 @@ func NewApp(logger *slog.Logger, logLevel *slog.LevelVar, cfg *config.Root) (*Ap
 	fetcherService := fetcher.New(httpClient)
 	localMarkdown := markdown.NewGoReadabilityExtractor()
 	jinaMarkdown := markdown.NewJinaExtractor(httpClient, cfg.Jina.Enabled, cfg.Jina.API.Key)
+	summarizer := summary.NewAnthropicAdapter(httpClient, cfg.LLM.API.Key, cfg.LLM.Model)
 	jobsRepository := jobs.NewSQLiteRepository(database)
 	markdownHandoff := pipeline.NewMarkdownExtractionHandoff(
 		logger,
@@ -83,6 +86,7 @@ func NewApp(logger *slog.Logger, logLevel *slog.LevelVar, cfg *config.Root) (*Ap
 		ArtifactStore: store,
 		LocalMarkdown: localMarkdown,
 		JinaMarkdown:  jinaMarkdown,
+		Summarizer:    summarizer,
 	}
 
 	application.SnapshotPipeline = pipeline.NewSnapshotPipeline(

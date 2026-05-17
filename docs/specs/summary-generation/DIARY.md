@@ -180,3 +180,34 @@ Follow-ups:
 
 Canonical Updates:
 - None. The config-tag requirement is already implicit in the GENERAL.md uppercase snake_case convention; no new canonical update is required beyond the code fix.
+
+## 2026-05-17 — SUMGEN-003: Composition Root Summarizer Wiring
+
+Status:
+- completed
+
+Summary:
+- Corrected the remaining SUMGEN-003 completion gap by wiring the Anthropic summarizer adapter into `pkg/app.NewApp` and exposing it as `App.Summarizer`.
+- Kept provider selection out of `app.go`; `config.Root.Validate()` remains responsible for rejecting unsupported `LLM_PROVIDER` values and missing Anthropic API keys.
+
+Changes:
+- Added `summary.SummarizerService` to the Worker composition root.
+- Constructed `summary.NewAnthropicAdapter` unconditionally from the shared `req.Client`, `cfg.LLM.API.Key`, and `cfg.LLM.Model`.
+- Extended `app_test.go` coverage to assert summarizer construction, Anthropic provider selection, and app-level unsupported-provider rejection.
+
+Decisions:
+- No new configuration keys, schemas, public APIs, or provider routing behavior were introduced.
+- `anthropic` remains the only supported v0 provider.
+
+Validation:
+- `go test ./pkg/app/config ./pkg/app ./internal/summary` — passed.
+- `go tool lefthook run build` — passed.
+- `go tool lefthook run format` — passed.
+- `go tool lefthook run lint` — passed.
+- `go tool lefthook run test` — passed.
+
+Follow-ups:
+- SUMGEN-004 can consume `App.Summarizer` when pipeline integration proceeds.
+
+Canonical Updates:
+- None. The canonical task/spec already required this behavior; this entry records the corrective implementation.

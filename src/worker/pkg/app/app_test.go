@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"testing"
 
+	"codeberg.org/federico-paolillo/archivist/internal/summary"
 	"codeberg.org/federico-paolillo/archivist/internal/testutils/slogt"
 	"codeberg.org/federico-paolillo/archivist/pkg/app"
 	"codeberg.org/federico-paolillo/archivist/pkg/app/config"
@@ -37,6 +38,8 @@ func TestNewAppReturnsApp(t *testing.T) {
 	assert.NotNil(t, application.Jobs)
 	assert.NotNil(t, application.ArtifactStore)
 	assert.NotNil(t, application.SnapshotPipeline)
+	require.NotNil(t, application.Summarizer)
+	assert.Equal(t, summary.ProviderAnthropic, application.Summarizer.Provider())
 }
 
 func TestNewAppRejectsNilConfig(t *testing.T) {
@@ -79,6 +82,17 @@ func TestNewAppRejectsMissingAnthropicAPIKey(t *testing.T) {
 
 	require.Error(t, err)
 	require.ErrorContains(t, err, "LLM_API_KEY is required when LLM_PROVIDER=anthropic")
+	assert.Nil(t, application)
+}
+
+func TestNewAppRejectsUnsupportedLLMProvider(t *testing.T) {
+	cfg := newValidConfig(t)
+	cfg.LLM.Provider = "unsupported"
+
+	application, err := app.NewApp(slogt.New(t), new(slog.LevelVar), cfg)
+
+	require.Error(t, err)
+	require.ErrorContains(t, err, `LLM_PROVIDER "unsupported" is not supported`)
 	assert.Nil(t, application)
 }
 
