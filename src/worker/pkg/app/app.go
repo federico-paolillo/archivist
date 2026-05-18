@@ -26,15 +26,16 @@ type App struct {
 	LogLevel *slog.LevelVar
 	Config   *config.Root
 
-	HTTPClient       *req.Client
-	DB               *sql.DB
-	Jobs             jobs.Repository
-	Fetcher          *fetcher.Fetcher
-	ArtifactStore    *artifacts.Store
-	LocalMarkdown    markdown.MarkdownExtractor
-	JinaMarkdown     markdown.MarkdownExtractor
-	Summarizer       summary.SummarizerService
-	SnapshotPipeline *pipeline.SnapshotPipeline
+	HTTPClient              *req.Client
+	DB                      *sql.DB
+	NotificationIDGenerator jobs.IDGenerator
+	Jobs                    jobs.Repository
+	Fetcher                 *fetcher.Fetcher
+	ArtifactStore           *artifacts.Store
+	LocalMarkdown           markdown.MarkdownExtractor
+	JinaMarkdown            markdown.MarkdownExtractor
+	Summarizer              summary.SummarizerService
+	SnapshotPipeline        *pipeline.SnapshotPipeline
 }
 
 func NewApp(logger *slog.Logger, logLevel *slog.LevelVar, cfg *config.Root) (*App, error) {
@@ -73,11 +74,12 @@ func NewApp(logger *slog.Logger, logLevel *slog.LevelVar, cfg *config.Root) (*Ap
 		DB:         database,
 	}
 
+	notificationIDs := jobs.NewULIDGenerator()
 	fetcherService := fetcher.New(application.HTTPClient)
 	localMarkdown := markdown.NewGoReadabilityExtractor()
 	jinaMarkdown := markdown.NewJinaExtractor(application.HTTPClient, cfg.Jina.API.Key)
 	summarizer := summary.NewAnthropicAdapter(application.HTTPClient, cfg.LLM.API.Key, cfg.LLM.Model)
-	jobsRepository := jobs.NewSQLiteRepository(database)
+	jobsRepository := jobs.NewSQLiteRepository(database, notificationIDs)
 	markdownHandoff := pipeline.NewMarkdownExtractionHandoff(
 		logger,
 		store,
@@ -91,6 +93,7 @@ func NewApp(logger *slog.Logger, logLevel *slog.LevelVar, cfg *config.Root) (*Ap
 	application.LocalMarkdown = localMarkdown
 	application.JinaMarkdown = jinaMarkdown
 	application.Summarizer = summarizer
+	application.NotificationIDGenerator = notificationIDs
 
 	application.SnapshotPipeline = pipeline.NewSnapshotPipeline(
 		logger,

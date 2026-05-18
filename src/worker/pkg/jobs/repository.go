@@ -4,18 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"math/rand"
-	"sync"
 	"time"
-
-	"github.com/oklog/ulid/v2"
-)
-
-// ulidEntropy is the package-level monotonic entropy source for ULID generation.
-// ulid.Monotonic is not goroutine-safe; ulidMu guards all ulid.New calls.
-var (
-	ulidEntropy = ulid.Monotonic(rand.New(rand.NewSource(time.Now().UnixNano())), 0) //nolint:gosec // Non-crypto seed for ULID entropy
-	ulidMu      sync.Mutex
 )
 
 // TerminalOutcome carries the result of a completed job to be persisted.
@@ -55,12 +44,16 @@ type Repository interface {
 
 // SQLiteRepository is the SQLite-backed implementation of Repository.
 type SQLiteRepository struct {
-	db *sql.DB
+	db              *sql.DB
+	notificationIDs IDGenerator
 }
 
 // NewSQLiteRepository creates a new SQLiteRepository backed by the given database.
-func NewSQLiteRepository(database *sql.DB) *SQLiteRepository {
-	return &SQLiteRepository{db: database}
+func NewSQLiteRepository(database *sql.DB, notificationIDs IDGenerator) *SQLiteRepository {
+	return &SQLiteRepository{
+		db:              database,
+		notificationIDs: notificationIDs,
+	}
 }
 
 // ClaimQueued atomically claims one queued job using UPDATE...RETURNING.
@@ -131,7 +124,7 @@ func (r *SQLiteRepository) CompleteTerminal(ctx context.Context, job *Job, outco
 	}
 
 	if job.HasTelegramOrigin() {
-		err = insertPendingNotification(ctx, tx, job, now)
+		err = r.insertPendingNotification(ctx, tx, job, now)
 		if err != nil {
 			return err
 		}
@@ -209,43 +202,6 @@ func applyJobTerminal(
 	}
 
 	return nil
-}
-
-func insertPendingNotification(ctx context.Context, tx *sql.Tx, job *Job, now time.Time) error {
-	id, err := newULID()
-	if err != nil {
-		return fmt.Errorf("jobs: failed to generate notification id: %w", err)
-	}
-
-	// Notifications expire 7 days after completion per REQ-029.
-	notificationExpiresAt := now.Add(7 * 24 * time.Hour)
-
-	_, err = tx.ExecContext(
-		ctx,
-		`INSERT INTO notifications (id, job_id, status, created_at, expires_at)
-		 VALUES (?, ?, 'pending', ?, ?)`,
-		id,
-		job.ID,
-		now.Format(time.RFC3339Nano),
-		notificationExpiresAt.Format(time.RFC3339Nano),
-	)
-	if err != nil {
-		return fmt.Errorf("jobs: failed to insert pending notification: %w", err)
-	}
-
-	return nil
-}
-
-func newULID() (string, error) {
-	ulidMu.Lock()
-	id, err := ulid.New(ulid.Timestamp(time.Now()), ulidEntropy)
-	ulidMu.Unlock()
-
-	if err != nil {
-		return "", fmt.Errorf("jobs: ulid generation failed: %w", err)
-	}
-
-	return id.String(), nil
 }
 
 // scanJob scans one row from an UPDATE...RETURNING or SELECT of the jobs table.
@@ -440,6 +396,31 @@ func (r *SQLiteRepository) UpdateCanonicalURL(ctx context.Context, articleID str
 	)
 	if err != nil {
 		return fmt.Errorf("jobs: failed to update canonical URL for article %s: %w", articleID, err)
+	}
+
+	return nil
+}
+
+func (r *SQLiteRepository) insertPendingNotification(ctx context.Context, tx *sql.Tx, job *Job, now time.Time) error {
+	id, err := r.notificationIDs.NewID()
+	if err != nil {
+		return fmt.Errorf("jobs: failed to generate notification id: %w", err)
+	}
+
+	// Notifications expire 7 days after completion per REQ-029.
+	notificationExpiresAt := now.Add(7 * 24 * time.Hour)
+
+	_, err = tx.ExecContext(
+		ctx,
+		`INSERT INTO notifications (id, job_id, status, created_at, expires_at)
+		 VALUES (?, ?, 'pending', ?, ?)`,
+		id,
+		job.ID,
+		now.Format(time.RFC3339Nano),
+		notificationExpiresAt.Format(time.RFC3339Nano),
+	)
+	if err != nil {
+		return fmt.Errorf("jobs: failed to insert pending notification: %w", err)
 	}
 
 	return nil

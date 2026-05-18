@@ -38,6 +38,7 @@ func TestNewAppReturnsApp(t *testing.T) {
 	require.NotNil(t, application.LocalMarkdown)
 	require.NotNil(t, application.JinaMarkdown)
 	assert.NotNil(t, application.DB)
+	assert.NotNil(t, application.NotificationIDGenerator)
 	assert.NotNil(t, application.Jobs)
 	assert.NotNil(t, application.ArtifactStore)
 	assert.NotNil(t, application.SnapshotPipeline)

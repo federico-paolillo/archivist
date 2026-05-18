@@ -2,6 +2,7 @@ package jobs_test
 
 import (
 	"database/sql"
+	"errors"
 	"testing"
 	"time"
 
@@ -10,6 +11,32 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+var errIDGenerator = errors.New("id generator failed")
+
+type fakeIDGenerator struct {
+	ids []string
+	err error
+}
+
+func newTestIDGenerator(ids ...string) *fakeIDGenerator {
+	return &fakeIDGenerator{ids: ids}
+}
+
+func (g *fakeIDGenerator) NewID() (string, error) {
+	if g.err != nil {
+		return "", g.err
+	}
+
+	if len(g.ids) == 0 {
+		return "", errors.New("test id generator exhausted")
+	}
+
+	id := g.ids[0]
+	g.ids = g.ids[1:]
+
+	return id, nil
+}
 
 // openTestDB returns a temporary in-memory SQLite database for testing.
 func openTestDB(t *testing.T) *sql.DB {
@@ -105,7 +132,7 @@ func TestClaimQueuedChangesJobStatusToRunning(t *testing.T) {
 	seedArticle(t, database, "ARTICLE001")
 	seedTelegramJob(t, database, "JOB001", "ARTICLE001")
 
-	repo := jobs.NewSQLiteRepository(database)
+	repo := jobs.NewSQLiteRepository(database, newTestIDGenerator())
 
 	ctx := t.Context()
 
@@ -130,7 +157,7 @@ func TestClaimQueuedReturnsErrNoRowsWhenNoJobExists(t *testing.T) {
 	database := openTestDB(t)
 	seedUser(t, database)
 
-	repo := jobs.NewSQLiteRepository(database)
+	repo := jobs.NewSQLiteRepository(database, newTestIDGenerator())
 
 	ctx := t.Context()
 
@@ -152,7 +179,7 @@ func TestClaimQueuedReturnsErrNoRowsForOrphanQueuedJob(t *testing.T) {
 	_, err = database.Exec(`PRAGMA foreign_keys = ON`)
 	require.NoError(t, err)
 
-	repo := jobs.NewSQLiteRepository(database)
+	repo := jobs.NewSQLiteRepository(database, newTestIDGenerator())
 
 	ctx := t.Context()
 
@@ -174,7 +201,7 @@ func TestClaimQueuedPreservesAllTelegramOriginFields(t *testing.T) {
 	seedArticle(t, database, "ARTICLE001")
 	seedTelegramJob(t, database, "JOB001", "ARTICLE001")
 
-	repo := jobs.NewSQLiteRepository(database)
+	repo := jobs.NewSQLiteRepository(database, newTestIDGenerator())
 
 	ctx := t.Context()
 
@@ -200,7 +227,9 @@ func TestCompleteTerminalSuccessForTelegramJob(t *testing.T) {
 	seedArticle(t, database, "ARTICLE001")
 	seedTelegramJob(t, database, "JOB001", "ARTICLE001")
 
-	repo := jobs.NewSQLiteRepository(database)
+	const notificationID = "01ASB2XFCZJY7WHZ2FNRTMQJCA"
+
+	repo := jobs.NewSQLiteRepository(database, newTestIDGenerator(notificationID))
 
 	ctx := t.Context()
 
@@ -254,6 +283,15 @@ func TestCompleteTerminalSuccessForTelegramJob(t *testing.T) {
 	).Scan(&notificationCount)
 	require.NoError(t, err)
 	assert.Equal(t, 1, notificationCount)
+
+	var persistedNotificationID string
+
+	err = database.QueryRowContext(ctx,
+		`SELECT id FROM notifications WHERE job_id = ?`,
+		"JOB001",
+	).Scan(&persistedNotificationID)
+	require.NoError(t, err)
+	assert.Equal(t, notificationID, persistedNotificationID)
 }
 
 func TestCompleteTerminalFailureForTelegramJob(t *testing.T) {
@@ -262,7 +300,9 @@ func TestCompleteTerminalFailureForTelegramJob(t *testing.T) {
 	seedArticle(t, database, "ARTICLE001")
 	seedTelegramJob(t, database, "JOB001", "ARTICLE001")
 
-	repo := jobs.NewSQLiteRepository(database)
+	const notificationID = "01ASB2XFCZJY7WHZ2FNRTMQJCB"
+
+	repo := jobs.NewSQLiteRepository(database, newTestIDGenerator(notificationID))
 
 	ctx := t.Context()
 
@@ -322,6 +362,15 @@ func TestCompleteTerminalFailureForTelegramJob(t *testing.T) {
 	).Scan(&notificationCount)
 	require.NoError(t, err)
 	assert.Equal(t, 1, notificationCount)
+
+	var persistedNotificationID string
+
+	err = database.QueryRowContext(ctx,
+		`SELECT id FROM notifications WHERE job_id = ?`,
+		"JOB001",
+	).Scan(&persistedNotificationID)
+	require.NoError(t, err)
+	assert.Equal(t, notificationID, persistedNotificationID)
 }
 
 func TestCompleteTerminalFailurePreservesARCCodedError(t *testing.T) {
@@ -330,7 +379,7 @@ func TestCompleteTerminalFailurePreservesARCCodedError(t *testing.T) {
 	seedArticle(t, database, "ARTICLE001")
 	seedTelegramJob(t, database, "JOB001", "ARTICLE001")
 
-	repo := jobs.NewSQLiteRepository(database)
+	repo := jobs.NewSQLiteRepository(database, newTestIDGenerator("01ASB2XFCZJY7WHZ2FNRTMQJCC"))
 
 	ctx := t.Context()
 
@@ -363,13 +412,61 @@ func TestCompleteTerminalFailurePreservesARCCodedError(t *testing.T) {
 	assert.Equal(t, arcError, jobError.String)
 }
 
+func TestCompleteTerminalRollsBackWhenNotificationIDGenerationFails(t *testing.T) {
+	database := openTestDB(t)
+	seedUser(t, database)
+	seedArticle(t, database, "ARTICLE001")
+	seedTelegramJob(t, database, "JOB001", "ARTICLE001")
+
+	repo := jobs.NewSQLiteRepository(database, &fakeIDGenerator{err: errIDGenerator})
+
+	ctx := t.Context()
+
+	claimed, err := repo.ClaimQueued(ctx)
+	require.NoError(t, err)
+
+	err = repo.CompleteTerminal(ctx, claimed, jobs.TerminalOutcome{Success: true})
+	require.ErrorIs(t, err, errIDGenerator)
+	require.ErrorContains(t, err, "jobs: failed to generate notification id")
+
+	var articleStatus string
+	var articleError sql.NullString
+
+	err = database.QueryRowContext(ctx, `SELECT status, error_message FROM articles WHERE id = ?`, "ARTICLE001").
+		Scan(&articleStatus, &articleError)
+	require.NoError(t, err)
+	assert.Equal(t, "queued", articleStatus)
+	assert.False(t, articleError.Valid)
+
+	var jobStatus string
+	var jobError, completedAt, expiresAt sql.NullString
+
+	err = database.QueryRowContext(ctx,
+		`SELECT status, error_message, completed_at, expires_at FROM jobs WHERE id = ?`,
+		"JOB001",
+	).Scan(&jobStatus, &jobError, &completedAt, &expiresAt)
+	require.NoError(t, err)
+
+	assert.Equal(t, jobs.StatusRunning, jobStatus)
+	assert.False(t, jobError.Valid)
+	assert.False(t, completedAt.Valid)
+	assert.False(t, expiresAt.Valid)
+
+	var notificationCount int
+
+	err = database.QueryRowContext(ctx, `SELECT COUNT(*) FROM notifications WHERE job_id = ?`, "JOB001").
+		Scan(&notificationCount)
+	require.NoError(t, err)
+	assert.Equal(t, 0, notificationCount)
+}
+
 func TestCompleteTerminalSuccessForNonTelegramJobDoesNotCreateNotification(t *testing.T) {
 	database := openTestDB(t)
 	seedUser(t, database)
 	seedArticle(t, database, "ARTICLE001")
 	seedNonTelegramJob(t, database, "JOB001", "ARTICLE001")
 
-	repo := jobs.NewSQLiteRepository(database)
+	repo := jobs.NewSQLiteRepository(database, newTestIDGenerator())
 
 	ctx := t.Context()
 
@@ -403,7 +500,7 @@ func TestCompleteTerminalFailureForNonTelegramJobDoesNotCreateNotification(t *te
 	seedArticle(t, database, "ARTICLE001")
 	seedNonTelegramJob(t, database, "JOB001", "ARTICLE001")
 
-	repo := jobs.NewSQLiteRepository(database)
+	repo := jobs.NewSQLiteRepository(database, newTestIDGenerator())
 
 	ctx := t.Context()
 

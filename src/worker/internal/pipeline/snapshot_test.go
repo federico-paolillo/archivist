@@ -102,7 +102,7 @@ func newTestPipeline(
 	t.Helper()
 
 	logger := slogt.New(t)
-	repo := jobs.NewSQLiteRepository(database)
+	repo := jobs.NewSQLiteRepository(database, jobs.NewULIDGenerator())
 
 	if mdHandoff == nil {
 		mdHandoff = pipeline.NoOpMarkdownHandoff
@@ -321,7 +321,7 @@ func TestSnapshotWriteFailureLogsCanonicalErrorFieldAndARCCode(t *testing.T) {
 
 	var logs bytes.Buffer
 	logger := newBufferLogger(t, &logs)
-	repo := jobs.NewSQLiteRepository(database)
+	repo := jobs.NewSQLiteRepository(database, jobs.NewULIDGenerator())
 	p := pipeline.NewSnapshotPipeline(logger, repo, store, newTestFetcher(srv.URL), nil)
 
 	processed, err := p.ProcessOne(t.Context())
