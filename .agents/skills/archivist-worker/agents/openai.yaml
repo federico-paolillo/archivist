@@ -1,0 +1,4 @@
+interface:
+  display_name: "Archivist Worker"
+  short_description: "Apply Archivist Worker conventions"
+  default_prompt: "Use $archivist-worker to implement or review Archivist src/worker changes according to canonical Worker conventions."
