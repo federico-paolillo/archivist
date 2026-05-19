@@ -5,9 +5,11 @@ import (
 )
 
 var (
-	ErrStore            = errors.New("artifacts: store error")
-	ErrEmptyDataDir     = errors.New("artifacts: data dir is empty")
-	ErrInvalidArticleID = errors.New("article id must be a ULID path segment")
+	ErrStore                 = errors.New("artifacts: store error")
+	ErrEmptyDataDir          = errors.New("artifacts: data dir is empty")
+	ErrInvalidArticleID      = errors.New("article id must be a ULID path segment")
+	ErrInvalidTempPattern    = errors.New("artifacts: temp pattern must contain a wildcard")
+	ErrTempNameCreationLimit = errors.New("artifacts: temp file name creation limit reached")
 )
 
 // StoreError carries artifact-store operation metadata while preserving the

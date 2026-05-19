@@ -3,7 +3,7 @@ id: SUMGEN-004
 feature: summary-generation
 title: Worker Summary Pipeline Integration
 status: blocked
-depends_on: [SUMGEN-002, SUMGEN-003]
+depends_on: [SUMGEN-002, SUMGEN-003, WCFG-001, WCFG-002]
 blocks: [SUMGEN-005]
 parallel: false
 exec_plan: ../plans/SUMGEN-004-worker-summary-pipeline-integration.execplan.md
@@ -48,6 +48,8 @@ Required inputs, existing files, interfaces, or decisions:
 
 - Completed `SUMGEN-002`.
 - Completed `SUMGEN-003`.
+- Completed `WCFG-001`.
+- Completed `WCFG-002`.
 - `../plans/SUMGEN-004-worker-summary-pipeline-integration.execplan.md`
 
 ## Outputs
@@ -81,6 +83,8 @@ Read before execution:
 - `docs/specs/article-processing/SPEC.md`
 - `docs/specs/markdown-extraction/SPEC.md`
 - `docs/specs/markdown-extraction/tasks/MDEXT-005-worker-markdown-pipeline-integration.md`
+- `docs/specs/worker-runtime-configuration/tasks/WCFG-001-canonical-worker-config-loading.md`
+- `docs/specs/worker-runtime-configuration/tasks/WCFG-002-non-optional-worker-composition.md`
 - `./SUMGEN-002-worker-summary-artifact-access.md`
 - `./SUMGEN-003-summarizer-provider-adapter.md`
 - `../plans/SUMGEN-004-worker-summary-pipeline-integration.execplan.md`
@@ -148,6 +152,8 @@ Depends on:
 
 - `SUMGEN-002`
 - `SUMGEN-003`
+- `WCFG-001`
+- `WCFG-002`
 
 Blocks:
 

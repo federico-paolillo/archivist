@@ -1,15 +1,22 @@
 package artifacts
 
 import (
+	"crypto/rand"
+	"errors"
+	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const (
 	tempSnapshotPattern = ".snapshot.html.*.tmp"
 	tempContentPattern  = ".content.md.*.tmp"
 	articleDirPerm      = 0o700
+	artifactFilePerm    = 0o600
+	tempCreateAttempts  = 16
 )
 
 // Store provides traversal-resistant, operation-first access to article artifacts under DATA_DIR.
@@ -106,30 +113,29 @@ func (s *Store) openArtifact(articleID, filename string) (io.ReadCloser, error) 
 }
 
 func (s *Store) writeArtifact(articleID, filename, tempPattern string, src io.Reader) error {
-	relDir, err := articleRelDir(articleID)
+	relDir, articleRoot, err := s.openArticleRoot(articleID)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		_ = articleRoot.Close()
+	}()
 
-	err = s.root.MkdirAll(relDir, articleDirPerm)
+	file, tempName, err := createTempArtifact(articleRoot, tempPattern)
 	if err != nil {
-		return storeFailure("create article dir", err, withArticleID(articleID), withPath(relDir))
+		return storeFailure(
+			"create temp file",
+			err,
+			withArticleID(articleID),
+			withFilename(filename),
+			withPath(filepath.Join(relDir, tempName)),
+		)
 	}
-
-	absDir := filepath.Join(s.dataDir, relDir)
-
-	file, err := os.CreateTemp(absDir, tempPattern)
-	if err != nil {
-		return storeFailure("create temp file", err, withArticleID(articleID), withFilename(filename), withPath(absDir))
-	}
-
-	tempRelPath := filepath.Join(relDir, filepath.Base(file.Name()))
-	finalRelPath := filepath.Join(relDir, filename)
 
 	committed := false
 	defer func() {
 		if !committed {
-			_ = s.root.Remove(tempRelPath)
+			_ = articleRoot.Remove(tempName)
 		}
 	}()
 
@@ -137,22 +143,83 @@ func (s *Store) writeArtifact(articleID, filename, tempPattern string, src io.Re
 	if err != nil {
 		_ = file.Close()
 
-		return storeFailure("write temp artifact", err, withArticleID(articleID), withFilename(filename), withPath(tempRelPath))
+		return storeFailure(
+			"write temp artifact",
+			err,
+			withArticleID(articleID),
+			withFilename(filename),
+			withPath(filepath.Join(relDir, tempName)),
+		)
 	}
 
 	err = file.Close()
 	if err != nil {
-		return storeFailure("close temp artifact", err, withArticleID(articleID), withFilename(filename), withPath(tempRelPath))
+		return storeFailure(
+			"close temp artifact",
+			err,
+			withArticleID(articleID),
+			withFilename(filename),
+			withPath(filepath.Join(relDir, tempName)),
+		)
 	}
 
-	err = s.root.Rename(tempRelPath, finalRelPath)
+	err = articleRoot.Rename(tempName, filename)
 	if err != nil {
-		return storeFailure("promote artifact", err, withArticleID(articleID), withFilename(filename), withPath(finalRelPath))
+		return storeFailure(
+			"promote artifact",
+			err,
+			withArticleID(articleID),
+			withFilename(filename),
+			withPath(filepath.Join(relDir, filename)),
+		)
 	}
 
 	committed = true
 
 	return nil
+}
+
+func (s *Store) openArticleRoot(articleID string) (string, *os.Root, error) {
+	relDir, err := articleRelDir(articleID)
+	if err != nil {
+		return "", nil, err
+	}
+
+	err = s.root.MkdirAll(relDir, articleDirPerm)
+	if err != nil {
+		return "", nil, storeFailure("create article dir", err, withArticleID(articleID), withPath(relDir))
+	}
+
+	articleRoot, err := s.root.OpenRoot(relDir)
+	if err != nil {
+		return "", nil, storeFailure("open article dir root", err, withArticleID(articleID), withPath(relDir))
+	}
+
+	return relDir, articleRoot, nil
+}
+
+func createTempArtifact(root *os.Root, pattern string) (*os.File, string, error) {
+	prefix, suffix, found := strings.Cut(pattern, "*")
+	if !found {
+		return nil, "", ErrInvalidTempPattern
+	}
+
+	for range tempCreateAttempts {
+		name := prefix + rand.Text() + suffix
+
+		file, err := root.OpenFile(name, os.O_RDWR|os.O_CREATE|os.O_EXCL, artifactFilePerm)
+		if err == nil {
+			return file, name, nil
+		}
+
+		if errors.Is(err, fs.ErrExist) {
+			continue
+		}
+
+		return nil, name, fmt.Errorf("open temp artifact: %w", err)
+	}
+
+	return nil, "", ErrTempNameCreationLimit
 }
 
 func articleRelDir(articleID string) (string, error) {

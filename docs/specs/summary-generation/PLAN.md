@@ -19,9 +19,11 @@ SUMGEN-001 -> SUMGEN-002
 SUMGEN-001 -> SUMGEN-003
 MDEXT-005 -> SUMGEN-002
 WCFG-001 -> SUMGEN-002
+WCFG-002 -> SUMGEN-002
 SUMGEN-002 -> SUMGEN-004
 SUMGEN-003 -> SUMGEN-004
 WCFG-001 -> SUMGEN-004
+WCFG-002 -> SUMGEN-004
 SUMGEN-004 -> SUMGEN-005
 TELING-004 -> SUMGEN-005
 ```
@@ -51,9 +53,9 @@ TELING-004 -> SUMGEN-005
 | ID | Task | Status | Depends On | Blocks | Parallel | ExecPlan |
 |---|---|---|---|---|---|---|
 | `SUMGEN-001` | Create feature artifacts and contracts | done | - | `SUMGEN-002`, `SUMGEN-003` | no | - |
-| `SUMGEN-002` | Worker summary artifact access | blocked | `SUMGEN-001`, `MDEXT-005`, `WCFG-001` | `SUMGEN-004` | yes | - |
+| `SUMGEN-002` | Worker summary artifact access | ready | `SUMGEN-001`, `MDEXT-005`, `WCFG-001`, `WCFG-002` | `SUMGEN-004` | yes | - |
 | `SUMGEN-003` | Summarizer provider adapter | done | `SUMGEN-001` | `SUMGEN-004` | yes | `plans/SUMGEN-003-summarizer-provider-adapter.execplan.md` |
-| `SUMGEN-004` | Worker summary pipeline integration | blocked | `SUMGEN-002`, `SUMGEN-003`, `WCFG-001` | `SUMGEN-005` | no | `plans/SUMGEN-004-worker-summary-pipeline-integration.execplan.md` |
+| `SUMGEN-004` | Worker summary pipeline integration | blocked | `SUMGEN-002`, `SUMGEN-003`, `WCFG-001`, `WCFG-002` | `SUMGEN-005` | no | `plans/SUMGEN-004-worker-summary-pipeline-integration.execplan.md` |
 | `SUMGEN-005` | Gateway summary notification | blocked | `SUMGEN-004`, `TELING-004` | - | no | `plans/SUMGEN-005-gateway-summary-notification.execplan.md` |
 
 ---
@@ -62,7 +64,7 @@ TELING-004 -> SUMGEN-005
 
 - `SUMGEN-002` and `SUMGEN-003` may run in parallel after their dependencies are done because they own separate artifact and provider-adapter surfaces.
 - `SUMGEN-002` must wait for `MDEXT-005` because it extends the Markdown-complete artifact/pipeline boundary.
-- Remaining Worker summary tasks must use canonical Worker config from `worker-runtime-configuration/WCFG-001`.
+- Remaining Worker summary tasks must use canonical Worker config from `worker-runtime-configuration/WCFG-001` and non-optional Worker composition from `worker-runtime-configuration/WCFG-002`.
 - `SUMGEN-004` must wait for summary artifact access and summarizer implementation.
 - `SUMGEN-005` must wait for Worker summary-complete terminal state and the Gateway notification dispatcher.
 - Worker pipeline orchestration, SQLite terminal-transition code, and Gateway dispatcher behavior must not be modified concurrently by multiple tasks.

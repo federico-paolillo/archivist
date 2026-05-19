@@ -170,6 +170,22 @@ func TestArtifactAccessRejectsTraversal(t *testing.T) {
 	}
 }
 
+func TestWriteSnapshotRejectsSymlinkedArticleDirectory(t *testing.T) {
+	t.Parallel()
+
+	requireSymlinkEscapeRejected(t, SnapshotHTMLFilename, ".snapshot.html.*.tmp", func(store *Store) error {
+		return store.WriteSnapshot(testArticleID, strings.NewReader("<html>escape</html>"))
+	})
+}
+
+func TestWriteMarkdownRejectsSymlinkedArticleDirectory(t *testing.T) {
+	t.Parallel()
+
+	requireSymlinkEscapeRejected(t, ContentMDFilename, ".content.md.*.tmp", func(store *Store) error {
+		return store.WriteMarkdown(testArticleID, strings.NewReader("# escape"))
+	})
+}
+
 func TestNewStoreRejectsEmptyDataDir(t *testing.T) {
 	t.Parallel()
 
@@ -328,6 +344,34 @@ func requireStoreError(t *testing.T, err error, op string) *StoreError {
 	require.Equal(t, op, storeErr.Op)
 
 	return storeErr
+}
+
+func requireSymlinkEscapeRejected(t *testing.T, filename, tempGlob string, write func(*Store) error) {
+	t.Helper()
+
+	dataDir := t.TempDir()
+	outsideDir := t.TempDir()
+	articlesDir := filepath.Join(dataDir, ArticlesDirectoryName)
+	require.NoError(t, os.MkdirAll(articlesDir, 0o700))
+	require.NoError(t, os.Symlink(outsideDir, filepath.Join(articlesDir, testArticleID)))
+
+	store, err := NewStore(dataDir)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, store.Close())
+	})
+
+	err = write(store)
+
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrStore)
+
+	_, finalErr := os.Stat(filepath.Join(outsideDir, filename))
+	require.ErrorIs(t, finalErr, fs.ErrNotExist)
+
+	tempFiles, globErr := filepath.Glob(filepath.Join(outsideDir, tempGlob))
+	require.NoError(t, globErr)
+	require.Empty(t, tempFiles)
 }
 
 // failingReader always returns an error on Read.

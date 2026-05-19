@@ -545,3 +545,32 @@ Follow-ups:
 
 Canonical Updates:
 - None.
+
+---
+
+## 2026-05-19 - ARTPROC-003: Rooted Artifact Temp Creation Correction
+
+Status:
+- done
+
+Summary:
+- Corrected the Worker artifact store so `snapshot.html` temporary files are created through an article-directory `os.Root` handle instead of `os.CreateTemp` with an absolute article directory.
+- Added a symlink-escape regression test proving snapshot writes fail without creating final or temporary files outside `DATA_DIR` when an article directory is a symlink escape.
+
+Decisions:
+- Per-article temporary files remain the correct artifact-write model because they preserve same-directory rename semantics and keep stale temp cleanup scoped to article artifact deletion.
+- No canonical convention change was needed; `docs/conventions/ARTIFACTS.md` and `docs/conventions/WORKER.md` already require atomic, traversal-resistant artifact writes under `DATA_DIR`.
+- Completed task statuses were not reopened for this review correction.
+
+Validation:
+- `cd src/worker && go test ./internal/artifacts` passed.
+- `cd src/worker && go tool lefthook run build` passed.
+- `cd src/worker && go tool lefthook run format` passed after refactoring for lint findings.
+- `cd src/worker && go tool lefthook run lint` passed.
+- `cd src/worker && go tool lefthook run test` passed.
+
+Follow-ups:
+- None.
+
+Canonical Updates:
+- None.

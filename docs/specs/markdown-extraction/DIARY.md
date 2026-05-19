@@ -447,3 +447,32 @@ Follow-ups:
 
 Canonical Updates:
 - None.
+
+---
+
+## 2026-05-19 - MDEXT-002: Rooted Artifact Temp Creation Correction
+
+Status:
+- done
+
+Summary:
+- Corrected the shared Worker artifact store so `content.md` temporary files are created through an article-directory `os.Root` handle instead of an absolute `os.CreateTemp` path.
+- Added a symlink-escape regression test proving Markdown writes fail without creating final or temporary files outside `DATA_DIR` when an article directory is a symlink escape.
+
+Decisions:
+- Per-article temporary files remain the artifact-write convention; a central `/data/tmp` directory would add a new filesystem layout and cleanup contract without improving the atomic write boundary.
+- No canonical convention change was needed; existing artifact and Worker conventions already require traversal-resistant, atomic artifact writes.
+- Completed task statuses were not reopened for this review correction.
+
+Validation:
+- `cd src/worker && go test ./internal/artifacts` passed.
+- `cd src/worker && go tool lefthook run build` passed.
+- `cd src/worker && go tool lefthook run format` passed after refactoring for lint findings.
+- `cd src/worker && go tool lefthook run lint` passed.
+- `cd src/worker && go tool lefthook run test` passed.
+
+Follow-ups:
+- None.
+
+Canonical Updates:
+- None.

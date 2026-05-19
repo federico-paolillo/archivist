@@ -4,7 +4,7 @@ feature: article-processing
 title: Worker Snapshot Pipeline Orchestration
 status: done
 depends_on: [ARTPROC-004, TELING-001, TELING-003]
-blocks: [ARTPROC-006, MDEXT-005]
+blocks: [ARTPROC-006, ARTPROC-007, MDEXT-005]
 parallel: false
 exec_plan: ../plans/ARTPROC-005-worker-snapshot-pipeline-orchestration.execplan.md
 canonical: true

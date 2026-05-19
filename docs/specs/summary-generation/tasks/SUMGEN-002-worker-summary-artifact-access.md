@@ -2,8 +2,8 @@
 id: SUMGEN-002
 feature: summary-generation
 title: Worker Summary Artifact Access
-status: blocked
-depends_on: [SUMGEN-001, MDEXT-005]
+status: ready
+depends_on: [SUMGEN-001, MDEXT-005, WCFG-001, WCFG-002]
 blocks: [SUMGEN-004]
 parallel: true
 exec_plan: null
@@ -48,6 +48,8 @@ Required inputs, existing files, interfaces, or decisions:
 
 - Completed `SUMGEN-001`.
 - Completed `MDEXT-005`.
+- Completed `WCFG-001`.
+- Completed `WCFG-002`.
 - `docs/conventions/ARTIFACTS.md`
 - `docs/conventions/ERRORS.md`
 - `docs/conventions/WORKER.md`
@@ -78,6 +80,8 @@ Read before execution:
 - `docs/conventions/WORKER.md`
 - `docs/specs/markdown-extraction/tasks/MDEXT-002-worker-markdown-artifact-access.md`
 - `docs/specs/markdown-extraction/tasks/MDEXT-005-worker-markdown-pipeline-integration.md`
+- `docs/specs/worker-runtime-configuration/tasks/WCFG-001-canonical-worker-config-loading.md`
+- `docs/specs/worker-runtime-configuration/tasks/WCFG-002-non-optional-worker-composition.md`
 
 Do not load unrelated feature folders unless listed here or required by dependencies.
 
@@ -134,6 +138,8 @@ Depends on:
 
 - `SUMGEN-001`
 - `MDEXT-005`
+- `WCFG-001`
+- `WCFG-002`
 
 Blocks:
 
