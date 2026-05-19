@@ -32,6 +32,7 @@ type App struct {
 	DB                      *sql.DB
 	NotificationIDGenerator jobs.IDGenerator
 	Jobs                    jobs.Repository
+	Enqueuer                jobs.Enqueuer
 	Fetcher                 *fetcher.Fetcher
 	ArtifactStore           *artifacts.Store
 	LocalMarkdown           markdown.MarkdownExtractor
@@ -75,14 +76,7 @@ func NewApp(logger *slog.Logger, logLevel *slog.LevelVar, cfg *config.Root) (*Ap
 	}
 
 	notificationIDs := jobs.NewULIDGenerator()
-	fetcherService := fetcher.New(application.HTTPClient, func(rawURL string) error {
-		_, err := application.SSRFGuard.ValidateURL(rawURL, ssrf.PhaseInitialURL)
-		if err != nil {
-			return fmt.Errorf("app: validate article URL: %w", err)
-		}
-
-		return nil
-	})
+	fetcherService := createFetcher(application)
 	localMarkdown := markdown.NewGoReadabilityExtractor()
 	jinaMarkdown := markdown.NewJinaExtractor(application.HTTPClient, cfg.Jina.API.Key)
 	summarizer := summary.NewAnthropicAdapter(application.HTTPClient, cfg.LLM.API.Key, cfg.LLM.Model)
@@ -94,13 +88,16 @@ func NewApp(logger *slog.Logger, logLevel *slog.LevelVar, cfg *config.Root) (*Ap
 		jinaMarkdown,
 	)
 
-	application.Jobs = jobsRepository
-	application.Fetcher = fetcherService
-	application.ArtifactStore = store
-	application.LocalMarkdown = localMarkdown
-	application.JinaMarkdown = jinaMarkdown
-	application.Summarizer = summarizer
-	application.NotificationIDGenerator = notificationIDs
+	applyProcessingServices(
+		application,
+		notificationIDs,
+		jobsRepository,
+		fetcherService,
+		store,
+		localMarkdown,
+		jinaMarkdown,
+		summarizer,
+	)
 
 	application.SnapshotPipeline = pipeline.NewSnapshotPipeline(
 		logger,
@@ -111,6 +108,37 @@ func NewApp(logger *slog.Logger, logLevel *slog.LevelVar, cfg *config.Root) (*Ap
 	)
 
 	return application, nil
+}
+
+func createFetcher(application *App) *fetcher.Fetcher {
+	return fetcher.New(application.HTTPClient, func(rawURL string) error {
+		_, err := application.SSRFGuard.ValidateURL(rawURL, ssrf.PhaseInitialURL)
+		if err != nil {
+			return fmt.Errorf("app: validate article URL: %w", err)
+		}
+
+		return nil
+	})
+}
+
+func applyProcessingServices(
+	application *App,
+	notificationIDs jobs.IDGenerator,
+	jobsRepository *jobs.SQLiteRepository,
+	fetcherService *fetcher.Fetcher,
+	store *artifacts.Store,
+	localMarkdown markdown.MarkdownExtractor,
+	jinaMarkdown markdown.MarkdownExtractor,
+	summarizer summary.SummarizerService,
+) {
+	application.NotificationIDGenerator = notificationIDs
+	application.Jobs = jobsRepository
+	application.Enqueuer = jobsRepository
+	application.Fetcher = fetcherService
+	application.ArtifactStore = store
+	application.LocalMarkdown = localMarkdown
+	application.JinaMarkdown = jinaMarkdown
+	application.Summarizer = summarizer
 }
 
 func createHTTPClient(logger *slog.Logger) (*ssrf.Guard, *req.Client) {

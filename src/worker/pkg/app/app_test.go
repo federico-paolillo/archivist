@@ -45,6 +45,7 @@ func TestNewAppReturnsApp(t *testing.T) {
 	assert.NotNil(t, application.DB)
 	assert.NotNil(t, application.NotificationIDGenerator)
 	assert.NotNil(t, application.Jobs)
+	assert.NotNil(t, application.Enqueuer)
 	assert.NotNil(t, application.ArtifactStore)
 	assert.NotNil(t, application.SnapshotPipeline)
 	require.NotNil(t, application.Summarizer)

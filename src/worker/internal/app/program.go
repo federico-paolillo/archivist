@@ -39,6 +39,18 @@ func CliProgram(ctx context.Context, a *pkgapp.App, cfg *config.Root) error {
 		},
 		Commands: []*cli.Command{
 			{
+				Name:      "enqueue",
+				Usage:     "Enqueue an article URL for processing",
+				ArgsUsage: "<url>",
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					if cmd.NArg() != 1 {
+						return fmt.Errorf("enqueue: expected exactly one URL argument, got %d", cmd.NArg())
+					}
+
+					return enqueue(ctx, a, cmd.Args().First())
+				},
+			},
+			{
 				Name:  "process",
 				Usage: "Process queued article jobs",
 				Flags: []cli.Flag{

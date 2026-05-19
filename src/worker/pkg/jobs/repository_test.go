@@ -126,6 +126,94 @@ func seedNonTelegramJob(t *testing.T, database *sql.DB, jobID, articleID string)
 	require.NoError(t, err)
 }
 
+func TestEnqueueURLCreatesQueuedArticleAndNonTelegramJob(t *testing.T) {
+	database := openTestDB(t)
+	seedUser(t, database)
+
+	repo := jobs.NewSQLiteRepository(database, newTestIDGenerator("ARTICLE001", "JOB001"))
+
+	result, err := repo.EnqueueURL(t.Context(), "https://example.com/article")
+	require.NoError(t, err)
+	require.Equal(t, &jobs.EnqueueResult{ArticleID: "ARTICLE001", JobID: "JOB001"}, result)
+
+	var articleUserID, originalURL, articleStatus string
+
+	err = database.QueryRow(
+		`SELECT user_id, original_url, status FROM articles WHERE id = ?`,
+		"ARTICLE001",
+	).Scan(&articleUserID, &originalURL, &articleStatus)
+	require.NoError(t, err)
+	assert.Equal(t, jobs.DefaultUserID, articleUserID)
+	assert.Equal(t, "https://example.com/article", originalURL)
+	assert.Equal(t, "queued", articleStatus)
+
+	var (
+		jobUserID, articleID, jobType, jobStatus string
+		telegramUpdateID                         sql.NullInt64
+		telegramChatID                           sql.NullInt64
+		telegramMessageID                        sql.NullInt64
+		telegramUserID                           sql.NullInt64
+	)
+
+	err = database.QueryRow(
+		`SELECT user_id, article_id, type, status,
+		        telegram_update_id, telegram_chat_id, telegram_message_id, telegram_user_id
+		 FROM jobs WHERE id = ?`,
+		"JOB001",
+	).Scan(
+		&jobUserID,
+		&articleID,
+		&jobType,
+		&jobStatus,
+		&telegramUpdateID,
+		&telegramChatID,
+		&telegramMessageID,
+		&telegramUserID,
+	)
+	require.NoError(t, err)
+	assert.Equal(t, jobs.DefaultUserID, jobUserID)
+	assert.Equal(t, "ARTICLE001", articleID)
+	assert.Equal(t, jobs.TypeArticleProcessing, jobType)
+	assert.Equal(t, jobs.StatusQueued, jobStatus)
+	assert.False(t, telegramUpdateID.Valid)
+	assert.False(t, telegramChatID.Valid)
+	assert.False(t, telegramMessageID.Valid)
+	assert.False(t, telegramUserID.Valid)
+
+	var notificationCount int
+
+	err = database.QueryRow(`SELECT COUNT(*) FROM notifications WHERE job_id = ?`, "JOB001").Scan(&notificationCount)
+	require.NoError(t, err)
+	assert.Equal(t, 0, notificationCount)
+}
+
+func TestEnqueueURLFailsClearlyWhenDefaultUserIsMissing(t *testing.T) {
+	database := openTestDB(t)
+	repo := jobs.NewSQLiteRepository(database, newTestIDGenerator("ARTICLE001", "JOB001"))
+
+	result, err := repo.EnqueueURL(t.Context(), "https://example.com/article")
+
+	require.Error(t, err)
+	require.ErrorContains(t, err, "jobs: default user 01ASB2XFCZJY7WHZ2FNRTMQJCT is missing")
+	assert.Nil(t, result)
+	assertArticleCount(t, database, 0)
+	assertJobCount(t, database, 0)
+}
+
+func TestEnqueueURLRollsBackWhenJobIDGenerationFails(t *testing.T) {
+	database := openTestDB(t)
+	seedUser(t, database)
+
+	repo := jobs.NewSQLiteRepository(database, newTestIDGenerator("ARTICLE001"))
+
+	result, err := repo.EnqueueURL(t.Context(), "https://example.com/article")
+
+	require.ErrorContains(t, err, "jobs: failed to generate job id")
+	assert.Nil(t, result)
+	assertArticleCount(t, database, 0)
+	assertJobCount(t, database, 0)
+}
+
 func TestClaimQueuedChangesJobStatusToRunning(t *testing.T) {
 	database := openTestDB(t)
 	seedUser(t, database)
@@ -151,6 +239,26 @@ func TestClaimQueuedChangesJobStatusToRunning(t *testing.T) {
 	err = database.QueryRowContext(ctx, `SELECT status FROM jobs WHERE id = ?`, "JOB001").Scan(&dbStatus)
 	require.NoError(t, err)
 	assert.Equal(t, jobs.StatusRunning, dbStatus)
+}
+
+func assertArticleCount(t *testing.T, database *sql.DB, expected int) {
+	t.Helper()
+
+	var count int
+
+	err := database.QueryRow(`SELECT COUNT(*) FROM articles`).Scan(&count)
+	require.NoError(t, err)
+	assert.Equal(t, expected, count)
+}
+
+func assertJobCount(t *testing.T, database *sql.DB, expected int) {
+	t.Helper()
+
+	var count int
+
+	err := database.QueryRow(`SELECT COUNT(*) FROM jobs`).Scan(&count)
+	require.NoError(t, err)
+	assert.Equal(t, expected, count)
 }
 
 func TestClaimQueuedReturnsErrNoRowsWhenNoJobExists(t *testing.T) {

@@ -2,6 +2,9 @@ package jobs
 
 import "time"
 
+// DefaultUserID is the fixed personal Archivist user for v0.
+const DefaultUserID = "01ASB2XFCZJY7WHZ2FNRTMQJCT"
+
 // Status values for a job. Only the four v0 states are valid.
 const (
 	StatusQueued    = "queued"
@@ -11,7 +14,7 @@ const (
 )
 
 // TypeArticleProcessing is the v0 job type for article processing.
-const TypeArticleProcessing = "article_processing"
+const TypeArticleProcessing = "article-processing"
 
 // Job holds the state of a worker job claimed from SQLite.
 type Job struct {

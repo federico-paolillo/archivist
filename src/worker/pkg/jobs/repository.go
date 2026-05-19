@@ -3,6 +3,7 @@ package jobs
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -17,6 +18,19 @@ type TerminalOutcome struct {
 	// e.g. "[ARC-013] Archivist could not summarize this article."
 	// It is ignored when Success is true.
 	ErrorMessage string
+}
+
+// EnqueueResult carries identifiers for records created by EnqueueURL.
+type EnqueueResult struct {
+	ArticleID string
+	JobID     string
+}
+
+// Enqueuer defines the worker persistence contract for imperative URL queueing.
+type Enqueuer interface {
+	// EnqueueURL creates a queued article and non-Telegram article-processing job
+	// for the fixed personal user. It does not create users or notifications.
+	EnqueueURL(ctx context.Context, rawURL string) (*EnqueueResult, error)
 }
 
 // Repository defines the worker persistence contract for jobs.
@@ -44,16 +58,100 @@ type Repository interface {
 
 // SQLiteRepository is the SQLite-backed implementation of Repository.
 type SQLiteRepository struct {
-	db              *sql.DB
-	notificationIDs IDGenerator
+	db  *sql.DB
+	ids IDGenerator
 }
 
 // NewSQLiteRepository creates a new SQLiteRepository backed by the given database.
-func NewSQLiteRepository(database *sql.DB, notificationIDs IDGenerator) *SQLiteRepository {
+func NewSQLiteRepository(database *sql.DB, ids IDGenerator) *SQLiteRepository {
 	return &SQLiteRepository{
-		db:              database,
-		notificationIDs: notificationIDs,
+		db:  database,
+		ids: ids,
 	}
+}
+
+// EnqueueURL inserts a queued article and queued non-Telegram job for the fixed personal user.
+func (r *SQLiteRepository) EnqueueURL(ctx context.Context, rawURL string) (*EnqueueResult, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("jobs: failed to begin enqueue transaction: %w", err)
+	}
+
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	err = ensureDefaultUserExists(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+
+	articleID, err := r.ids.NewID()
+	if err != nil {
+		return nil, fmt.Errorf("jobs: failed to generate article id: %w", err)
+	}
+
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+
+	_, err = tx.ExecContext(
+		ctx,
+		`INSERT INTO articles (id, user_id, original_url, status, created_at)
+		 VALUES (?, ?, ?, 'queued', ?)`,
+		articleID,
+		DefaultUserID,
+		rawURL,
+		now,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("jobs: failed to insert queued article: %w", err)
+	}
+
+	jobID, err := r.ids.NewID()
+	if err != nil {
+		return nil, fmt.Errorf("jobs: failed to generate job id: %w", err)
+	}
+
+	_, err = tx.ExecContext(
+		ctx,
+		`INSERT INTO jobs (id, user_id, article_id, type, status, created_at)
+		 VALUES (?, ?, ?, ?, 'queued', ?)`,
+		jobID,
+		DefaultUserID,
+		articleID,
+		TypeArticleProcessing,
+		now,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("jobs: failed to insert queued job: %w", err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return nil, fmt.Errorf("jobs: failed to commit enqueue transaction: %w", err)
+	}
+
+	return &EnqueueResult{ArticleID: articleID, JobID: jobID}, nil
+}
+
+func ensureDefaultUserExists(ctx context.Context, tx *sql.Tx) error {
+	var exists int
+
+	err := tx.QueryRowContext(
+		ctx,
+		`SELECT 1 FROM users WHERE id = ?`,
+		DefaultUserID,
+	).Scan(&exists)
+	if errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("jobs: default user %s is missing; run Gateway auth bootstrap before enqueueing URLs", DefaultUserID)
+	}
+
+	if err != nil {
+		return fmt.Errorf("jobs: failed to check default user: %w", err)
+	}
+
+	return nil
 }
 
 // ClaimQueued atomically claims one queued job using UPDATE...RETURNING.
@@ -402,7 +500,7 @@ func (r *SQLiteRepository) UpdateCanonicalURL(ctx context.Context, articleID str
 }
 
 func (r *SQLiteRepository) insertPendingNotification(ctx context.Context, tx *sql.Tx, job *Job, now time.Time) error {
-	id, err := r.notificationIDs.NewID()
+	id, err := r.ids.NewID()
 	if err != nil {
 		return fmt.Errorf("jobs: failed to generate notification id: %w", err)
 	}
