@@ -2,6 +2,7 @@ package app_test
 
 import (
 	"log/slog"
+	"reflect"
 	"testing"
 	"time"
 
@@ -34,7 +35,11 @@ func TestNewAppReturnsApp(t *testing.T) {
 
 	require.NotNil(t, application.Fetcher)
 	require.NotNil(t, application.HTTPClient)
+	require.NotNil(t, application.SSRFGuard)
 	assert.Equal(t, 20*time.Second, application.HTTPClient.GetClient().Timeout)
+	assert.NotNil(t, application.HTTPClient.GetClient().CheckRedirect)
+	assert.NotNil(t, application.HTTPClient.GetTransport().DialContext)
+	assert.True(t, reflect.ValueOf(application.HTTPClient.GetTransport()).Elem().FieldByName("t3").IsNil())
 	require.NotNil(t, application.LocalMarkdown)
 	require.NotNil(t, application.JinaMarkdown)
 	assert.NotNil(t, application.DB)

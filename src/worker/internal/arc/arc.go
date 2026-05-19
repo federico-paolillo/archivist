@@ -25,6 +25,7 @@ const (
 	CodeSummarizerRequestTooLarge Code = "ARC-014"
 	CodeSummarizerBillingFailed   Code = "ARC-015"
 	CodeSummaryWriteFailed        Code = "ARC-016"
+	CodeSSRFDetected              Code = "ARC-017"
 	CodeUnknownProcessingFailure  Code = "ARC-999"
 )
 
@@ -45,6 +46,7 @@ var (
 	ErrSummarizerRequestTooLarge = New(CodeSummarizerRequestTooLarge)
 	ErrSummarizerBillingFailure  = New(CodeSummarizerBillingFailed)
 	ErrSummaryWrite              = New(CodeSummaryWriteFailed)
+	ErrSSRFDetected              = New(CodeSSRFDetected)
 	ErrUnknown                   = New(CodeUnknownProcessingFailure)
 )
 
@@ -65,6 +67,7 @@ var publicMessages = map[Code]string{
 	CodeSummarizerRequestTooLarge: "This article is too large to summarize.",
 	CodeSummarizerBillingFailed:   "Archivist could not use the summarizer because the provider account has a billing issue.",
 	CodeSummaryWriteFailed:        "Archivist could not store the article summary.",
+	CodeSSRFDetected:              "Archivist refused to process suspicious URL.",
 	CodeUnknownProcessingFailure:  "Archivist could not process the URL.",
 }
 

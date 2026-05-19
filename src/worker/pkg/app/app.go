@@ -11,6 +11,7 @@ import (
 	"codeberg.org/federico-paolillo/archivist/internal/fetcher"
 	"codeberg.org/federico-paolillo/archivist/internal/markdown"
 	"codeberg.org/federico-paolillo/archivist/internal/pipeline"
+	"codeberg.org/federico-paolillo/archivist/internal/ssrf"
 	"codeberg.org/federico-paolillo/archivist/internal/summary"
 	"codeberg.org/federico-paolillo/archivist/pkg/app/config"
 	"codeberg.org/federico-paolillo/archivist/pkg/db"
@@ -27,6 +28,7 @@ type App struct {
 	Config   *config.Root
 
 	HTTPClient              *req.Client
+	SSRFGuard               *ssrf.Guard
 	DB                      *sql.DB
 	NotificationIDGenerator jobs.IDGenerator
 	Jobs                    jobs.Repository
@@ -60,10 +62,7 @@ func NewApp(logger *slog.Logger, logLevel *slog.LevelVar, cfg *config.Root) (*Ap
 		return nil, fmt.Errorf("app: failed to create artifact store: %w", err)
 	}
 
-	httpClient := req.NewClient().
-		SetRedirectPolicy(req.MaxRedirectPolicy(10)).
-		SetTimeout(20 * time.Second).
-		DisableForceHttpVersion()
+	ssrfGuard, httpClient := createHTTPClient(logger)
 
 	application := &App{
 		Logger:   logger,
@@ -71,11 +70,19 @@ func NewApp(logger *slog.Logger, logLevel *slog.LevelVar, cfg *config.Root) (*Ap
 		Config:   cfg,
 
 		HTTPClient: httpClient,
+		SSRFGuard:  ssrfGuard,
 		DB:         database,
 	}
 
 	notificationIDs := jobs.NewULIDGenerator()
-	fetcherService := fetcher.New(application.HTTPClient)
+	fetcherService := fetcher.New(application.HTTPClient, func(rawURL string) error {
+		_, err := application.SSRFGuard.ValidateURL(rawURL, ssrf.PhaseInitialURL)
+		if err != nil {
+			return fmt.Errorf("app: validate article URL: %w", err)
+		}
+
+		return nil
+	})
 	localMarkdown := markdown.NewGoReadabilityExtractor()
 	jinaMarkdown := markdown.NewJinaExtractor(application.HTTPClient, cfg.Jina.API.Key)
 	summarizer := summary.NewAnthropicAdapter(application.HTTPClient, cfg.LLM.API.Key, cfg.LLM.Model)
@@ -104,6 +111,19 @@ func NewApp(logger *slog.Logger, logLevel *slog.LevelVar, cfg *config.Root) (*Ap
 	)
 
 	return application, nil
+}
+
+func createHTTPClient(logger *slog.Logger) (*ssrf.Guard, *req.Client) {
+	ssrfGuard := ssrf.New(logger)
+	httpClient := req.NewClient().
+		OnBeforeRequest(ssrfGuard.RequestMiddleware()).
+		SetRedirectPolicy(ssrfGuard.RedirectPolicy()).
+		SetDial(ssrfGuard.DialContext).
+		SetTimeout(20 * time.Second).
+		DisableForceHttpVersion().
+		DisableHTTP3()
+
+	return ssrfGuard, httpClient
 }
 
 func createDB(path string) (*sql.DB, error) {

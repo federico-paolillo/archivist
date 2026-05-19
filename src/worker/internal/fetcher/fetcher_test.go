@@ -3,14 +3,19 @@ package fetcher_test
 import (
 	"context"
 	"errors"
+	"io"
+	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"strings"
 	"testing"
 	"time"
 
 	"codeberg.org/federico-paolillo/archivist/internal/arc"
 	"codeberg.org/federico-paolillo/archivist/internal/fetcher"
+	"codeberg.org/federico-paolillo/archivist/internal/ssrf"
 	"github.com/imroc/req/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -237,6 +242,92 @@ func TestFetch5xxReturnsARC004(t *testing.T) {
 	assertFetcherError(t, err, "http status", http.StatusInternalServerError)
 }
 
+func TestFetchWithSSRFGuardAllowsHTTPSWithoutExplicitPort(t *testing.T) {
+	server := newGuardedTLSServer(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(minimalHTML))
+	}))
+
+	result, err := server.fetcher.Fetch(t.Context(), "https://article.example/article")
+
+	require.NoError(t, err)
+	require.Equal(t, []byte(minimalHTML), result.Body)
+	assert.Equal(t, "93.184.216.34:443", server.dialer.address)
+}
+
+func TestFetchWithSSRFGuardAllowsExplicitPort443(t *testing.T) {
+	server := newGuardedTLSServer(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(minimalHTML))
+	}))
+
+	result, err := server.fetcher.Fetch(t.Context(), "https://article.example:443/article")
+
+	require.NoError(t, err)
+	require.Equal(t, []byte(minimalHTML), result.Body)
+}
+
+func TestFetchWithSSRFGuardAllowsOneRedirect(t *testing.T) {
+	server := newGuardedTLSServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/start":
+			http.Redirect(w, r, "https://article.example/final", http.StatusFound)
+		case "/final":
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(minimalHTML))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+
+	result, err := server.fetcher.Fetch(t.Context(), "https://article.example/start")
+
+	require.NoError(t, err)
+	require.Equal(t, []byte(minimalHTML), result.Body)
+	assert.Equal(t, "https://article.example/final", result.FinalURL)
+}
+
+func TestFetchWithSSRFGuardRejectsSecondRedirect(t *testing.T) {
+	server := newGuardedTLSServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/start":
+			http.Redirect(w, r, "https://article.example/middle", http.StatusFound)
+		case "/middle":
+			http.Redirect(w, r, "https://article.example/final", http.StatusFound)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+
+	_, err := server.fetcher.Fetch(t.Context(), "https://article.example/start")
+
+	require.ErrorIs(t, err, arc.ErrSSRFDetected)
+}
+
+func TestFetchWithSSRFGuardRejectsHTTPRedirect(t *testing.T) {
+	server := newGuardedTLSServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "http://article.example/final", http.StatusFound)
+	}))
+
+	_, err := server.fetcher.Fetch(t.Context(), "https://article.example/start")
+
+	require.ErrorIs(t, err, arc.ErrSSRFDetected)
+}
+
+func TestFetchWithSSRFGuardRejectsRedirectToPrivateResolvedTarget(t *testing.T) {
+	server := newGuardedTLSServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "https://private.example/final", http.StatusFound)
+	}))
+	server.resolver.ips["private.example"] = []netip.Addr{netip.MustParseAddr("10.0.0.10")}
+
+	_, err := server.fetcher.Fetch(t.Context(), "https://article.example/start")
+
+	require.ErrorIs(t, err, arc.ErrSSRFDetected)
+}
+
 func assertFetcherError(t *testing.T, err error, op string, statusCode int) *fetcher.FetcherError {
 	t.Helper()
 
@@ -246,4 +337,61 @@ func assertFetcherError(t *testing.T, err error, op string, statusCode int) *fet
 	require.Equal(t, statusCode, fetchErr.StatusCode)
 
 	return fetchErr
+}
+
+type guardedTLSServer struct {
+	server   *httptest.Server
+	fetcher  *fetcher.Fetcher
+	resolver *fetcherTestResolver
+	dialer   *fetcherTestDialer
+}
+
+func newGuardedTLSServer(t *testing.T, handler http.Handler) *guardedTLSServer {
+	t.Helper()
+
+	server := httptest.NewTLSServer(handler)
+	t.Cleanup(server.Close)
+
+	resolver := &fetcherTestResolver{ips: map[string][]netip.Addr{
+		"article.example": {netip.MustParseAddr("93.184.216.34")},
+	}}
+	dialer := &fetcherTestDialer{targetAddress: server.Listener.Addr().String()}
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	guard := ssrf.New(logger, ssrf.WithResolver(resolver), ssrf.WithDialer(dialer))
+	client := req.NewClient().
+		EnableInsecureSkipVerify().
+		OnBeforeRequest(guard.RequestMiddleware()).
+		SetRedirectPolicy(guard.RedirectPolicy()).
+		SetDial(guard.DialContext)
+	f := fetcher.New(client, func(rawURL string) error {
+		_, err := guard.ValidateURL(rawURL, ssrf.PhaseInitialURL)
+		return err
+	})
+
+	return &guardedTLSServer{
+		server:   server,
+		fetcher:  f,
+		resolver: resolver,
+		dialer:   dialer,
+	}
+}
+
+type fetcherTestResolver struct {
+	ips map[string][]netip.Addr
+}
+
+func (r *fetcherTestResolver) LookupNetIP(_ context.Context, _ string, host string) ([]netip.Addr, error) {
+	return r.ips[host], nil
+}
+
+type fetcherTestDialer struct {
+	targetAddress string
+	address       string
+}
+
+func (d *fetcherTestDialer) DialContext(ctx context.Context, network string, address string) (net.Conn, error) {
+	d.address = address
+	var dialer net.Dialer
+
+	return dialer.DialContext(ctx, network, d.targetAddress)
 }

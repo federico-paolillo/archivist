@@ -22,6 +22,7 @@ ARTPROC-003 -> ARTPROC-004
 ARTPROC-004 -> ARTPROC-005
 ARTPROC-005 -> ARTPROC-006
 ARTPROC-005 -> ARTPROC-007
+ARTPROC-007 -> ARTPROC-008
 ARTPROC-005 -> MDEXT-005
 ```
 
@@ -52,6 +53,7 @@ TELING-004 -> ARTPROC-006
 - `ARTPROC-005` implements Worker orchestration and transactional terminal state changes.
 - `ARTPROC-006` remains skipped because downstream features supersede snapshot-stage success; final v0 success notification is owned by `SUMGEN-005`.
 - `ARTPROC-007` retrofits the Worker executable command surface so production invocation reaches the processing pipeline.
+- `ARTPROC-008` hardens Worker article fetching against SSRF with a reusable guard, one redirect, HTTPS-only policy, and ARC-017 monitoring.
 
 ---
 
@@ -66,6 +68,7 @@ TELING-004 -> ARTPROC-006
 | `ARTPROC-005` | Worker snapshot pipeline orchestration | done | `ARTPROC-004`, `TELING-001`, `TELING-003` | `ARTPROC-006`, `ARTPROC-007`, `MDEXT-005` | no | `plans/ARTPROC-005-worker-snapshot-pipeline-orchestration.execplan.md` |
 | `ARTPROC-006` | Gateway snapshot success notification bridge | skipped | `ARTPROC-005`, `TELING-004` | - | no | - |
 | `ARTPROC-007` | Worker executable processing command | done | `ARTPROC-005` | - | no | `plans/ARTPROC-007-worker-executable-processing-command.execplan.md` |
+| `ARTPROC-008` | Worker SSRF fetch policy | done | `ARTPROC-007` | - | no | `plans/ARTPROC-008-worker-ssrf-fetch-policy.execplan.md` |
 
 ---
 
@@ -76,6 +79,7 @@ TELING-004 -> ARTPROC-006
 - `ARTPROC-005` must run after Worker fetch and after Telegram ingestion persistence/outbox contracts are implemented.
 - `ARTPROC-006` is skipped when downstream pipeline stages are planned before snapshot-only notification work, because `SUMGEN-005` owns the final success notification contract.
 - `ARTPROC-007` must run after `ARTPROC-005` because the executable command invokes the composed snapshot pipeline.
+- `ARTPROC-008` is a corrective hardening task after executable processing is in place; it changes shared Worker outbound HTTP wiring and must not run concurrently with other Worker HTTP-client or fetcher changes.
 - Worker repository, SQLite terminal-transition code, and Gateway dispatcher behavior must not be modified concurrently by multiple tasks.
 
 ---
@@ -85,7 +89,7 @@ TELING-004 -> ARTPROC-006
 - Existing SQLite `articles`, `jobs`, and `notifications` contracts from `telegram-ingestion`.
 - Deterministic article artifact path convention under `DATA_DIR`.
 - ARC error-code catalog in `docs/conventions/ERRORS.md`.
-- Worker HTTP fetch policy using `github.com/imroc/req/v3`.
+- Worker HTTP fetch and SSRF policy using `github.com/imroc/req/v3` and `src/worker/internal/ssrf`.
 - Worker executable command surface: `archivist-worker process`.
 - Snapshot-only Gateway success notification is superseded by summary-complete notification in `summary-generation`.
 

@@ -30,22 +30,38 @@ type Result struct {
 
 // Fetcher resolves URLs and retrieves bounded HTML content.
 type Fetcher struct {
-	client *req.Client
+	client      *req.Client
+	validateURL URLValidator
 }
+
+// URLValidator validates a raw URL before the fetcher sends a request.
+type URLValidator func(rawURL string) error
 
 // New creates a Fetcher using the provided HTTP client.
 // The caller is responsible for configuring redirect policy, timeout, and HTTP version settings.
-func New(client *req.Client) *Fetcher {
-	return &Fetcher{client: client}
+func New(client *req.Client, validators ...URLValidator) *Fetcher {
+	var validator URLValidator
+	if len(validators) > 0 {
+		validator = validators[0]
+	}
+
+	return &Fetcher{client: client, validateURL: validator}
 }
 
 // Fetch resolves the given rawURL and returns the final URL and HTML bytes.
 // It validates the scheme, follows redirects, enforces size and content-type
 // limits, and maps every failure to a public ARC error.
 func (f *Fetcher) Fetch(ctx context.Context, rawURL string) (*Result, error) {
-	schemeErr := validateScheme(rawURL)
-	if schemeErr != nil {
-		return nil, schemeErr
+	if f.validateURL != nil {
+		validateErr := f.validateURL(rawURL)
+		if validateErr != nil {
+			return nil, validateErr
+		}
+	} else {
+		schemeErr := validateScheme(rawURL)
+		if schemeErr != nil {
+			return nil, schemeErr
+		}
 	}
 
 	resp, fetchErr := f.client.R().

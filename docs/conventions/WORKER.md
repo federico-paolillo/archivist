@@ -132,7 +132,12 @@ All outbound HTTP calls from Worker code must go through `github.com/imroc/req/v
 - Direct use of `net/http` for *outbound* requests is forbidden. `net/http` remains acceptable inside test files (`httptest.NewServer`, `http.HandlerFunc`, status code constants) and when an external SDK requires a plain `*http.Client` parameter — in that case call `reqClient.GetClient()` to obtain the underlying standard-library client.
 - Never use the package-level global client (`req.C()`). Always construct an owned `*req.Client` with `req.NewClient()` inside the composition root and inject it into every adapter that needs it.
 - The composition root owns and configures shared concerns — user-agent, timeout, and any future middleware. Adapters receive a pre-configured client; they must not mutate it or set global options.
+- Article fetching must use the composition-root SSRF-guarded client. The guard requires absolute HTTPS URLs, treats omitted HTTPS ports as port `443`, allows explicit `:443`, rejects all other explicit ports, limits redirects to one, rejects IP literals and internal hostnames, validates redirect targets, resolves DNS at dial time, blocks private/special resolved IPs, and dials only a validated address. Policy blocks map to `ARC-017`; DNS parse or resolution failures map to `ARC-001`.
+- The SSRF guard logs allow decisions at debug level and block decisions at warn level with structured, redacted fields. It must not log URL userinfo, query strings, or fragments.
+- HTTP/3 must remain disabled for the shared guarded client unless a future task adds equivalent UDP egress validation.
 - Tests construct their own isolated `*req.Client` instances (typically `req.NewClient()` pointing at an `httptest.Server`). Tests must not share or mutate a client owned by another test.
+
+Docker deployment egress controls are a defense-in-depth follow-up, not a substitute for the application guard. Future deployment hardening may add host `DOCKER-USER` firewall rules or an egress proxy to block container access to private, link-local, metadata-service, and Docker bridge ranges.
 
 ## Structured Logging
 

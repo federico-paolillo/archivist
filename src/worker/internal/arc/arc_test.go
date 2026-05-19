@@ -10,6 +10,7 @@ import (
 
 func TestFormatReturnsPublicMessage(t *testing.T) {
 	require.Equal(t, "[ARC-003] The URL was not found.", Format(CodeURLNotFound))
+	require.Equal(t, "[ARC-017] Archivist refused to process suspicious URL.", Format(CodeSSRFDetected))
 }
 
 func TestUnknownFormatFallsBackToARC999(t *testing.T) {

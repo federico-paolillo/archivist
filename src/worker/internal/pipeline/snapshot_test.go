@@ -16,6 +16,7 @@ import (
 	"codeberg.org/federico-paolillo/archivist/internal/artifacts"
 	"codeberg.org/federico-paolillo/archivist/internal/fetcher"
 	"codeberg.org/federico-paolillo/archivist/internal/pipeline"
+	"codeberg.org/federico-paolillo/archivist/internal/ssrf"
 	"codeberg.org/federico-paolillo/archivist/internal/testutils/slogt"
 	"codeberg.org/federico-paolillo/archivist/pkg/db"
 	"codeberg.org/federico-paolillo/archivist/pkg/jobs"
@@ -261,6 +262,36 @@ func TestSnapshotForbiddenFailureMapsToARC002(t *testing.T) {
 
 	articleError := scalarNullableString(t, database, `SELECT error_message FROM articles WHERE id = ?`, articleID)
 	assert.Contains(t, articleError, "[ARC-002]")
+}
+
+func TestSnapshotSSRFPolicyBlockPersistsARC017(t *testing.T) {
+	database := openTestDB(t)
+	seedUser(t, database)
+	seedArticle(t, database, articleID, "http://example.com/article")
+	seedTelegramJob(t, database, jobID, articleID)
+
+	store, err := artifacts.NewStore(t.TempDir())
+	require.NoError(t, err)
+	defer store.Close()
+
+	guard := ssrf.New(slogt.New(t))
+	fetch := fetcher.New(req.NewClient(), func(rawURL string) error {
+		_, validateErr := guard.ValidateURL(rawURL, ssrf.PhaseInitialURL)
+		return validateErr
+	})
+	p := newTestPipeline(t, database, store, fetch, nil)
+
+	processed, err := p.ProcessOne(t.Context())
+	require.NoError(t, err)
+	require.True(t, processed)
+
+	articleStatus := scalarString(t, database, `SELECT status FROM articles WHERE id = ?`, articleID)
+	assert.Equal(t, "failed", articleStatus)
+
+	const publicMessage = "[ARC-017] Archivist refused to process suspicious URL."
+	assert.Equal(t, publicMessage, scalarNullableString(t, database, `SELECT error_message FROM articles WHERE id = ?`, articleID))
+	assert.Equal(t, publicMessage, scalarNullableString(t, database, `SELECT error_message FROM jobs WHERE id = ?`, jobID))
+	assert.Equal(t, 1, scalarInt(t, database, `SELECT COUNT(*) FROM notifications WHERE job_id = ? AND status = 'pending'`, jobID))
 }
 
 // TestSnapshotNonHTMLFailureMapsToARC005 verifies non-HTML content type maps to ARC-005.

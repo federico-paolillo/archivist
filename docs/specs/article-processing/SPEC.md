@@ -27,9 +27,9 @@ In scope:
 
 - Worker dequeue of queued article-processing jobs using the existing SQLite queue contract.
 - Explicit Worker executable processing through `archivist-worker process`.
-- URL validation for `http` and `https` schemes before fetch.
+- Worker-side SSRF policy for submitted URLs before and during fetch. Gateway may accept and persist arbitrary submitted URLs; the Worker is the security boundary.
 - Redirect resolution and HTML fetching using `github.com/imroc/req/v3`.
-- Conservative fetch limits: 10 redirects, 20 second total timeout, 10 MiB maximum response body.
+- Conservative fetch limits: 1 redirect, 20 second total timeout, 10 MiB maximum response body.
 - HTML-only acceptance for `text/html` and `application/xhtml+xml`.
 - Atomic `snapshot.html` writes under `{DATA_DIR}/articles/{article_id}/`.
 - Article canonical URL update to the final redirected URL after successful resolution.
@@ -50,6 +50,7 @@ Not included:
 - Summary artifact creation.
 - Browser rendering, Playwright, or JavaScript-heavy page handling beyond storing returned HTML.
 - Automatic retries.
+- Gateway-side URL SSRF filtering.
 - New article, job, or notification states.
 - Placeholder `content.md`, `summary.json`, or `summary.md` artifacts.
 
@@ -65,9 +66,9 @@ Not included:
 ## Requirements
 
 - REQ-001: The Worker must claim queued article-processing jobs through the existing SQLite queue contract.
-- REQ-002: The Worker must process only absolute `http` and `https` URLs.
+- REQ-002: The Worker must process only absolute `https` URLs. Omitted ports are treated as HTTPS port `443`; explicit `:443` is allowed; every other explicit port is rejected.
 - REQ-003: The Worker must use `github.com/imroc/req/v3` for article HTTP requests.
-- REQ-004: The HTTP fetcher must allow at most 10 redirects.
+- REQ-004: The HTTP fetcher must allow at most 1 redirect, and every redirect target must pass the same SSRF policy as the original URL.
 - REQ-005: The HTTP fetcher must use a 20 second total timeout.
 - REQ-006: The HTTP fetcher must reject response bodies larger than 10 MiB.
 - REQ-007: The HTTP fetcher must accept only `text/html` and `application/xhtml+xml` responses.
@@ -82,6 +83,7 @@ Not included:
 - REQ-016: Extraction and rating pipeline steps must exist only as no-op slots or documentation boundaries in this feature.
 - REQ-017: The `markdown-extraction` and `summary-generation` features supersede the snapshot-stage success criterion with summary-complete processing.
 - REQ-018: The Worker executable must expose an explicit `process` command that runs the processing pipeline, validates the snapshot pipeline is configured, and supports a one-shot mode for executable-surface validation.
+- REQ-019: The Worker SSRF policy must reject userinfo, empty hosts, invalid hostnames, all IP literals, single-label hosts, localhost names, Docker-internal names, cloud metadata hostnames, and private or special resolved IP ranges. DNS parse or resolution failures map to `ARC-001`; SSRF policy blocks map to `ARC-017`.
 
 ## Acceptance Criteria
 
@@ -149,6 +151,15 @@ Scenario: Snapshot boundary is not terminal success in final v0
   When the Worker stores snapshot.html successfully
   Then the job continues to downstream processing
   And Gateway success notification content is not selected from snapshot completion
+
+Scenario: Suspicious URL is rejected by Worker SSRF policy
+  Given a queued article-processing job exists
+  And the article original_url is not allowed by Worker SSRF policy
+  When the Worker processes the job
+  Then articles.status is "failed"
+  And articles.error_message starts with "[ARC-017]"
+  And jobs.status is "failed"
+  And one pending failure notification row exists for the job
 ```
 
 ## Data and State
@@ -180,6 +191,7 @@ No artifact paths, HTTP status columns, failure-code columns, extraction telemet
 - Worker job source: SQLite queued article-processing jobs.
 - Worker executable command: `archivist-worker process`.
 - Worker HTTP client: `github.com/imroc/req/v3`.
+- Worker SSRF guard: `src/worker/internal/ssrf`, wired into the shared Worker HTTP client.
 - Worker artifact store: `{DATA_DIR}/articles/{article_id}/snapshot.html`.
 - Worker stage contract: update canonical URL, write `snapshot.html`, and hand off to Markdown extraction in final v0.
 - Worker terminal failure contract: article update, job update, and notification insert in one transaction.
@@ -212,6 +224,7 @@ Impacts:
 - Snapshot success is an intermediate stage. Final v0 success is summary-complete.
 - The `markdown-extraction` and `summary-generation` features replace snapshot-stage success with summary-complete processing.
 - Queue processing must be reachable through `archivist-worker process`; tests that only instantiate `SnapshotPipeline` are not sufficient to prove executable behavior.
+- Article URL SSRF filtering is a Worker boundary, not a Gateway boundary. Rebuilds must keep Gateway ingestion permissive and enforce this policy in Worker processing.
 - `snapshot.html` is the only artifact written by this feature.
 - Do not add article artifact path columns.
 - Do not add retry states or automatic retry scheduling.
@@ -220,11 +233,13 @@ Impacts:
 
 - The Worker must not log secrets or Telegram tokens.
 - Persisted article errors must not expose low-level transport, filesystem, library, or stack details.
-- The Worker must not fetch non-HTTP(S) schemes.
+- The Worker must not fetch non-HTTPS schemes.
+- The Worker must reject SSRF-suspicious URL targets with `ARC-017`.
 
 ## Observability / Logging Notes
 
 - Worker logs should include `article_id`, `job_id`, original URL, final URL when known, status, duration, and ARC code on failure.
+- SSRF policy logs should include structured allow/block decisions while redacting URL userinfo, query strings, and fragments.
 - Low-level HTTP and filesystem diagnostics belong in logs or job diagnostic context, not in public article error messages.
 - No dedicated observability stack is required.
 
@@ -243,6 +258,8 @@ Impacts:
 - `./tasks/ARTPROC-005-worker-snapshot-pipeline-orchestration.md`
 - `./tasks/ARTPROC-006-gateway-snapshot-success-notification-bridge.md`
 - `./tasks/ARTPROC-007-worker-executable-processing-command.md`
+- `./tasks/ARTPROC-008-worker-ssrf-fetch-policy.md`
 - `../markdown-extraction/SPEC.md`
 - `./plans/ARTPROC-005-worker-snapshot-pipeline-orchestration.execplan.md`
 - `./plans/ARTPROC-007-worker-executable-processing-command.execplan.md`
+- `./plans/ARTPROC-008-worker-ssrf-fetch-policy.execplan.md`

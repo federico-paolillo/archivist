@@ -548,6 +548,43 @@ Canonical Updates:
 
 ---
 
+## 2026-05-19 - ARTPROC-008: Worker SSRF Fetch Policy
+
+Status:
+- done
+
+Summary:
+- Added Worker-side SSRF mitigation for article fetching while keeping Gateway URL ingestion permissive.
+- Added reusable `src/worker/internal/ssrf` guard code for initial URL validation, redirect validation, dial-time DNS/IP checks, redacted structured security decision logs, and one-redirect HTTPS-only policy.
+- Wired the shared Worker `*req.Client` through the SSRF guard, disabled HTTP/3, and added `ARC-017` for SSRF policy blocks.
+
+Decisions:
+- URLs without an explicit port are treated as HTTPS port `443`; explicit `:443` is allowed; every other explicit port is rejected.
+- DNS parse and resolution failures remain `ARC-001`; policy blocks use `ARC-017`.
+- Docker egress firewall/proxy hardening is documented as future defense-in-depth guidance only.
+
+Validation:
+- `cd src/worker && go test ./...` passed.
+- `cd src/worker && go tool lefthook run build` passed.
+- `cd src/worker && go tool lefthook run format` passed.
+- `cd src/worker && go tool lefthook run lint` passed.
+- `cd src/worker && go tool lefthook run test` passed.
+
+Follow-ups:
+- Docker `DOCKER-USER` egress rules or an egress proxy can be added later as deployment hardening.
+- User banning based on repeated `ARC-017` triggers remains future product/security work.
+
+Canonical Updates:
+- `docs/conventions/ERRORS.md` — added `ARC-017`.
+- `docs/conventions/WORKER.md` — documented the SSRF-guarded Worker HTTP client and Docker egress guidance.
+- `docs/specs/article-processing/SPEC.md` — promoted Worker SSRF requirements and acceptance criteria.
+- `docs/specs/article-processing/PLAN.md` — added completed corrective task `ARTPROC-008`.
+- `docs/specs/article-processing/tasks/ARTPROC-008-worker-ssrf-fetch-policy.md` — added completed corrective task.
+- `docs/specs/article-processing/plans/ARTPROC-008-worker-ssrf-fetch-policy.execplan.md` — added completed ExecPlan.
+- `REVIEW.md` — marked the SSRF finding resolved.
+
+---
+
 ## 2026-05-19 - ARTPROC-003: Rooted Artifact Temp Creation Correction
 
 Status:

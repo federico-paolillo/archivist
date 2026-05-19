@@ -38,6 +38,7 @@ Detailed HTTP, filesystem, library, stack, or provider diagnostics belong in str
 | `ARC-014` | Summarizer context or request is too large | This article is too large to summarize. |
 | `ARC-015` | Summarizer billing failure | Archivist could not use the summarizer because the provider account has a billing issue. |
 | `ARC-016` | Summary artifact write failed | Archivist could not store the article summary. |
+| `ARC-017` | SSRF Detected | Archivist refused to process suspicious URL. |
 | `ARC-999` | Unknown processing failure | Archivist could not process the URL. |
 
 ## Rules

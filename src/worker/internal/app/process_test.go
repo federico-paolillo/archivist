@@ -5,16 +5,22 @@ import (
 	"database/sql"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"codeberg.org/federico-paolillo/archivist/internal/fetcher"
+	"codeberg.org/federico-paolillo/archivist/internal/pipeline"
+	"codeberg.org/federico-paolillo/archivist/internal/ssrf"
 	pkgapp "codeberg.org/federico-paolillo/archivist/pkg/app"
 	"codeberg.org/federico-paolillo/archivist/pkg/app/config"
 	"codeberg.org/federico-paolillo/archivist/pkg/jobs"
+	"github.com/imroc/req/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -28,7 +34,7 @@ const (
 func TestProcessCommandOnceProcessesQueuedJob(t *testing.T) {
 	application, cfg := newProcessTestApp(t)
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`<!doctype html>
@@ -44,9 +50,10 @@ func TestProcessCommandOnceProcessesQueuedJob(t *testing.T) {
 </html>`))
 	}))
 	defer srv.Close()
+	installProcessTestFetcher(t, application, srv.Listener.Addr().String())
 
 	seedProcessUser(t, application.DB)
-	seedProcessArticle(t, application.DB, srv.URL+"/article")
+	seedProcessArticle(t, application.DB, "https://article.example/article")
 	seedProcessJob(t, application.DB)
 
 	withArgs(t, "archivist-worker", "process", "--once")
@@ -69,6 +76,39 @@ func TestProcessCommandOnceProcessesQueuedJob(t *testing.T) {
 		t,
 		"queued",
 		scalarString(t, application.DB, `SELECT status FROM jobs WHERE id = ?`, processTestJobID),
+	)
+}
+
+func installProcessTestFetcher(t *testing.T, application *pkgapp.App, serverAddress string) {
+	t.Helper()
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	resolver := processTestResolver{ips: map[string][]netip.Addr{
+		"article.example": {netip.MustParseAddr("93.184.216.34")},
+	}}
+	dialer := processTestDialer{targetAddress: serverAddress}
+	guard := ssrf.New(logger, ssrf.WithResolver(resolver), ssrf.WithDialer(dialer))
+	client := req.NewClient().
+		EnableInsecureSkipVerify().
+		OnBeforeRequest(guard.RequestMiddleware()).
+		SetRedirectPolicy(guard.RedirectPolicy()).
+		SetDial(guard.DialContext).
+		SetTimeout(20 * time.Second).
+		DisableForceHttpVersion().
+		DisableHTTP3()
+
+	application.HTTPClient = client
+	application.SSRFGuard = guard
+	application.Fetcher = fetcher.New(client, func(rawURL string) error {
+		_, validateErr := guard.ValidateURL(rawURL, ssrf.PhaseInitialURL)
+		return validateErr
+	})
+	application.SnapshotPipeline = pipeline.NewSnapshotPipeline(
+		logger,
+		application.Jobs,
+		application.ArtifactStore,
+		application.Fetcher,
+		pipeline.NoOpMarkdownHandoff,
 	)
 }
 
@@ -165,6 +205,24 @@ func seedProcessJob(t *testing.T, database *sql.DB) {
 		time.Now().UTC().Format(time.RFC3339Nano),
 	)
 	require.NoError(t, err)
+}
+
+type processTestResolver struct {
+	ips map[string][]netip.Addr
+}
+
+func (r processTestResolver) LookupNetIP(_ context.Context, _ string, host string) ([]netip.Addr, error) {
+	return r.ips[host], nil
+}
+
+type processTestDialer struct {
+	targetAddress string
+}
+
+func (d processTestDialer) DialContext(ctx context.Context, network string, _ string) (net.Conn, error) {
+	var dialer net.Dialer
+
+	return dialer.DialContext(ctx, network, d.targetAddress)
 }
 
 func scalarString(t *testing.T, database *sql.DB, query string, args ...any) string {

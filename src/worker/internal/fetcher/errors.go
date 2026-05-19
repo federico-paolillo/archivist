@@ -127,6 +127,15 @@ func classifyHTTPStatus(rawURL string, status int) error {
 // classifyRequestError maps low-level request errors to ARC errors.
 // All request-level errors are transient by policy.
 func classifyRequestError(rawURL string, err error) error {
+	if _, ok := arc.CodeOf(err); ok {
+		return fetchFailure(
+			"request",
+			err,
+			"request failed",
+			withURL(rawURL),
+		)
+	}
+
 	return fetchFailure(
 		"request",
 		errors.Join(arc.ErrURLFetchTransientFailure, err),
