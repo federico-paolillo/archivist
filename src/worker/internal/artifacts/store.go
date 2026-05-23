@@ -14,6 +14,7 @@ import (
 const (
 	tempSnapshotPattern = ".snapshot.html.*.tmp"
 	tempContentPattern  = ".content.md.*.tmp"
+	tempSummaryPattern  = ".summary.md.*.tmp"
 	articleDirPerm      = 0o700
 	artifactFilePerm    = 0o600
 	tempCreateAttempts  = 16
@@ -88,6 +89,17 @@ func (s *Store) OpenMarkdown(articleID string) (io.ReadCloser, error) {
 // Replaces any existing content.md.
 func (s *Store) WriteMarkdown(articleID string, markdown io.Reader) error {
 	return s.writeArtifact(articleID, ContentMDFilename, tempContentPattern, markdown)
+}
+
+// WriteSummary streams summary markdown to the summary.md file for articleID, atomically.
+// Replaces any existing summary.md.
+func (s *Store) WriteSummary(articleID string, summary io.Reader) error {
+	err := s.writeArtifact(articleID, SummaryMDFilename, tempSummaryPattern, summary)
+	if err != nil {
+		return summaryWriteFailure(err)
+	}
+
+	return nil
 }
 
 func (s *Store) openArtifact(articleID, filename string) (io.ReadCloser, error) {

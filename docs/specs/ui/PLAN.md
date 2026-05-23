@@ -1,6 +1,6 @@
 ---
 feature: ui
-status: draft
+status: in_progress
 canonical: true
 ---
 
@@ -48,7 +48,7 @@ UIEND-003 -> UI-003
 | ID | Task | Status | Depends On | Blocks | Parallel | ExecPlan |
 |---|---|---|---|---|---|---|
 | `UI-001` | Create canonical UI artifacts | done | - | `UI-002` | no | - |
-| `UI-002` | UI routing, design system, API base config, and auth shell | blocked | `UI-001`, `AUTHN-004` | `UI-003` | no | `plans/UI-002-ui-routing-design-system-api-base-auth-shell.execplan.md` |
+| `UI-002` | UI routing, design system, API base config, and auth shell | done | `UI-001`, `AUTHN-004` | `UI-003` | no | `plans/UI-002-ui-routing-design-system-api-base-auth-shell.execplan.md` (completed) |
 | `UI-003` | Article master-detail view and delete workflow | blocked | `UI-002`, `UIEND-002`, `UIEND-003` | `UI-004` | no | `plans/UI-003-article-master-detail-and-delete-workflow.execplan.md` |
 | `UI-004` | Final UI validation pass | blocked | `UI-003` | - | no | - |
 

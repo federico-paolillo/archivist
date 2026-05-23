@@ -2,6 +2,9 @@ package artifacts
 
 import (
 	"errors"
+	"fmt"
+
+	"codeberg.org/federico-paolillo/archivist/internal/arc"
 )
 
 var (
@@ -73,6 +76,14 @@ func storeFailure(op string, err error, opts ...func(*StoreError)) error {
 	}
 
 	return storeErr
+}
+
+func summaryWriteFailure(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	return fmt.Errorf("artifacts: write summary: %w: %w", arc.ErrSummaryWrite, err)
 }
 
 func withArticleID(articleID string) func(*StoreError) {

@@ -45,27 +45,28 @@ Add only ExecPlan-specific context:
 
 1. Add article API client methods for list, detail, and delete using the configured API base and credentials.
 2. Define TypeScript DTOs matching `ui-endpoints`: lower-camel metadata fields plus `summaryMarkdown` and `contentMarkdown` for detail.
-3. Render the master-detail grid under the authenticated shell: fixed top bar, bordered master pane, bordered detail pane, dense ledger rows, black/gray surfaces, no rounded corners.
-4. Load the first article page from `GET /articles` when the authenticated articles shell mounts.
-5. Render article rows with id, title fallback, URL, status, and selected inversion matching the design system.
-6. On row click, navigate to `/articles/{id}` immediately and start detail loading.
-7. For direct `/articles/{id}` routes, load the article detail for the route id after the session gate succeeds.
-8. Show a design-compatible spinner during detail loading.
-9. Render `/articles` with no selected id as a blank black detail pane.
-10. For ready details, render title, summary markdown, content markdown, Original action, and Delete action.
-11. Render Markdown with raw HTML disabled. If adding a Markdown dependency, prefer a renderer that escapes raw HTML by configuration; document the dependency reason in the task diary.
-12. Validate Markdown links so `javascript:` URLs cannot execute. External links opened from rendered content must use `rel="noopener noreferrer"`.
-13. For queued and other non-ready/non-failed details, render centered white text exactly `Come back later.` while retaining available article actions.
-14. For failed details, render the persisted `errorMessage` centered in red while retaining available article actions.
-15. For detail fetch failures, render the failure text centered in red.
-16. Implement `Original` as a link to `canonicalUrl` when present, otherwise `originalUrl`, opening in a new tab/window with `noopener` and `noreferrer`.
-17. Implement `Delete` with a modal containing exactly `Are you sure?`, `Yes`, and `Nevermind`.
-18. Ensure `Nevermind` closes the modal without sending a request.
-19. Ensure `Yes` sends `DELETE /articles/{id}` through the configured API base.
-20. On successful delete, remove the article from local list state, navigate to `/articles`, and clear the detail pane.
-21. On delete failure, keep the current URL selected and show the failure text centered in red.
-22. Add tests for API calls, route updates, no-id detail, loading, ready, queued, failed, fetch-error, Original link, delete cancel, delete success, and delete failure.
-23. Update task status, feature plan, and diary after implementation and validation if this task is completed.
+3. Extend the existing `src/ui/src/pages/articles/articles.tsx` page and page-local components under `src/ui/src/pages/articles/components/`; do not move article page implementation back into `app.tsx`.
+4. Render the master-detail grid under the authenticated shell: fixed top bar, bordered master pane, bordered detail pane, dense ledger rows, black/gray surfaces, no rounded corners.
+5. Load the first article page from `GET /articles` when the authenticated articles shell mounts.
+6. Render article rows with id, title fallback, URL, status, and selected inversion matching the design system.
+7. On row click, navigate to `/articles/{id}` immediately and start detail loading.
+8. For direct `/articles/{id}` routes, load the article detail for the route id after the session gate succeeds.
+9. Show a design-compatible spinner during detail loading.
+10. Render `/articles` with no selected id as a blank black detail pane.
+11. For ready details, render title, summary markdown, content markdown, Original action, and Delete action.
+12. Render Markdown with raw HTML disabled. If adding a Markdown dependency, prefer a renderer that escapes raw HTML by configuration; document the dependency reason in the task diary.
+13. Validate Markdown links so `javascript:` URLs cannot execute. External links opened from rendered content must use `rel="noopener noreferrer"`.
+14. For queued and other non-ready/non-failed details, render centered white text exactly `Come back later.` while retaining available article actions.
+15. For failed details, render the persisted `errorMessage` centered in red while retaining available article actions.
+16. For detail fetch failures, render the failure text centered in red.
+17. Implement `Original` as a link to `canonicalUrl` when present, otherwise `originalUrl`, opening in a new tab/window with `noopener` and `noreferrer`.
+18. Implement `Delete` with a modal containing exactly `Are you sure?`, `Yes`, and `Nevermind`.
+19. Ensure `Nevermind` closes the modal without sending a request.
+20. Ensure `Yes` sends `DELETE /articles/{id}` through the configured API base.
+21. On successful delete, remove the article from local list state, navigate to `/articles`, and clear the detail pane.
+22. On delete failure, keep the current URL selected and show the failure text centered in red.
+23. Add tests for API calls, route updates, no-id detail, loading, ready, queued, failed, fetch-error, Original link, delete cancel, delete success, and delete failure.
+24. Update task status, feature plan, and diary after implementation and validation if this task is completed.
 
 ## Validation Plan
 

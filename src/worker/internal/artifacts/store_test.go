@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"codeberg.org/federico-paolillo/archivist/internal/arc"
 	"github.com/stretchr/testify/require"
 )
 
@@ -167,6 +168,11 @@ func TestArtifactAccessRejectsTraversal(t *testing.T) {
 		writeMDErr := store.WriteMarkdown(articleID, strings.NewReader("# no"))
 		require.ErrorIs(t, writeMDErr, ErrInvalidArticleID)
 		requireStoreError(t, writeMDErr, "validate article dir id")
+
+		writeSummaryErr := store.WriteSummary(articleID, strings.NewReader("no"))
+		require.ErrorIs(t, writeSummaryErr, ErrInvalidArticleID)
+		require.ErrorIs(t, writeSummaryErr, arc.ErrSummaryWrite)
+		requireStoreError(t, writeSummaryErr, "validate article dir id")
 	}
 }
 
@@ -183,6 +189,41 @@ func TestWriteMarkdownRejectsSymlinkedArticleDirectory(t *testing.T) {
 
 	requireSymlinkEscapeRejected(t, ContentMDFilename, ".content.md.*.tmp", func(store *Store) error {
 		return store.WriteMarkdown(testArticleID, strings.NewReader("# escape"))
+	})
+}
+
+func TestOpenMarkdownRejectsSymlinkedArticleDirectory(t *testing.T) {
+	t.Parallel()
+
+	dataDir := t.TempDir()
+	outsideDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(outsideDir, ContentMDFilename), []byte("# escape"), 0o600))
+
+	articlesDir := filepath.Join(dataDir, ArticlesDirectoryName)
+	require.NoError(t, os.MkdirAll(articlesDir, 0o700))
+	require.NoError(t, os.Symlink(outsideDir, filepath.Join(articlesDir, testArticleID)))
+
+	store, err := NewStore(dataDir)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, store.Close())
+	})
+
+	rc, err := store.OpenMarkdown(testArticleID)
+
+	require.Nil(t, rc)
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrStore)
+}
+
+func TestWriteSummaryRejectsSymlinkedArticleDirectory(t *testing.T) {
+	t.Parallel()
+
+	requireSymlinkEscapeRejected(t, SummaryMDFilename, ".summary.md.*.tmp", func(store *Store) error {
+		err := store.WriteSummary(testArticleID, strings.NewReader("escape"))
+		require.ErrorIs(t, err, arc.ErrSummaryWrite)
+
+		return err
 	})
 }
 
@@ -332,6 +373,121 @@ func TestOpenMarkdownReturnsNotExistWhenAbsent(t *testing.T) {
 	storeErr := requireStoreError(t, err, "open artifact")
 	require.Equal(t, testArticleID, storeErr.ArticleID)
 	require.Equal(t, ContentMDFilename, storeErr.Filename)
+}
+
+func TestWriteSummaryPathIsDeterministic(t *testing.T) {
+	t.Parallel()
+
+	dataDir := t.TempDir()
+	store, err := NewStore(dataDir)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, store.Close())
+	})
+
+	err = store.WriteSummary(testArticleID, strings.NewReader("Summary text"))
+	require.NoError(t, err)
+
+	expectedPath := filepath.Join(dataDir, "articles", testArticleID, "summary.md")
+	content, err := os.ReadFile(expectedPath)
+	require.NoError(t, err)
+	require.Equal(t, "Summary text", string(content))
+}
+
+func TestWriteSummaryAtomicallyPromotesFinalFile(t *testing.T) {
+	t.Parallel()
+
+	dataDir := t.TempDir()
+	store, err := NewStore(dataDir)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, store.Close())
+	})
+
+	err = store.WriteSummary(testArticleID, strings.NewReader("Summary text"))
+
+	require.NoError(t, err)
+
+	summaryPath := filepath.Join(dataDir, "articles", testArticleID, "summary.md")
+	content, err := os.ReadFile(summaryPath)
+	require.NoError(t, err)
+	require.Equal(t, "Summary text", string(content))
+
+	tempFiles, err := filepath.Glob(filepath.Join(dataDir, "articles", testArticleID, ".summary.md.*.tmp"))
+	require.NoError(t, err)
+	require.Empty(t, tempFiles)
+}
+
+func TestWriteSummaryCleansTempFileWhenPromotionFails(t *testing.T) {
+	t.Parallel()
+
+	dataDir := t.TempDir()
+	store, err := NewStore(dataDir)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, store.Close())
+	})
+
+	articleDir := filepath.Join(dataDir, "articles", testArticleID)
+	require.NoError(t, os.MkdirAll(articleDir, 0o700))
+	require.NoError(t, os.Mkdir(filepath.Join(articleDir, "summary.md"), 0o700))
+
+	err = store.WriteSummary(testArticleID, strings.NewReader("Summary text"))
+
+	require.Error(t, err)
+	require.ErrorIs(t, err, arc.ErrSummaryWrite)
+	storeErr := requireStoreError(t, err, "promote artifact")
+	require.Equal(t, testArticleID, storeErr.ArticleID)
+	require.Equal(t, SummaryMDFilename, storeErr.Filename)
+	tempFiles, globErr := filepath.Glob(filepath.Join(articleDir, ".summary.md.*.tmp"))
+	require.NoError(t, globErr)
+	require.Empty(t, tempFiles)
+
+	info, statErr := os.Stat(filepath.Join(articleDir, "summary.md"))
+	require.NoError(t, statErr)
+	require.True(t, info.IsDir())
+}
+
+func TestWriteSummaryCleansTempFileWhenSrcFails(t *testing.T) {
+	t.Parallel()
+
+	dataDir := t.TempDir()
+	store, err := NewStore(dataDir)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, store.Close())
+	})
+
+	err = store.WriteSummary(testArticleID, &failingReader{})
+
+	require.Error(t, err)
+	require.ErrorIs(t, err, arc.ErrSummaryWrite)
+	storeErr := requireStoreError(t, err, "write temp artifact")
+	require.Equal(t, testArticleID, storeErr.ArticleID)
+	require.Equal(t, SummaryMDFilename, storeErr.Filename)
+
+	articleDir := filepath.Join(dataDir, "articles", testArticleID)
+	tempFiles, globErr := filepath.Glob(filepath.Join(articleDir, ".summary.md.*.tmp"))
+	require.NoError(t, globErr)
+	require.Empty(t, tempFiles)
+}
+
+func TestWriteSummaryDoesNotCreateSummaryJSON(t *testing.T) {
+	t.Parallel()
+
+	dataDir := t.TempDir()
+	store, err := NewStore(dataDir)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, store.Close())
+	})
+
+	err = store.WriteSummary(testArticleID, strings.NewReader("Summary text"))
+	require.NoError(t, err)
+
+	summaryJSONPath := filepath.Join(dataDir, "articles", testArticleID, "summary.json")
+	_, err = os.Stat(summaryJSONPath)
+	require.ErrorIs(t, err, fs.ErrNotExist)
 }
 
 func requireStoreError(t *testing.T, err error, op string) *StoreError {

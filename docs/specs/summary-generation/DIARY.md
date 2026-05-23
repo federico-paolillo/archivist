@@ -241,3 +241,36 @@ Follow-ups:
 
 Canonical Updates:
 - None. `SPEC.md`, `SUMGEN-003`, and the linked ExecPlan already required context-window overflow and request-too-large failures to map to `ARC-014`.
+
+## 2026-05-20 — SUMGEN-002: Worker Summary Artifact Access
+
+Status:
+- done
+
+Summary:
+- Extended the Worker artifact store with atomic `summary.md` writes using the existing rooted article artifact access and temp-file promotion path.
+- Preserved existing deterministic `content.md` read behavior through `OpenMarkdown`.
+
+Changes:
+- Added `Store.WriteSummary(articleID, io.Reader)` for `{DATA_DIR}/articles/{article_id}/summary.md`.
+- Added a `.summary.md.*.tmp` temp-file pattern and reused the existing article-root `MkdirAll`, `OpenRoot`, temp write, cleanup, and rename machinery.
+- Wrapped summary write failures so callers can match `arc.ErrSummaryWrite` / `ARC-016` while still extracting `artifacts.StoreError` metadata.
+- Added artifact-store tests for content read, missing content read, deterministic summary path, atomic summary promotion, failed summary cleanup, traversal rejection, symlink escape rejection, and absence of `summary.json`.
+
+Decisions:
+- No new artifact paths, configuration keys, schemas, public filesystem path APIs, or summary JSON behavior were introduced.
+- The summary write operation maps store failures to `ARC-016`; content reads continue to surface `fs.ErrNotExist` through the existing `StoreError` pattern.
+
+Validation:
+- `go test ./internal/artifacts` — passed.
+- `cd src/worker && go tool lefthook run build` — passed.
+- `cd src/worker && go tool lefthook run format` — passed.
+- `cd src/worker && go tool lefthook run lint` — passed.
+- `cd src/worker && go tool lefthook run test` — passed after concurrent UI test changes completed.
+
+Follow-ups:
+- `SUMGEN-004` can now consume deterministic `content.md` reads and atomic `summary.md` writes.
+
+Canonical Updates:
+- `docs/specs/summary-generation/tasks/SUMGEN-002-worker-summary-artifact-access.md` — status: done, validation recorded.
+- `docs/specs/summary-generation/PLAN.md` — SUMGEN-002 row: done.

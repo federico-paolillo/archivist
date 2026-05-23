@@ -13,6 +13,16 @@ Frontend code lives under `src/ui/` and targets Preact with Tailwind CSS.
 - Use factory functions for transient dependencies in `deps.ts`
 - `preact-iso` offers a simple router for Preact with conventional and hooks-based APIs. We use that for routing
 
+## Project Structure
+
+- `src/ui/src/app.tsx` owns route composition only: `LocationProvider`, `ErrorBoundary`, `Router`, and route declarations.
+- Pages live under `src/ui/src/pages/<pagename>/<pagename>.tsx`.
+- Page directory names use route-oriented kebab-case, for example `login-failed`.
+- Page-specific components live under `src/ui/src/pages/<pagename>/components/`.
+- Globally reusable components live under `src/ui/src/components/`.
+- Page code must not import page-specific components from another page. Promote a component to `src/ui/src/components/` only when it is genuinely reused across pages.
+- Keep dependency composition in `src/ui/src/deps.ts`; page modules receive dependencies through props from the route composition root.
+
 ## Configuration
 
 - The UI reads `VITE_API_BASE_PATH` at build time to select the same-origin public API base path.

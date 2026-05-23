@@ -70,6 +70,8 @@ Expected outputs, files, behavior, or interfaces:
 ```text
 src/ui/src/
 src/ui/src/app.css
+src/ui/src/pages/articles/
+src/ui/src/pages/articles/components/
 src/ui/package.json
 ```
 

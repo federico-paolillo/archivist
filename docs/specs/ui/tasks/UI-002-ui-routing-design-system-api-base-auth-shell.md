@@ -2,7 +2,7 @@
 id: UI-002
 feature: ui
 title: UI routing, design system, API base config, and auth shell
-status: blocked
+status: done
 depends_on: [UI-001, AUTHN-004]
 blocks: [UI-003]
 parallel: false
@@ -74,6 +74,10 @@ src/ui/src/
 src/ui/src/app.css
 src/ui/src/app.tsx
 src/ui/src/main.tsx
+src/ui/src/components/
+src/ui/src/pages/login/
+src/ui/src/pages/login-failed/
+src/ui/src/pages/articles/
 src/ui/package.json
 src/ui/vite.config.ts
 ```
@@ -121,6 +125,16 @@ Scenario: Logout returns to login
 - Tests cover API base usage, login success, invalid-login black page, session `401`, and logout.
 - Validation passes or failures are recorded.
 
+## Implementation Notes
+
+- Implemented Preact routes for `/login`, `/login/failed`, `/articles`, and `/articles/:articleId`.
+- Added `deps.ts` with `makeDeps()`, normalized `VITE_API_BASE_PATH` handling, and auth client methods for `getSession`, `login`, and `logout`.
+- Article routes are protected by `GET /auth/session`; `401` or session check failure navigates to `/login`.
+- `/login/failed` renders a blank black page with no visible content or interactive controls.
+- Article list/detail/delete behavior remains out of scope and is represented only by authenticated shell placeholders.
+- UI page implementations now live under `src/ui/src/pages/<pagename>/<pagename>.tsx`; page-specific components live under each page's `components/` folder, and the session gate lives in `src/ui/src/components/protected-route.tsx`.
+- `src/ui/src/app.tsx` remains the route composition root and must not accumulate page implementation logic.
+
 ## Validation
 
 Required checks:
@@ -132,9 +146,26 @@ cd src/ui && npm run build
 cd src/ui && npm run test
 ```
 
+Result on 2026-05-20:
+
+```text
+npm run format: passed
+npm run lint: passed
+npm run build: passed
+npm run test: passed (2 files, 8 tests)
+```
+
 Manual validation:
 
 - Capture `/login` and `/login/failed` in a browser and compare against `docs/design/login.png` and `docs/design/DESIGN.md`.
+
+Result on 2026-05-20:
+
+```text
+/login: black page with ARCHIVIST title, masked password control, and IDENTIFY submit.
+/login/failed: blank black page, no visible text, no interactive controls.
+/articles unauthenticated: redirected to /login after session check failure.
+```
 
 ## Dependencies
 

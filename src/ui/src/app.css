@@ -1,1 +1,259 @@
 @import "tailwindcss";
+
+@layer base {
+	:root {
+		color: #ffffff;
+		background: #000000;
+		font-family: "Public Sans", Arial, Helvetica, sans-serif;
+		font-synthesis: none;
+		text-rendering: geometricPrecision;
+	}
+
+	* {
+		box-sizing: border-box;
+	}
+
+	html,
+	body {
+		min-width: 320px;
+		min-height: 100%;
+		margin: 0;
+		background: #000000;
+		color: #ffffff;
+	}
+
+	body {
+		min-height: 100vh;
+	}
+
+	button,
+	input {
+		font: inherit;
+	}
+
+	button {
+		border-radius: 0;
+	}
+
+	a {
+		color: inherit;
+		text-decoration: none;
+	}
+
+	:focus-visible {
+		outline: 4px solid #ffffff;
+		outline-offset: 4px;
+	}
+}
+
+@layer components {
+	.blank-page {
+		min-height: 100vh;
+		background: #000000;
+		color: #000000;
+	}
+
+	.login-page {
+		display: grid;
+		min-height: 100vh;
+		place-items: center;
+		padding: 32px;
+		background: #000000;
+	}
+
+	.login-panel {
+		display: grid;
+		width: min(100%, 760px);
+		gap: 24px;
+	}
+
+	.login-title {
+		margin: 0;
+		color: #ffffff;
+		font-family: "Space Grotesk", Arial, Helvetica, sans-serif;
+		font-size: clamp(48px, 11vw, 96px);
+		font-weight: 700;
+		letter-spacing: 0;
+		line-height: 0.9;
+		text-transform: uppercase;
+	}
+
+	.field {
+		display: grid;
+		gap: 8px;
+	}
+
+	.field-label {
+		color: #c4c7c8;
+		font-family: "Space Grotesk", Arial, Helvetica, sans-serif;
+		font-size: 12px;
+		font-weight: 700;
+		letter-spacing: 0.1em;
+		line-height: 1;
+		text-transform: uppercase;
+	}
+
+	.password-input {
+		width: 100%;
+		height: 96px;
+		border: 4px solid #ffffff;
+		border-radius: 0;
+		background: #000000;
+		color: #ffffff;
+		font-family: "Space Grotesk", Arial, Helvetica, sans-serif;
+		font-size: clamp(28px, 6vw, 56px);
+		font-weight: 700;
+		letter-spacing: 0;
+		line-height: 1;
+		padding: 18px 20px;
+	}
+
+	.password-input:focus {
+		outline: none;
+		border-color: #ffffff;
+		background: #131313;
+	}
+
+	.button-primary,
+	.menu-item,
+	.icon-button {
+		border: 2px solid #ffffff;
+		border-radius: 0;
+		background: #000000;
+		color: #ffffff;
+		cursor: pointer;
+	}
+
+	.button-primary:hover,
+	.button-primary:focus-visible,
+	.menu-item:hover,
+	.menu-item:focus-visible,
+	.icon-button:hover,
+	.icon-button:focus-visible {
+		background: #ffffff;
+		color: #000000;
+	}
+
+	.button-primary {
+		min-height: 64px;
+		padding: 0 24px;
+		font-family: "Space Grotesk", Arial, Helvetica, sans-serif;
+		font-size: 20px;
+		font-weight: 700;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+	}
+
+	.button-primary:disabled {
+		border-color: #444748;
+		color: #8e9192;
+		cursor: wait;
+	}
+
+	.article-shell {
+		display: grid;
+		min-height: 100vh;
+		grid-template-rows: 72px 1fr;
+		background: #000000;
+		color: #ffffff;
+	}
+
+	.top-bar {
+		display: flex;
+		align-items: stretch;
+		justify-content: space-between;
+		border-bottom: 4px solid #ffffff;
+		background: #0e0e0e;
+	}
+
+	.brand-link {
+		display: flex;
+		align-items: center;
+		padding: 0 24px;
+		font-family: "Space Grotesk", Arial, Helvetica, sans-serif;
+		font-size: 24px;
+		font-weight: 700;
+		letter-spacing: 0;
+		text-transform: uppercase;
+	}
+
+	.user-menu {
+		position: relative;
+		display: flex;
+		align-items: center;
+		padding-right: 16px;
+	}
+
+	.icon-button {
+		display: grid;
+		width: 44px;
+		height: 44px;
+		place-items: center;
+		padding: 0;
+	}
+
+	.user-glyph {
+		display: block;
+		width: 18px;
+		height: 18px;
+		border: 4px solid currentColor;
+		background: currentColor;
+	}
+
+	.menu {
+		position: absolute;
+		top: calc(100% - 8px);
+		right: 16px;
+		display: grid;
+		min-width: 160px;
+		border: 2px solid #ffffff;
+		background: #000000;
+		z-index: 10;
+	}
+
+	.menu-item {
+		min-height: 48px;
+		border: 0;
+		padding: 0 16px;
+		font-family: "Space Grotesk", Arial, Helvetica, sans-serif;
+		font-size: 14px;
+		font-weight: 700;
+		letter-spacing: 0;
+		text-align: left;
+	}
+
+	.article-placeholder {
+		display: grid;
+		min-height: 0;
+		grid-template-columns: minmax(280px, 420px) minmax(0, 1fr);
+		background: #000000;
+	}
+
+	.placeholder-column {
+		border-right: 4px solid #ffffff;
+		background: #131313;
+	}
+
+	.placeholder-detail {
+		background: #000000;
+	}
+}
+
+@media (max-width: 720px) {
+	@layer components {
+		.login-page {
+			place-items: end stretch;
+			padding: 24px;
+		}
+
+		.article-placeholder {
+			grid-template-columns: 1fr;
+			grid-template-rows: 180px 1fr;
+		}
+
+		.placeholder-column {
+			border-right: 0;
+			border-bottom: 4px solid #ffffff;
+		}
+	}
+}

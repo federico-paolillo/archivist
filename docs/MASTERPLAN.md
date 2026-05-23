@@ -55,21 +55,22 @@ It is not listed in `docs/REBUILD.md` and is not authoritative by itself. If thi
 - [`AUTHN-003`](./specs/authn/tasks/AUTHN-003-gateway-cookie-authentication-endpoints.md) - Gateway opaque session cookie authentication. Feature: [`authn`](./specs/authn/SPEC.md). Status: `done`. ExecPlan: [`completed`](./specs/authn/plans/AUTHN-003-gateway-cookie-authentication.execplan.md).
 - [`ARTPROC-005`](./specs/article-processing/tasks/ARTPROC-005-worker-snapshot-pipeline-orchestration.md) - Worker snapshot pipeline orchestration. Feature: [`article-processing`](./specs/article-processing/SPEC.md). Status: `done`. ExecPlan: [`completed`](./specs/article-processing/plans/ARTPROC-005-worker-snapshot-pipeline-orchestration.execplan.md).
 
-### Wave 4 - Auth Protection, Markdown Integration, Delete API
+### Wave 4 - Completed Auth Protection, Markdown Integration, Delete API
 
-- [`AUTHN-004`](./specs/authn/tasks/AUTHN-004-protect-ui-api-and-validate-auth-client-contract.md) - Protect UI API and validate auth client contract. Feature: [`authn`](./specs/authn/SPEC.md). Status: `blocked`.
-- [`MDEXT-005`](./specs/markdown-extraction/tasks/MDEXT-005-worker-markdown-pipeline-integration.md) - Worker Markdown pipeline integration. Feature: [`markdown-extraction`](./specs/markdown-extraction/SPEC.md). Status: `blocked`. ExecPlan: [`proposed`](./specs/markdown-extraction/plans/MDEXT-005-worker-markdown-pipeline-integration.execplan.md).
-- [`UIEND-003`](./specs/ui-endpoints/tasks/UIEND-003-gateway-article-delete-api.md) - Gateway article delete API. Feature: [`ui-endpoints`](./specs/ui-endpoints/SPEC.md). Status: `blocked`. ExecPlan: [`proposed`](./specs/ui-endpoints/plans/UIEND-003-gateway-article-delete-api.execplan.md).
+- [`AUTHN-004`](./specs/authn/tasks/AUTHN-004-protect-ui-api-and-validate-auth-client-contract.md) - Protect UI API and validate auth client contract. Feature: [`authn`](./specs/authn/SPEC.md). Status: `done`.
+- [`MDEXT-005`](./specs/markdown-extraction/tasks/MDEXT-005-worker-markdown-pipeline-integration.md) - Worker Markdown pipeline integration. Feature: [`markdown-extraction`](./specs/markdown-extraction/SPEC.md). Status: `done`. ExecPlan: [`completed`](./specs/markdown-extraction/plans/MDEXT-005-worker-markdown-pipeline-integration.execplan.md).
+- [`UIEND-003`](./specs/ui-endpoints/tasks/UIEND-003-gateway-article-delete-api.md) - Gateway article delete API. Feature: [`ui-endpoints`](./specs/ui-endpoints/SPEC.md). Status: `done`. ExecPlan: [`completed`](./specs/ui-endpoints/plans/UIEND-003-gateway-article-delete-api.execplan.md).
 
 ### Wave 5 - Auth Validation, Summary Artifact Access, Auth Shell
 
-- [`AUTHN-005`](./specs/authn/tasks/AUTHN-005-security-validation-pass.md) - Security validation pass. Feature: [`authn`](./specs/authn/SPEC.md). Status: `blocked`.
-- [`SUMGEN-002`](./specs/summary-generation/tasks/SUMGEN-002-worker-summary-artifact-access.md) - Worker summary artifact access. Feature: [`summary-generation`](./specs/summary-generation/SPEC.md). Status: `blocked`.
-- [`UI-002`](./specs/ui/tasks/UI-002-ui-routing-design-system-api-base-auth-shell.md) - UI routing, design system, API base config, and auth shell. Feature: [`ui`](./specs/ui/SPEC.md). Status: `blocked`. ExecPlan: [`proposed`](./specs/ui/plans/UI-002-ui-routing-design-system-api-base-auth-shell.execplan.md).
+- [`AUTHN-006`](./specs/authn/tasks/AUTHN-006-reverse-proxy-forwarded-headers-and-effective-https-auth.md) - Reverse-proxy forwarded headers and effective HTTPS auth. Feature: [`authn`](./specs/authn/SPEC.md). Status: `done`. ExecPlan: [`completed`](./specs/authn/plans/AUTHN-006-reverse-proxy-forwarded-headers.execplan.md).
+- [`AUTHN-005`](./specs/authn/tasks/AUTHN-005-security-validation-pass.md) - Security validation pass. Feature: [`authn`](./specs/authn/SPEC.md). Status: `done`.
+- [`SUMGEN-002`](./specs/summary-generation/tasks/SUMGEN-002-worker-summary-artifact-access.md) - Worker summary artifact access. Feature: [`summary-generation`](./specs/summary-generation/SPEC.md). Status: `done`.
+- [`UI-002`](./specs/ui/tasks/UI-002-ui-routing-design-system-api-base-auth-shell.md) - UI routing, design system, API base config, and auth shell. Feature: [`ui`](./specs/ui/SPEC.md). Status: `done`. ExecPlan: [`completed`](./specs/ui/plans/UI-002-ui-routing-design-system-api-base-auth-shell.execplan.md).
 
 ### Wave 6 - Summary Pipeline Integration
 
-- [`SUMGEN-004`](./specs/summary-generation/tasks/SUMGEN-004-worker-summary-pipeline-integration.md) - Worker summary pipeline integration. Feature: [`summary-generation`](./specs/summary-generation/SPEC.md). Status: `blocked`. ExecPlan: [`proposed`](./specs/summary-generation/plans/SUMGEN-004-worker-summary-pipeline-integration.execplan.md).
+- [`SUMGEN-004`](./specs/summary-generation/tasks/SUMGEN-004-worker-summary-pipeline-integration.md) - Worker summary pipeline integration. Feature: [`summary-generation`](./specs/summary-generation/SPEC.md). Status: `blocked` because its ExecPlan is `proposed`; dependencies are done. ExecPlan: [`proposed`](./specs/summary-generation/plans/SUMGEN-004-worker-summary-pipeline-integration.execplan.md).
 
 ### Wave 7 - Summary Notification
 
@@ -107,8 +108,9 @@ flowchart TD
     AUTHN_001["AUTHN-001<br/>Authn canonical docs and design decisions<br/>done"]
     AUTHN_002["AUTHN-002<br/>Password persistence and bootstrap<br/>done"]
     AUTHN_003["AUTHN-003<br/>Gateway opaque session cookie authentication<br/>done"]
-    AUTHN_004["AUTHN-004<br/>Protect UI API and validate auth client contract<br/>blocked"]
-    AUTHN_005["AUTHN-005<br/>Security validation pass<br/>blocked"]
+    AUTHN_004["AUTHN-004<br/>Protect UI API and validate auth client contract<br/>done"]
+    AUTHN_006["AUTHN-006<br/>Reverse-proxy forwarded headers and effective HTTPS auth<br/>done"]
+    AUTHN_005["AUTHN-005<br/>Security validation pass<br/>done"]
   end
 
   subgraph article_processing["article-processing"]
@@ -125,13 +127,18 @@ flowchart TD
     MDEXT_002["MDEXT-002<br/>Worker Markdown artifact access<br/>done"]
     MDEXT_003["MDEXT-003<br/>Worker go-readability extraction<br/>done"]
     MDEXT_004["MDEXT-004<br/>Worker Jina Reader fallback<br/>done"]
-    MDEXT_005["MDEXT-005<br/>Worker Markdown pipeline integration<br/>blocked"]
+    MDEXT_005["MDEXT-005<br/>Worker Markdown pipeline integration<br/>done"]
     MDEXT_006["MDEXT-006<br/>Gateway Markdown success notification<br/>skipped"]
+  end
+
+  subgraph worker_runtime_configuration["worker-runtime-configuration"]
+    WCFG_001["WCFG-001<br/>Canonical Worker config loading<br/>done"]
+    WCFG_002["WCFG-002<br/>Non-Optional Worker Composition<br/>done"]
   end
 
   subgraph summary_generation["summary-generation"]
     SUMGEN_001["SUMGEN-001<br/>Create feature artifacts and contracts<br/>done"]
-    SUMGEN_002["SUMGEN-002<br/>Worker summary artifact access<br/>blocked"]
+    SUMGEN_002["SUMGEN-002<br/>Worker summary artifact access<br/>done"]
     SUMGEN_003["SUMGEN-003<br/>Summarizer provider adapter<br/>done"]
     SUMGEN_004["SUMGEN-004<br/>Worker summary pipeline integration<br/>blocked"]
     SUMGEN_005["SUMGEN-005<br/>Gateway summary notification<br/>blocked"]
@@ -140,12 +147,12 @@ flowchart TD
   subgraph ui_endpoints["ui-endpoints"]
     UIEND_001["UIEND-001<br/>Create canonical artifacts<br/>done"]
     UIEND_002["UIEND-002<br/>Gateway article read API<br/>blocked"]
-    UIEND_003["UIEND-003<br/>Gateway article delete API<br/>blocked"]
+    UIEND_003["UIEND-003<br/>Gateway article delete API<br/>done"]
   end
 
   subgraph ui["ui"]
     UI_001["UI-001<br/>Create canonical UI artifacts<br/>done"]
-    UI_002["UI-002<br/>UI routing, design system, API base config, and auth shell<br/>blocked"]
+    UI_002["UI-002<br/>UI routing, design system, API base config, and auth shell<br/>done"]
     UI_003["UI-003<br/>Article master-detail view and delete workflow<br/>blocked"]
     UI_004["UI-004<br/>Final UI validation pass<br/>blocked"]
   end
@@ -159,7 +166,8 @@ flowchart TD
   TELING_001 --> AUTHN_002
   AUTHN_002 --> AUTHN_003
   AUTHN_003 --> AUTHN_004
-  AUTHN_004 --> AUTHN_005
+  AUTHN_004 --> AUTHN_006
+  AUTHN_006 --> AUTHN_005
 
   ARTPROC_001 --> ARTPROC_002
   ARTPROC_001 --> ARTPROC_003
@@ -182,11 +190,17 @@ flowchart TD
   MDEXT_005 --> MDEXT_006
   TELING_004 --> MDEXT_006
 
+  WCFG_001 --> WCFG_002
+
   SUMGEN_001 --> SUMGEN_002
   MDEXT_005 --> SUMGEN_002
+  WCFG_001 --> SUMGEN_002
+  WCFG_002 --> SUMGEN_002
   SUMGEN_001 --> SUMGEN_003
   SUMGEN_002 --> SUMGEN_004
   SUMGEN_003 --> SUMGEN_004
+  WCFG_001 --> SUMGEN_004
+  WCFG_002 --> SUMGEN_004
   SUMGEN_004 --> SUMGEN_005
   TELING_004 --> SUMGEN_005
 
@@ -210,8 +224,8 @@ flowchart TD
   classDef blocked fill:#fef3c7,stroke:#b45309,color:#111827
   classDef skipped fill:#e5e7eb,stroke:#6b7280,color:#374151,stroke-dasharray: 4 4
 
-  class AUTHN_001,ARTPROC_001,ARTPROC_002,MDEXT_001,SUMGEN_001,UIEND_001,UI_001,MDEXT_004,SUMGEN_003,TELING_001,TELING_002,TELING_003,AUTHN_002,ARTPROC_003,MDEXT_003,ARTPROC_004,MDEXT_002,TELING_004,AUTHN_003,ARTPROC_005 done
-  class AUTHN_004,AUTHN_005,MDEXT_005,SUMGEN_002,SUMGEN_004,SUMGEN_005,UIEND_002,UIEND_003,UI_002,UI_003,UI_004 blocked
+  class AUTHN_001,ARTPROC_001,ARTPROC_002,MDEXT_001,SUMGEN_001,UIEND_001,UI_001,MDEXT_004,SUMGEN_003,TELING_001,TELING_002,TELING_003,AUTHN_002,ARTPROC_003,MDEXT_003,ARTPROC_004,MDEXT_002,TELING_004,AUTHN_003,ARTPROC_005,AUTHN_004,AUTHN_006,AUTHN_005,MDEXT_005,UIEND_003,SUMGEN_002,UI_002,WCFG_001,WCFG_002 done
+  class SUMGEN_004,SUMGEN_005,UIEND_002,UI_003,UI_004 blocked
   class ARTPROC_006,MDEXT_006 skipped
 
   click TELING_001 "./specs/telegram-ingestion/SPEC.md" "telegram-ingestion SPEC"
@@ -222,6 +236,7 @@ flowchart TD
   click AUTHN_002 "./specs/authn/SPEC.md" "authn SPEC"
   click AUTHN_003 "./specs/authn/SPEC.md" "authn SPEC"
   click AUTHN_004 "./specs/authn/SPEC.md" "authn SPEC"
+  click AUTHN_006 "./specs/authn/SPEC.md" "authn SPEC"
   click AUTHN_005 "./specs/authn/SPEC.md" "authn SPEC"
   click ARTPROC_001 "./specs/article-processing/SPEC.md" "article-processing SPEC"
   click ARTPROC_002 "./specs/article-processing/SPEC.md" "article-processing SPEC"
@@ -235,6 +250,8 @@ flowchart TD
   click MDEXT_004 "./specs/markdown-extraction/SPEC.md" "markdown-extraction SPEC"
   click MDEXT_005 "./specs/markdown-extraction/SPEC.md" "markdown-extraction SPEC"
   click MDEXT_006 "./specs/markdown-extraction/SPEC.md" "markdown-extraction SPEC"
+  click WCFG_001 "./specs/worker-runtime-configuration/SPEC.md" "worker-runtime-configuration SPEC"
+  click WCFG_002 "./specs/worker-runtime-configuration/SPEC.md" "worker-runtime-configuration SPEC"
   click SUMGEN_001 "./specs/summary-generation/SPEC.md" "summary-generation SPEC"
   click SUMGEN_002 "./specs/summary-generation/SPEC.md" "summary-generation SPEC"
   click SUMGEN_003 "./specs/summary-generation/SPEC.md" "summary-generation SPEC"

@@ -1,7 +1,7 @@
 ---
 id: UI-002-PLAN
 task: ../tasks/UI-002-ui-routing-design-system-api-base-auth-shell.md
-status: proposed
+status: completed
 canonical: true
 ---
 
@@ -99,3 +99,12 @@ Manual checks:
 - The auth shell satisfies linked task acceptance criteria.
 - Validation commands pass or failures are recorded.
 - Manual login route checks are recorded in `DIARY.md`.
+
+## Completion Notes
+
+Accepted and completed on 2026-05-20.
+
+- Implemented the planned dependency composition root, auth API client, routes, session gate, login flow, blank login-failure route, and logout menu.
+- Kept article list/detail/delete behavior out of scope for UI-002.
+- Validation passed: `npm run format`, `npm run lint`, `npm run build`, and `npm run test`.
+- Browser smoke validation passed for `/login`, `/login/failed`, and unauthenticated `/articles`.

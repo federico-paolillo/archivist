@@ -2,7 +2,7 @@
 id: SUMGEN-002
 feature: summary-generation
 title: Worker Summary Artifact Access
-status: ready
+status: done
 depends_on: [SUMGEN-001, MDEXT-005, WCFG-001, WCFG-002]
 blocks: [SUMGEN-004]
 parallel: true
@@ -131,6 +131,13 @@ cd src/worker && go tool lefthook run test
 Manual validation, if any:
 
 - Inspect a test artifact directory to confirm only expected artifacts are written.
+
+Validation completed on 2026-05-20:
+
+- `cd src/worker && go tool lefthook run build` — passed.
+- `cd src/worker && go tool lefthook run format` — passed.
+- `cd src/worker && go tool lefthook run lint` — passed.
+- `cd src/worker && go tool lefthook run test` — passed.
 
 ## Dependencies
 
