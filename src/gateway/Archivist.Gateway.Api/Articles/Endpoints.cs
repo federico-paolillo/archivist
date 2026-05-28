@@ -12,6 +12,12 @@ internal static class Endpoints
     /// </summary>
     public static IEndpointRouteBuilder MapArticles(this IEndpointRouteBuilder app)
     {
+        app.MapGet("/articles", Handlers.ListArticles)
+            .RequireAuthorization();
+
+        app.MapGet("/articles/{id}", Handlers.GetArticle)
+            .RequireAuthorization();
+
         app.MapDelete("/articles/{id}", Handlers.DeleteArticle)
             .RequireAuthorization()
             .AddEndpointFilter<SameOriginFilter>();

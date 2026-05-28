@@ -34,6 +34,7 @@ public static class ServiceCollectionExtensions
         });
         services.AddScoped<IArticleArtifactReader, FileSystemArticleArtifactReader>();
         services.AddScoped<IArticleArtifactDeletion, FileSystemArticleArtifactDeletion>();
+        services.AddScoped<IArticleQueryService, EfArticleQueryService>();
         services.AddScoped<IArticleDeleteService, EfArticleDeleteService>();
 
         return services;

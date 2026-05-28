@@ -16,7 +16,7 @@ This file prevents scattered feature folders from becoming unmanageable.
 | `markdown-extraction` | Markdown Extraction With Fallbacks | done | `article-processing` | [`SPEC.md`](./markdown-extraction/SPEC.md) | [`PLAN.md`](./markdown-extraction/PLAN.md) |
 | `worker-runtime-configuration` | Worker Runtime Configuration | done | `markdown-extraction` | [`SPEC.md`](./worker-runtime-configuration/SPEC.md) | [`PLAN.md`](./worker-runtime-configuration/PLAN.md) |
 | `summary-generation` | Summary Generation | done | `markdown-extraction`, `worker-runtime-configuration` | [`SPEC.md`](./summary-generation/SPEC.md) | [`PLAN.md`](./summary-generation/PLAN.md) |
-| `ui-endpoints` | UI Article Endpoints | in_progress | `authn`, `telegram-ingestion`, `summary-generation` | [`SPEC.md`](./ui-endpoints/SPEC.md) | [`PLAN.md`](./ui-endpoints/PLAN.md) |
+| `ui-endpoints` | UI Article Endpoints | done | `authn`, `telegram-ingestion`, `summary-generation` | [`SPEC.md`](./ui-endpoints/SPEC.md) | [`PLAN.md`](./ui-endpoints/PLAN.md) |
 | `ui` | Final Browser UI | in_progress | `authn`, `ui-endpoints` | [`SPEC.md`](./ui/SPEC.md) | [`PLAN.md`](./ui/PLAN.md) |
 
 Status values: `draft` \| `in_progress` \| `done` \| `blocked` \| `skipped`

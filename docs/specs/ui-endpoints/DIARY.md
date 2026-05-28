@@ -135,3 +135,40 @@ Canonical Updates:
 - `docs/specs/ui-endpoints/PLAN.md` — status: in_progress.
 - `docs/specs/ui-endpoints/tasks/UIEND-003-gateway-article-delete-api.md` — validation limitation recorded.
 - `docs/specs/INDEX.md` — ui-endpoints status: in_progress.
+
+## 2026-05-28 — UIEND-002: Gateway Article Read API
+
+Status:
+- completed
+
+Summary:
+- Implemented authenticated `GET /articles` and `GET /articles/{id}` for user-owned article metadata and detail.
+- Completed the `ui-endpoints` feature because `UIEND-002` and `UIEND-003` are now done.
+
+Changes:
+- Added fixed 25-item article list pagination using ULID cursors with `after` for older rows and `before` for newer rows.
+- Added authenticated user scoping through `ClaimTypes.NameIdentifier`.
+- Added article detail loading with lower-camel JSON DTOs and read-only `summary.md` / `content.md` artifact access.
+- Extended the existing read-only artifact reader to read `content.md` without adding write, create, rename, or delete operations.
+- Added integration tests for authentication, cursor validation, pagination, malformed IDs, not found, ready artifact reads, ready missing artifacts, and queued/failed nullable artifacts.
+- Re-ran the existing delete endpoint tests as part of the full Gateway test suite to guard the `DELETE /articles/{id}` behavior.
+
+Decisions:
+- Used the linked ExecPlan after promoting it from `proposed` to `in_progress`; marked it `completed` after implementation.
+- Kept URLs as strings in application/API DTOs because the canonical wire contract and SQLite schema expose persisted URL text.
+- Missing or unreadable artifacts are normalized inside the query service: ready articles return the documented `500`, while queued and failed articles return nullable Markdown fields.
+
+Validation:
+- `cd src/gateway && dotnet format` — passed.
+- `cd src/gateway && dotnet build` — passed.
+- `cd src/gateway && dotnet test` — passed.
+
+Follow-ups:
+- None.
+
+Canonical Updates:
+- `docs/specs/ui-endpoints/SPEC.md` — status: done.
+- `docs/specs/ui-endpoints/PLAN.md` — status: done, `UIEND-002` row done.
+- `docs/specs/ui-endpoints/tasks/UIEND-002-gateway-article-read-api.md` — status: done.
+- `docs/specs/ui-endpoints/plans/UIEND-002-gateway-article-read-api.execplan.md` — status: completed.
+- `docs/specs/INDEX.md` — ui-endpoints status: done.

@@ -2,7 +2,7 @@
 id: UIEND-002
 feature: ui-endpoints
 title: Gateway article read API
-status: blocked
+status: done
 depends_on: [UIEND-001, AUTHN-003, TELING-001, SUMGEN-005]
 blocks: [UI-003]
 parallel: false

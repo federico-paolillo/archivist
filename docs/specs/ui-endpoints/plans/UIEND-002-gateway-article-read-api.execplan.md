@@ -1,7 +1,7 @@
 ---
 id: UIEND-002-PLAN
 task: ../tasks/UIEND-002-gateway-article-read-api.md
-status: proposed
+status: completed
 canonical: true
 ---
 

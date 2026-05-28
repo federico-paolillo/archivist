@@ -1,0 +1,163 @@
+using Archivist.Gateway.Application.ArticleArtifacts;
+using Archivist.Gateway.Application.Persistence;
+using Archivist.Gateway.Application.Persistence.Entities;
+
+using Microsoft.EntityFrameworkCore;
+
+namespace Archivist.Gateway.Application.Articles.Defaults;
+
+/// <summary>
+/// EF Core implementation of authenticated article read queries.
+/// </summary>
+public sealed class EfArticleQueryService(
+    ArchivistDbContext db,
+    IArticleArtifactReader artifactReader) : IArticleQueryService
+{
+    private const int PageSize = 25;
+
+    /// <inheritdoc />
+    public async Task<ArticleListPage> ListAsync(
+        string userId,
+        string? after,
+        string? before,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(userId);
+
+        var query = db.Articles
+            .AsNoTracking()
+            .Where(x => x.UserId == userId);
+
+        if (after is not null)
+        {
+            query = query.Where(x => x.Id.CompareTo(after) < 0);
+        }
+
+        if (before is not null)
+        {
+            query = query.Where(x => x.Id.CompareTo(before) > 0);
+        }
+
+        var items = await query
+            .OrderByDescending(x => x.Id)
+            .Take(PageSize)
+            .Select(x => new ArticleListItem(
+                x.Id,
+                x.Title,
+                x.OriginalUrl,
+                x.CanonicalUrl,
+                x.Status,
+                x.ErrorMessage,
+                x.CreatedAt))
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        var nextCursor = await GetNextCursorAsync(userId, items, cancellationToken).ConfigureAwait(false);
+        var previousCursor = await GetPreviousCursorAsync(userId, items, cancellationToken).ConfigureAwait(false);
+
+        return new ArticleListPage(items, nextCursor, previousCursor);
+    }
+
+    /// <inheritdoc />
+    public async Task<ArticleDetailResult> GetDetailAsync(
+        string articleId,
+        string userId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(articleId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(userId);
+
+        var article = await db.Articles
+            .AsNoTracking()
+            .Where(x => x.Id == articleId && x.UserId == userId)
+            .SingleOrDefaultAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        if (article is null)
+        {
+            return ArticleDetailResult.NotFound;
+        }
+
+        var summaryMarkdown = await ReadArtifactAsync(
+                article,
+                artifactReader.ReadSummaryMarkdownAsync,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        var contentMarkdown = await ReadArtifactAsync(
+                article,
+                artifactReader.ReadContentMarkdownAsync,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        if (article.Status == PersistenceConstants.ArticleReady &&
+            (summaryMarkdown is null || contentMarkdown is null))
+        {
+            return ArticleDetailResult.RequiredArtifactUnavailable;
+        }
+
+        return ArticleDetailResult.Found(new ArticleDetail(
+            article.Id,
+            article.Title,
+            article.OriginalUrl,
+            article.CanonicalUrl,
+            article.Status,
+            article.ErrorMessage,
+            article.CreatedAt,
+            summaryMarkdown,
+            contentMarkdown));
+    }
+
+    private async Task<string?> ReadArtifactAsync(
+        ArticleEntity article,
+        Func<string, CancellationToken, Task<string>> read,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await read(article.Id, cancellationToken).ConfigureAwait(false);
+        }
+        catch (ArticleArtifactReadException)
+        {
+            return null;
+        }
+    }
+
+    private async Task<string?> GetNextCursorAsync(
+        string userId,
+        List<ArticleListItem> items,
+        CancellationToken cancellationToken)
+    {
+        if (items.Count == 0)
+        {
+            return null;
+        }
+
+        var lastId = items[^1].Id;
+        var hasOlder = await db.Articles
+            .AsNoTracking()
+            .AnyAsync(x => x.UserId == userId && x.Id.CompareTo(lastId) < 0, cancellationToken)
+            .ConfigureAwait(false);
+
+        return hasOlder ? lastId : null;
+    }
+
+    private async Task<string?> GetPreviousCursorAsync(
+        string userId,
+        List<ArticleListItem> items,
+        CancellationToken cancellationToken)
+    {
+        if (items.Count == 0)
+        {
+            return null;
+        }
+
+        var firstId = items[0].Id;
+        var hasNewer = await db.Articles
+            .AsNoTracking()
+            .AnyAsync(x => x.UserId == userId && x.Id.CompareTo(firstId) > 0, cancellationToken)
+            .ConfigureAwait(false);
+
+        return hasNewer ? firstId : null;
+    }
+}
