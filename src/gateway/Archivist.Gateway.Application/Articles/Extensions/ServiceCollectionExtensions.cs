@@ -32,6 +32,7 @@ public static class ServiceCollectionExtensions
 
             return new ArticleArtifactPaths(dataDirectory);
         });
+        services.AddScoped<IArticleArtifactReader, FileSystemArticleArtifactReader>();
         services.AddScoped<IArticleArtifactDeletion, FileSystemArticleArtifactDeletion>();
         services.AddScoped<IArticleDeleteService, EfArticleDeleteService>();
 

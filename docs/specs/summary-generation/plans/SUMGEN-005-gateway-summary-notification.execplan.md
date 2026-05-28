@@ -1,7 +1,7 @@
 ---
 id: SUMGEN-005-PLAN
 task: ../tasks/SUMGEN-005-gateway-summary-notification.md
-status: proposed
+status: completed
 canonical: true
 ---
 

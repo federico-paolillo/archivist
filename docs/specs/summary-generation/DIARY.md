@@ -312,3 +312,41 @@ Canonical Updates:
 - `docs/specs/summary-generation/plans/SUMGEN-004-worker-summary-pipeline-integration.execplan.md` — status: completed.
 - `docs/specs/summary-generation/PLAN.md` — SUMGEN-004 row: done; SUMGEN-005 blocking note updated.
 - `docs/MASTERPLAN.md` — derived SUMGEN-004 status updated to done.
+
+## 2026-05-28 — SUMGEN-005: Gateway Summary Notification
+
+Status:
+- done
+
+Summary:
+- Implemented Gateway summary-complete Telegram success notifications.
+- Added read-only Gateway artifact access for `summary.md`.
+- Completed the summary-generation feature after Gateway validation passed.
+
+Changes:
+- Added `IArticleArtifactReader` and a filesystem-backed `FileSystemArticleArtifactReader` that reads `{DATA_DIR}/articles/{article_id}/summary.md`.
+- Extended pending notification projection with `article_id`.
+- Updated `TelegramNotificationDispatcher` so succeeded jobs read persisted summary text and reply with `Archived. Summary is: <summary>`.
+- Kept failed-job replies sourced from `jobs.error_message`, preserving ARC-coded prefixes subject only to deterministic truncation.
+- Marked missing or unreadable summary artifacts as notification delivery failures without mutating terminal article/job state.
+- Added Gateway tests for summary success, missing summary, unreadable summary, success truncation, read-only artifact reader surface, ARC-coded failure preservation, and artifact read behavior.
+
+Decisions:
+- Gateway notification artifact access exposes only read operations; article hard-delete remains on its separate deletion abstraction.
+- Summary artifact read failures are recorded as operational notification failures using the message `Summary artifact missing or unreadable.`
+- No Worker code, SQLite schema, configuration key, Telegram API contract, or artifact path convention changed.
+
+Validation:
+- `cd src/gateway && dotnet format` — passed.
+- `cd src/gateway && dotnet build` — passed with 0 warnings and 0 errors.
+- `cd src/gateway && dotnet test` — passed: 133 passed, 0 failed, 0 skipped.
+
+Follow-ups:
+- None.
+
+Canonical Updates:
+- `docs/specs/summary-generation/SPEC.md` — status: done.
+- `docs/specs/summary-generation/PLAN.md` — status: done; SUMGEN-005 row: done.
+- `docs/specs/summary-generation/tasks/SUMGEN-005-gateway-summary-notification.md` — status: done, validation recorded.
+- `docs/specs/summary-generation/plans/SUMGEN-005-gateway-summary-notification.execplan.md` — status: completed.
+- `docs/specs/INDEX.md` — summary-generation status: done.

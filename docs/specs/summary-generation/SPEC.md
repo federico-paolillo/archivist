@@ -2,7 +2,7 @@
 id: SUMGEN
 slug: summary-generation
 title: Summary Generation
-status: draft
+status: done
 owner: null
 depends_on: [markdown-extraction, worker-runtime-configuration]
 impacts: [worker, gateway, filesystem, sqlite]

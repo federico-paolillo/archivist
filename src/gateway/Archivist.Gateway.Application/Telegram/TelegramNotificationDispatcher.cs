@@ -1,5 +1,6 @@
 namespace Archivist.Gateway.Application.Telegram;
 
+using Archivist.Gateway.Application.ArticleArtifacts;
 using Archivist.Gateway.Application.Persistence;
 
 using Microsoft.Extensions.Logging;
@@ -7,10 +8,11 @@ using Microsoft.Extensions.Logging;
 /// <summary>
 /// Dispatches pending terminal Telegram notifications from SQLite notification rows.
 /// For failed jobs: sends error_message as the reply body.
-/// For succeeded jobs: leaves the notification pending until a downstream feature such as SUMGEN-005 provides success content.
+/// For succeeded jobs: reads summary.md and sends it as the reply body.
 /// </summary>
 public sealed partial class TelegramNotificationDispatcher(
     ITelegramNotificationRepository notificationRepository,
+    IArticleArtifactReader artifactReader,
     ITelegramClient telegramClient,
     TimeProvider timeProvider,
     ILogger<TelegramNotificationDispatcher> logger)
@@ -21,10 +23,10 @@ public sealed partial class TelegramNotificationDispatcher(
     public const int TelegramMessageMaxLength = 4096;
 
     private static readonly TimeSpan NotificationTtl = TimeSpan.FromDays(7);
+    private const string SummarySuccessPrefix = "Archived. Summary is:";
 
     /// <summary>
-    /// Polls pending notification rows and dispatches terminal Telegram replies for failed jobs.
-    /// Succeeded-job notifications remain pending until SUMGEN-005 provides success content.
+    /// Polls pending notification rows and dispatches terminal Telegram replies for terminal jobs.
     /// </summary>
     public async Task DispatchPendingAsync(CancellationToken cancellationToken)
     {
@@ -49,7 +51,7 @@ public sealed partial class TelegramNotificationDispatcher(
     {
         if (notification.JobStatus == PersistenceConstants.JobSucceeded)
         {
-            LogSucceededJobDeferred(logger, notification.NotificationId, notification.JobId);
+            await DispatchSucceededAsync(notification, cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -59,24 +61,71 @@ public sealed partial class TelegramNotificationDispatcher(
             return;
         }
 
-        if (notification.TelegramChatId is null || notification.TelegramMessageId is null)
+        if (!await EnsureReplyTargetAsync(notification, cancellationToken).ConfigureAwait(false))
         {
-            const string missingTargetError = "Missing Telegram reply target: telegram_chat_id or telegram_message_id is null.";
-            var failedAt = timeProvider.GetUtcNow();
-
-            await notificationRepository
-                .MarkFailedAsync(notification.NotificationId, missingTargetError, failedAt, failedAt.Add(NotificationTtl), cancellationToken)
-                .ConfigureAwait(false);
-
-            LogMissingReplyTarget(logger, notification.NotificationId, notification.JobId);
             return;
         }
 
-        var chatId = notification.TelegramChatId.Value;
-        var messageId = notification.TelegramMessageId.Value;
         var errorText = notification.JobErrorMessage ?? string.Empty;
         var replyText = Truncate(errorText);
 
+        await SendReplyAndMarkAsync(notification, replyText, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task DispatchSucceededAsync(PendingNotificationRow notification, CancellationToken cancellationToken)
+    {
+        if (!await EnsureReplyTargetAsync(notification, cancellationToken).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        string summary;
+        try
+        {
+            summary = await artifactReader
+                .ReadSummaryMarkdownAsync(notification.ArticleId, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (ArticleArtifactReadException ex)
+        {
+            const string artifactError = "Summary artifact missing or unreadable.";
+            var failedAt = timeProvider.GetUtcNow();
+
+            await notificationRepository
+                .MarkFailedAsync(notification.NotificationId, artifactError, failedAt, failedAt.Add(NotificationTtl), cancellationToken)
+                .ConfigureAwait(false);
+
+            LogSummaryArtifactReadFailed(logger, ex, notification.NotificationId, notification.JobId, notification.ArticleId);
+            return;
+        }
+
+        var replyText = Truncate($"{SummarySuccessPrefix} {summary}");
+
+        await SendReplyAndMarkAsync(notification, replyText, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<bool> EnsureReplyTargetAsync(PendingNotificationRow notification, CancellationToken cancellationToken)
+    {
+        if (notification.TelegramChatId is not null && notification.TelegramMessageId is not null)
+        {
+            return true;
+        }
+
+        const string missingTargetError = "Missing Telegram reply target: telegram_chat_id or telegram_message_id is null.";
+        var failedAt = timeProvider.GetUtcNow();
+
+        await notificationRepository
+            .MarkFailedAsync(notification.NotificationId, missingTargetError, failedAt, failedAt.Add(NotificationTtl), cancellationToken)
+            .ConfigureAwait(false);
+
+        LogMissingReplyTarget(logger, notification.NotificationId, notification.JobId);
+        return false;
+    }
+
+    private async Task SendReplyAndMarkAsync(PendingNotificationRow notification, string replyText, CancellationToken cancellationToken)
+    {
+        var chatId = notification.TelegramChatId!.Value;
+        var messageId = notification.TelegramMessageId!.Value;
         var now = timeProvider.GetUtcNow();
         var expiresAt = now.Add(NotificationTtl);
 
@@ -115,9 +164,6 @@ public sealed partial class TelegramNotificationDispatcher(
         return string.Concat(text.AsSpan(0, TelegramMessageMaxLength - ellipsis.Length), ellipsis);
     }
 
-    [LoggerMessage(Level = LogLevel.Debug, Message = "Notification {NotificationId} for succeeded job {JobId}: deferred until SUMGEN-005 provides success content")]
-    private static partial void LogSucceededJobDeferred(ILogger logger, string notificationId, string jobId);
-
     [LoggerMessage(Level = LogLevel.Warning, Message = "Notification {NotificationId} for job {JobId}: skipping non-terminal job status {JobStatus}")]
     private static partial void LogSkippedNonTerminal(ILogger logger, string notificationId, string jobId, string jobStatus);
 
@@ -129,4 +175,7 @@ public sealed partial class TelegramNotificationDispatcher(
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Notification {NotificationId} for job {JobId}: Telegram delivery failed; notification marked failed")]
     private static partial void LogDeliveryFailed(ILogger logger, Exception ex, string notificationId, string jobId);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Notification {NotificationId} for job {JobId}: summary artifact read failed for article {ArticleId}; notification marked failed")]
+    private static partial void LogSummaryArtifactReadFailed(ILogger logger, Exception ex, string notificationId, string jobId, string articleId);
 }

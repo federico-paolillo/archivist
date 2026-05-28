@@ -2,7 +2,7 @@
 id: SUMGEN-005
 feature: summary-generation
 title: Gateway Summary Notification
-status: blocked
+status: done
 depends_on: [SUMGEN-004, TELING-004]
 blocks: []
 parallel: false
@@ -128,6 +128,12 @@ cd src/gateway && dotnet build
 cd src/gateway && dotnet test
 ```
 
+Validation performed on 2026-05-28:
+
+- `cd src/gateway && dotnet format` — passed.
+- `cd src/gateway && dotnet build` — passed.
+- `cd src/gateway && dotnet test` — passed.
+
 Manual validation, if any:
 
 - None.
@@ -158,3 +164,4 @@ ExecPlan:
 ## Notes
 
 - Gateway must not write article artifacts.
+- Status is `done`; Gateway success notifications now read `summary.md` through a read-only artifact abstraction.

@@ -22,6 +22,7 @@ public sealed class EfTelegramNotificationRepository(ArchivistDbContext db) : IT
                 (n, j) => new PendingNotificationRow(
                     n.Id,
                     j.Id,
+                    j.ArticleId,
                     j.Status,
                     j.ErrorMessage,
                     j.TelegramChatId,

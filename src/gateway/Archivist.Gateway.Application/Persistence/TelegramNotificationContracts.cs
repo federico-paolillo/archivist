@@ -6,6 +6,7 @@ namespace Archivist.Gateway.Application.Persistence;
 public sealed record PendingNotificationRow(
     string NotificationId,
     string JobId,
+    string ArticleId,
     string JobStatus,
     string? JobErrorMessage,
     long? TelegramChatId,

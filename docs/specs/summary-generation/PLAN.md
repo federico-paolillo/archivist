@@ -1,6 +1,6 @@
 ---
 feature: summary-generation
-status: in_progress
+status: done
 canonical: true
 ---
 
@@ -56,7 +56,7 @@ TELING-004 -> SUMGEN-005
 | `SUMGEN-002` | Worker summary artifact access | done | `SUMGEN-001`, `MDEXT-005`, `WCFG-001`, `WCFG-002` | `SUMGEN-004` | yes | - |
 | `SUMGEN-003` | Summarizer provider adapter | done | `SUMGEN-001` | `SUMGEN-004` | yes | `plans/SUMGEN-003-summarizer-provider-adapter.execplan.md` |
 | `SUMGEN-004` | Worker summary pipeline integration | done | `SUMGEN-002`, `SUMGEN-003`, `WCFG-001`, `WCFG-002` | `SUMGEN-005` | no | `plans/SUMGEN-004-worker-summary-pipeline-integration.execplan.md` (completed) |
-| `SUMGEN-005` | Gateway summary notification | blocked | `SUMGEN-004`, `TELING-004` | - | no | `plans/SUMGEN-005-gateway-summary-notification.execplan.md` |
+| `SUMGEN-005` | Gateway summary notification | done | `SUMGEN-004`, `TELING-004` | - | no | `plans/SUMGEN-005-gateway-summary-notification.execplan.md` (completed) |
 
 ---
 
@@ -66,7 +66,7 @@ TELING-004 -> SUMGEN-005
 - `SUMGEN-002` must wait for `MDEXT-005` because it extends the Markdown-complete artifact/pipeline boundary.
 - Remaining Worker summary tasks must use canonical Worker config from `worker-runtime-configuration/WCFG-001` and non-optional Worker composition from `worker-runtime-configuration/WCFG-002`.
 - `SUMGEN-004` is complete and owns Worker summary-complete terminal state.
-- `SUMGEN-005` has completed task dependencies but remains blocked until its proposed ExecPlan is accepted or updated.
+- `SUMGEN-005` is complete and owns Gateway summary-complete notification content.
 - Worker pipeline orchestration, SQLite terminal-transition code, and Gateway dispatcher behavior must not be modified concurrently by multiple tasks.
 
 ---

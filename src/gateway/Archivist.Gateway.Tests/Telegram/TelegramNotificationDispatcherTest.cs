@@ -1,5 +1,7 @@
 namespace Archivist.Gateway.Tests.Telegram;
 
+using Archivist.Gateway.Application.ArticleArtifacts;
+using Archivist.Gateway.Application.ArticleArtifacts.Defaults;
 using Archivist.Gateway.Application.Persistence;
 using Archivist.Gateway.Application.Persistence.Defaults;
 using Archivist.Gateway.Application.Persistence.Entities;
@@ -14,27 +16,140 @@ public sealed class TelegramNotificationDispatcherTest
 {
     private const long ChatId = 100;
     private const long MessageId = 200;
+    private const string ArticleId = "01ARTICLEID000000000000001";
     private static readonly DateTimeOffset FixedNow = new(2026, 5, 10, 12, 0, 0, TimeSpan.Zero);
 
     // -------------------------------------------------------------------------
-    // DispatchPendingAsync — succeeded job is deferred
+    // DispatchPendingAsync — succeeded job sends summary reply
     // -------------------------------------------------------------------------
 
     [Fact]
-    public async Task DispatchPending_SucceededJob_LeavesNotificationPending()
+    public async Task DispatchPending_SucceededJob_ReadsSummaryAndMarksNotificationSent()
     {
         await using var db = await CreateDbAsync();
-        var (jobId, notificationId) = await SeedJobAndNotificationAsync(db.Context, PersistenceConstants.JobSucceeded, errorMessage: null);
+        await SeedJobAndNotificationAsync(db.Context, PersistenceConstants.JobSucceeded, errorMessage: null);
 
+        var dataDirectory = CreateTempDataDirectory();
+        try
+        {
+            await WriteSummaryAsync(dataDirectory, ArticleId, "Persisted summary text.");
+
+            var client = new FakeTelegramClient();
+            var dispatcher = CreateDispatcher(db.Context, client, CreateReader(dataDirectory));
+
+            await dispatcher.DispatchPendingAsync(CancellationToken.None);
+
+            var reply = Assert.Single(client.SentReplies);
+            Assert.Equal(ChatId, reply.ChatId);
+            Assert.Equal(MessageId, reply.ReplyToMessageId);
+            Assert.StartsWith("Archived. Summary is:", reply.Text, StringComparison.Ordinal);
+            Assert.Contains("Persisted summary text.", reply.Text, StringComparison.Ordinal);
+
+            var notification = await db.Notifications.SingleAsync(CancellationToken.None);
+            Assert.Equal(PersistenceConstants.NotificationSent, notification.Status);
+            Assert.Equal(FixedNow, notification.SentAt);
+            Assert.Equal(FixedNow.AddDays(7), notification.ExpiresAt);
+        }
+        finally
+        {
+            DeleteTempDataDirectory(dataDirectory);
+        }
+    }
+
+    [Fact]
+    public async Task DispatchPending_SucceededJobWithMissingSummary_MarksNotificationFailedWithoutMutatingTerminalState()
+    {
+        await using var db = await CreateDbAsync();
+        var (jobId, _) = await SeedJobAndNotificationAsync(db.Context, PersistenceConstants.JobSucceeded, errorMessage: null);
+
+        var dataDirectory = CreateTempDataDirectory();
         var client = new FakeTelegramClient();
-        var dispatcher = CreateDispatcher(db.Context, client);
+        var dispatcher = CreateDispatcher(db.Context, client, CreateReader(dataDirectory));
 
-        await dispatcher.DispatchPendingAsync(CancellationToken.None);
+        try
+        {
+            await dispatcher.DispatchPendingAsync(CancellationToken.None);
 
-        Assert.Empty(client.SentReplies);
+            Assert.Empty(client.SentReplies);
 
-        var notification = await db.Notifications.SingleAsync(CancellationToken.None);
-        Assert.Equal(PersistenceConstants.NotificationPending, notification.Status);
+            var notification = await db.Notifications.SingleAsync(CancellationToken.None);
+            Assert.Equal(PersistenceConstants.NotificationFailed, notification.Status);
+            Assert.Equal("Summary artifact missing or unreadable.", notification.ErrorMessage);
+            Assert.Equal(FixedNow.AddDays(7), notification.ExpiresAt);
+
+            var job = await db.Jobs.SingleAsync(j => j.Id == jobId, CancellationToken.None);
+            Assert.Equal(PersistenceConstants.JobSucceeded, job.Status);
+
+            var article = await db.Articles.SingleAsync(CancellationToken.None);
+            Assert.Equal(PersistenceConstants.ArticleReady, article.Status);
+        }
+        finally
+        {
+            DeleteTempDataDirectory(dataDirectory);
+        }
+    }
+
+    [Fact]
+    public async Task DispatchPending_SucceededJobWithUnreadableSummary_MarksNotificationFailed()
+    {
+        await using var db = await CreateDbAsync();
+        var (jobId, _) = await SeedJobAndNotificationAsync(db.Context, PersistenceConstants.JobSucceeded, errorMessage: null);
+
+        var dataDirectory = CreateTempDataDirectory();
+        var paths = new ArticleArtifactPaths(dataDirectory);
+        Directory.CreateDirectory(paths.ArticleDirectory(ArticleId));
+        Directory.CreateDirectory(paths.SummaryMarkdown(ArticleId));
+
+        try
+        {
+            var client = new FakeTelegramClient();
+            var dispatcher = CreateDispatcher(db.Context, client, CreateReader(dataDirectory));
+
+            await dispatcher.DispatchPendingAsync(CancellationToken.None);
+
+            Assert.Empty(client.SentReplies);
+
+            var notification = await db.Notifications.SingleAsync(CancellationToken.None);
+            Assert.Equal(PersistenceConstants.NotificationFailed, notification.Status);
+            Assert.Equal("Summary artifact missing or unreadable.", notification.ErrorMessage);
+
+            var job = await db.Jobs.SingleAsync(j => j.Id == jobId, CancellationToken.None);
+            Assert.Equal(PersistenceConstants.JobSucceeded, job.Status);
+
+            var article = await db.Articles.SingleAsync(CancellationToken.None);
+            Assert.Equal(PersistenceConstants.ArticleReady, article.Status);
+        }
+        finally
+        {
+            DeleteTempDataDirectory(dataDirectory);
+        }
+    }
+
+    [Fact]
+    public async Task DispatchPending_VeryLongSummary_TruncatesSuccessReplyToTelegramLimit()
+    {
+        await using var db = await CreateDbAsync();
+        await SeedJobAndNotificationAsync(db.Context, PersistenceConstants.JobSucceeded, errorMessage: null);
+
+        var dataDirectory = CreateTempDataDirectory();
+        try
+        {
+            await WriteSummaryAsync(dataDirectory, ArticleId, new string('s', TelegramNotificationDispatcher.TelegramMessageMaxLength + 500));
+
+            var client = new FakeTelegramClient();
+            var dispatcher = CreateDispatcher(db.Context, client, CreateReader(dataDirectory));
+
+            await dispatcher.DispatchPendingAsync(CancellationToken.None);
+
+            var reply = Assert.Single(client.SentReplies);
+            Assert.Equal(TelegramNotificationDispatcher.TelegramMessageMaxLength, reply.Text.Length);
+            Assert.StartsWith("Archived. Summary is:", reply.Text, StringComparison.Ordinal);
+            Assert.EndsWith("…", reply.Text);
+        }
+        finally
+        {
+            DeleteTempDataDirectory(dataDirectory);
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -45,7 +160,7 @@ public sealed class TelegramNotificationDispatcherTest
     public async Task DispatchPending_FailedJob_SendsErrorMessageAndMarksNotificationSent()
     {
         await using var db = await CreateDbAsync();
-        var (jobId, notificationId) = await SeedJobAndNotificationAsync(db.Context, PersistenceConstants.JobFailed, errorMessage: "Something went wrong");
+        await SeedJobAndNotificationAsync(db.Context, PersistenceConstants.JobFailed, errorMessage: "Something went wrong");
 
         var client = new FakeTelegramClient();
         var dispatcher = CreateDispatcher(db.Context, client);
@@ -82,6 +197,25 @@ public sealed class TelegramNotificationDispatcherTest
 
         var reply = Assert.Single(client.SentReplies);
         Assert.Equal(arcError, reply.Text);
+    }
+
+    [Fact]
+    public async Task DispatchPending_LongArcCodedError_TruncatesWithoutRemovingArcPrefix()
+    {
+        var arcError = "[ARC-013] " + new string('x', TelegramNotificationDispatcher.TelegramMessageMaxLength + 500);
+
+        await using var db = await CreateDbAsync();
+        await SeedJobAndNotificationAsync(db.Context, PersistenceConstants.JobFailed, errorMessage: arcError);
+
+        var client = new FakeTelegramClient();
+        var dispatcher = CreateDispatcher(db.Context, client);
+
+        await dispatcher.DispatchPendingAsync(CancellationToken.None);
+
+        var reply = Assert.Single(client.SentReplies);
+        Assert.Equal(TelegramNotificationDispatcher.TelegramMessageMaxLength, reply.Text.Length);
+        Assert.StartsWith("[ARC-013]", reply.Text, StringComparison.Ordinal);
+        Assert.EndsWith("…", reply.Text);
     }
 
     // -------------------------------------------------------------------------
@@ -167,6 +301,45 @@ public sealed class TelegramNotificationDispatcherTest
         var reply = Assert.Single(client.SentReplies);
         Assert.Equal(TelegramNotificationDispatcher.TelegramMessageMaxLength, reply.Text.Length);
         Assert.EndsWith("…", reply.Text);
+    }
+
+    // -------------------------------------------------------------------------
+    // Article artifact reader
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task ArticleArtifactReader_ReadsSummaryMarkdown()
+    {
+        var dataDirectory = CreateTempDataDirectory();
+        try
+        {
+            await WriteSummaryAsync(dataDirectory, ArticleId, "summary from disk");
+
+            var reader = CreateReader(dataDirectory);
+            var summary = await reader.ReadSummaryMarkdownAsync(ArticleId, CancellationToken.None);
+
+            Assert.Equal("summary from disk", summary);
+        }
+        finally
+        {
+            DeleteTempDataDirectory(dataDirectory);
+        }
+    }
+
+    [Fact]
+    public void ArticleArtifactReader_InterfaceExposesOnlyReadOperations()
+    {
+        var methodNames = typeof(IArticleArtifactReader)
+            .GetMethods()
+            .Select(method => method.Name)
+            .ToArray();
+
+        Assert.Contains(nameof(IArticleArtifactReader.ReadSummaryMarkdownAsync), methodNames);
+        Assert.DoesNotContain(methodNames, name =>
+            name.Contains("Write", StringComparison.OrdinalIgnoreCase) ||
+            name.Contains("Create", StringComparison.OrdinalIgnoreCase) ||
+            name.Contains("Rename", StringComparison.OrdinalIgnoreCase) ||
+            name.Contains("Delete", StringComparison.OrdinalIgnoreCase));
     }
 
     // -------------------------------------------------------------------------
@@ -268,11 +441,15 @@ public sealed class TelegramNotificationDispatcherTest
 #pragma warning restore CA2000
     }
 
-    private TelegramNotificationDispatcher CreateDispatcher(ArchivistDbContext db, FakeTelegramClient client)
+    private TelegramNotificationDispatcher CreateDispatcher(
+        ArchivistDbContext db,
+        FakeTelegramClient client,
+        IArticleArtifactReader? artifactReader = null)
     {
         var timeProvider = new FakeTimeProvider(FixedNow);
         var repo = new EfTelegramNotificationRepository(db);
-        return new TelegramNotificationDispatcher(repo, client, timeProvider, NullLogger<TelegramNotificationDispatcher>.Instance);
+        var reader = artifactReader ?? CreateReader(Path.Combine(Path.GetTempPath(), $"archivist-data-{Guid.NewGuid():N}"));
+        return new TelegramNotificationDispatcher(repo, reader, client, timeProvider, NullLogger<TelegramNotificationDispatcher>.Instance);
     }
 
     private static async Task<(string JobId, string NotificationId)> SeedJobAndNotificationAsync(
@@ -281,14 +458,13 @@ public sealed class TelegramNotificationDispatcherTest
         string? errorMessage)
     {
         const string userId = PersistenceConstants.PersonalUserId;
-        const string articleId = "01ARTICLEID000000000000001";
         const string jobId = "01JOBID0000000000000000001";
         const string notificationId = "01NOTIFID00000000000000001";
 
         db.Users.Add(new UserEntity { Id = userId });
         db.Articles.Add(new ArticleEntity
         {
-            Id = articleId,
+            Id = ArticleId,
             UserId = userId,
             OriginalUrl = "https://example.com",
             Status = jobStatus == PersistenceConstants.JobSucceeded ? PersistenceConstants.ArticleReady : PersistenceConstants.ArticleFailed,
@@ -298,7 +474,7 @@ public sealed class TelegramNotificationDispatcherTest
         {
             Id = jobId,
             UserId = userId,
-            ArticleId = articleId,
+            ArticleId = ArticleId,
             Type = PersistenceConstants.ArticleProcessingJobType,
             Status = jobStatus,
             TelegramChatId = ChatId,
@@ -321,6 +497,31 @@ public sealed class TelegramNotificationDispatcherTest
 
         return (jobId, notificationId);
     }
+
+    private static string CreateTempDataDirectory()
+    {
+        var dataDirectory = Path.Combine(Path.GetTempPath(), $"archivist-data-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(dataDirectory);
+        return dataDirectory;
+    }
+
+    private static void DeleteTempDataDirectory(string dataDirectory)
+    {
+        if (Directory.Exists(dataDirectory))
+        {
+            Directory.Delete(dataDirectory, recursive: true);
+        }
+    }
+
+    private static async Task WriteSummaryAsync(string dataDirectory, string articleId, string summary)
+    {
+        var paths = new ArticleArtifactPaths(dataDirectory);
+        Directory.CreateDirectory(paths.ArticleDirectory(articleId));
+        await File.WriteAllTextAsync(paths.SummaryMarkdown(articleId), summary, CancellationToken.None);
+    }
+
+    private static FileSystemArticleArtifactReader CreateReader(string dataDirectory) =>
+        new FileSystemArticleArtifactReader(new ArticleArtifactPaths(dataDirectory));
 
     private static async Task SeedTerminalNotificationAsync(
         ArchivistDbContext db,
