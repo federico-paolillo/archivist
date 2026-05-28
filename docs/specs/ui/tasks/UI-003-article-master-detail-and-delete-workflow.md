@@ -2,7 +2,7 @@
 id: UI-003
 feature: ui
 title: Article master-detail view and delete workflow
-status: blocked
+status: done
 depends_on: [UI-002, UIEND-002, UIEND-003]
 blocks: [UI-004]
 parallel: false
@@ -142,9 +142,26 @@ cd src/ui && npm run build
 cd src/ui && npm run test
 ```
 
+Validation completed on 2026-05-28:
+
+- `cd src/ui && npm run format`: passed.
+- `cd src/ui && npm run lint`: passed.
+- `cd src/ui && npm run build`: passed.
+- `cd src/ui && npm run test`: passed, 2 test files and 19 tests.
+
 Manual validation:
 
 - Capture `/articles` and `/articles/<article_id>` in a browser and compare against `docs/design/view.png` and `docs/design/DESIGN.md`.
+
+Manual validation completed on 2026-05-28:
+
+- Served the built UI with a temporary same-origin mock API for auth/session and article data.
+- Browser-checked `/articles`: master list rendered, detail pane remained blank black with no selected id.
+- Browser-checked `/articles/01HREADY000000000000000000`: ready detail rendered title, summary/content Markdown, `Delete`, and `Original`; no `Retry` control appeared; rendered Markdown contained no `javascript:` link or raw script/image nodes.
+
+Status transition:
+
+- `blocked` -> `done` by explicit Wave 9 user assignment after `UIEND-002` and `UIEND-003` were already marked `done`.
 
 ## Dependencies
 

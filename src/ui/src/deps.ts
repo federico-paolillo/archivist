@@ -1,13 +1,56 @@
 export type Fetcher = typeof fetch;
 
+export interface ArticleMetadata {
+	id: string;
+	title: string | null;
+	originalUrl: string | null;
+	canonicalUrl: string | null;
+	status: string;
+	errorMessage: string | null;
+	createdAt: string;
+}
+
+export interface ArticleDetail extends ArticleMetadata {
+	summaryMarkdown: string | null;
+	contentMarkdown: string | null;
+}
+
+export interface ArticleListResponse {
+	items: ArticleMetadata[];
+	nextCursor: string | null;
+	previousCursor: string | null;
+}
+
 export interface AuthApiClient {
 	getSession: () => Promise<boolean>;
 	login: (password: string) => Promise<boolean>;
 	logout: () => Promise<"ok" | "unauthorized" | "failed">;
 }
 
+export interface ArticleApiClient {
+	listArticles: () => Promise<ArticleListResponse>;
+	getArticle: (id: string) => Promise<ArticleDetail>;
+	deleteArticle: (id: string) => Promise<void>;
+}
+
+export type ApiClient = AuthApiClient & ArticleApiClient;
+
 export interface Deps {
-	api: AuthApiClient;
+	api: ApiClient;
+}
+
+export class ApiUnauthorizedError extends Error {
+	constructor() {
+		super("Authentication required.");
+		this.name = "ApiUnauthorizedError";
+	}
+}
+
+export class ApiRequestError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = "ApiRequestError";
+	}
 }
 
 export function normalizeApiBasePath(value: string | undefined): string {
@@ -23,9 +66,11 @@ export function normalizeApiBasePath(value: string | undefined): string {
 export function makeAuthApiClient(
 	apiBasePath: string,
 	fetcher: Fetcher = fetch,
-): AuthApiClient {
+): ApiClient {
 	const basePath = normalizeApiBasePath(apiBasePath);
 	const apiUrl = (path: string) => `${basePath}${path}`;
+	const articleUrl = (id: string) =>
+		apiUrl(`/articles/${encodeURIComponent(id)}`);
 
 	return {
 		async getSession() {
@@ -74,7 +119,75 @@ export function makeAuthApiClient(
 
 			return "failed";
 		},
+
+		async listArticles() {
+			const response = await fetcher(apiUrl("/articles"), {
+				method: "GET",
+				credentials: "include",
+			});
+
+			if (response.ok) {
+				return (await response.json()) as ArticleListResponse;
+			}
+
+			throw await apiError(response, "Article list failed.");
+		},
+
+		async getArticle(id: string) {
+			const response = await fetcher(articleUrl(id), {
+				method: "GET",
+				credentials: "include",
+			});
+
+			if (response.ok) {
+				return (await response.json()) as ArticleDetail;
+			}
+
+			throw await apiError(response, "Article detail failed.");
+		},
+
+		async deleteArticle(id: string) {
+			const response = await fetcher(articleUrl(id), {
+				method: "DELETE",
+				credentials: "include",
+			});
+
+			if (response.status === 204) {
+				return;
+			}
+
+			throw await apiError(response, "Delete failed.");
+		},
 	};
+}
+
+async function apiError(
+	response: Response,
+	fallbackMessage: string,
+): Promise<Error> {
+	if (response.status === 401) {
+		return new ApiUnauthorizedError();
+	}
+
+	const message = await readErrorMessage(response, fallbackMessage);
+	return new ApiRequestError(message);
+}
+
+async function readErrorMessage(
+	response: Response,
+	fallbackMessage: string,
+): Promise<string> {
+	try {
+		const body = (await response.json()) as { error?: unknown };
+
+		if (typeof body.error === "string" && body.error.trim()) {
+			return body.error;
+		}
+	} catch {
+		return fallbackMessage;
+	}
+
+	return fallbackMessage;
 }
 
 export function makeDeps(): Deps {

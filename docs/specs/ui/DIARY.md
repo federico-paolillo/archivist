@@ -177,3 +177,39 @@ Canonical Updates:
 - `docs/specs/ui/tasks/UI-002-ui-routing-design-system-api-base-auth-shell.md`
 - `docs/specs/ui/tasks/UI-003-article-master-detail-and-delete-workflow.md`
 - `docs/specs/ui/plans/UI-003-article-master-detail-and-delete-workflow.execplan.md`
+
+## 2026-05-28 - UI-003: Article Master-Detail And Delete Workflow
+
+Status:
+- completed
+
+Summary:
+- Implemented the authenticated article master-detail route surface and destructive delete workflow.
+
+Changes:
+- Added article list/detail/delete methods to the UI API client using the configured API base path and credentialed same-origin fetch.
+- Replaced the article shell placeholder with a route-driven master list, blank no-id detail state, loading spinner, ready detail view, queued/non-terminal `Come back later.` state, failed persisted-error state, detail fetch failure state, and delete failure state.
+- Added `Original` action behavior using `canonicalUrl` before `originalUrl`.
+- Added the delete confirmation modal with `Are you sure?`, `Yes`, and `Nevermind`.
+- Added `markdown-it` and `@types/markdown-it`; configured rendering with raw HTML disabled, linkification disabled, default unsafe-link validation, and `noopener noreferrer` links.
+- Expanded frontend tests for article route selection, no-id detail, loading, ready, queued, failed, fetch-error, article API `401`, Original link behavior, delete cancel, delete success, and delete failure.
+
+Decisions:
+- The Markdown renderer/sanitizer policy is now canonical in `docs/conventions/UI.md`.
+- `UI-004` is ready after `UI-003` completion; the overall UI feature remains `in_progress`.
+
+Validation:
+- `cd src/ui && npm run format`: passed.
+- `cd src/ui && npm run lint`: passed.
+- `cd src/ui && npm run build`: passed.
+- `cd src/ui && npm run test`: passed, 2 test files and 19 tests.
+- Manual browser validation used the built UI with a temporary same-origin mock API. `/articles` rendered the master list with blank black detail, and `/articles/01HREADY000000000000000000` rendered the ready detail with Delete/Original, no Retry, and no unsafe Markdown link or raw script/image nodes.
+
+Follow-ups:
+- `UI-004` should run the final full UI validation pass against integrated Gateway data or an agreed deployment-like test fixture.
+
+Canonical Updates:
+- `docs/conventions/UI.md`
+- `docs/specs/ui/PLAN.md`
+- `docs/specs/ui/tasks/UI-003-article-master-detail-and-delete-workflow.md`
+- `docs/specs/ui/plans/UI-003-article-master-detail-and-delete-workflow.execplan.md`

@@ -1,7 +1,7 @@
 ---
 id: UI-003-PLAN
 task: ../tasks/UI-003-article-master-detail-and-delete-workflow.md
-status: proposed
+status: completed
 canonical: true
 ---
 

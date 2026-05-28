@@ -4,10 +4,11 @@ import type { Deps } from "@archivist/deps.ts";
 import { ArticleShell } from "@archivist/pages/articles/components/article-shell.tsx";
 
 interface ArticlesPageProps {
+	articleId?: string;
 	deps: Deps;
 }
 
-export function ArticlesPage({ deps }: ArticlesPageProps) {
+export function ArticlesPage({ articleId, deps }: ArticlesPageProps) {
 	const location = useLocation();
 
 	async function logout() {
@@ -20,7 +21,14 @@ export function ArticlesPage({ deps }: ArticlesPageProps) {
 
 	return (
 		<ProtectedRoute deps={deps}>
-			<ArticleShell onLogout={logout} />
+			<ArticleShell
+				api={deps.api}
+				onAuthExpired={() => {
+					location.route("/login", true);
+				}}
+				onLogout={logout}
+				selectedArticleId={articleId}
+			/>
 		</ProtectedRoute>
 	);
 }

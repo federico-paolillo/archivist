@@ -44,6 +44,7 @@ Frontend code lives under `src/ui/` and targets Preact with Tailwind CSS.
 - The UI article API client calls `GET ${apiBasePath}/articles`, `GET ${apiBasePath}/articles/{id}`, and `DELETE ${apiBasePath}/articles/{id}`.
 - Browser page routes are `/articles` and `/articles/<article_id>`.
 - Markdown article content is untrusted. Render with raw HTML disabled or sanitized; do not execute raw HTML, scripts, inline event handlers, or `javascript:` links.
+- Article Markdown is rendered with `markdown-it` configured with `html: false`, `linkify: false`, and the library's default unsafe-link validation. Rendered Markdown links open in a new browsing context only with `rel="noopener noreferrer"`.
 - Retry/requeue controls are out of scope until a backend retry contract exists.
 
 ## Testing
