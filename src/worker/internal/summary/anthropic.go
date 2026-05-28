@@ -65,6 +65,10 @@ func (a *AnthropicAdapter) Provider() Provider {
 	return ProviderAnthropic
 }
 
+func (a *AnthropicAdapter) Model() string {
+	return a.model
+}
+
 // Summarize sends the Markdown source to Claude and returns a text summary.
 // It classifies Anthropic errors into ARC-013, ARC-014, and ARC-015.
 func (a *AnthropicAdapter) Summarize(ctx context.Context, req SummarizerRequest) (SummarizerOutput, error) {

@@ -38,6 +38,8 @@ type App struct {
 	LocalMarkdown           markdown.MarkdownExtractor
 	JinaMarkdown            markdown.MarkdownExtractor
 	Summarizer              summary.SummarizerService
+	SummaryHandoff          pipeline.SummaryHandoff
+	MarkdownHandoff         pipeline.MarkdownHandoff
 	SnapshotPipeline        *pipeline.SnapshotPipeline
 }
 
@@ -81,12 +83,8 @@ func NewApp(logger *slog.Logger, logLevel *slog.LevelVar, cfg *config.Root) (*Ap
 	jinaMarkdown := markdown.NewJinaExtractor(application.HTTPClient, cfg.Jina.API.Key)
 	summarizer := summary.NewAnthropicAdapter(application.HTTPClient, cfg.LLM.API.Key, cfg.LLM.Model)
 	jobsRepository := jobs.NewSQLiteRepository(database, notificationIDs)
-	markdownHandoff := pipeline.NewMarkdownExtractionHandoff(
-		logger,
-		store,
-		localMarkdown,
-		jinaMarkdown,
-	)
+	summaryHandoff := createSummaryHandoff(logger, jobsRepository, store, summarizer)
+	markdownHandoff := createMarkdownHandoff(logger, store, localMarkdown, jinaMarkdown, summaryHandoff)
 
 	applyProcessingServices(
 		application,
@@ -97,6 +95,8 @@ func NewApp(logger *slog.Logger, logLevel *slog.LevelVar, cfg *config.Root) (*Ap
 		localMarkdown,
 		jinaMarkdown,
 		summarizer,
+		summaryHandoff,
+		markdownHandoff,
 	)
 
 	application.SnapshotPipeline = pipeline.NewSnapshotPipeline(
@@ -104,10 +104,40 @@ func NewApp(logger *slog.Logger, logLevel *slog.LevelVar, cfg *config.Root) (*Ap
 		application.Jobs,
 		application.ArtifactStore,
 		application.Fetcher,
-		markdownHandoff,
+		application.MarkdownHandoff,
 	)
 
 	return application, nil
+}
+
+func createSummaryHandoff(
+	logger *slog.Logger,
+	jobsRepository jobs.Repository,
+	store *artifacts.Store,
+	summarizer summary.SummarizerService,
+) *pipeline.SummaryGenerationHandoff {
+	return pipeline.NewSummaryGenerationHandoff(
+		logger,
+		jobsRepository,
+		store,
+		summarizer,
+	)
+}
+
+func createMarkdownHandoff(
+	logger *slog.Logger,
+	store *artifacts.Store,
+	localMarkdown markdown.MarkdownExtractor,
+	jinaMarkdown markdown.MarkdownExtractor,
+	summaryHandoff pipeline.SummaryHandoff,
+) *pipeline.MarkdownExtractionHandoff {
+	return pipeline.NewMarkdownExtractionHandoff(
+		logger,
+		store,
+		localMarkdown,
+		jinaMarkdown,
+		summaryHandoff,
+	)
 }
 
 func createFetcher(application *App) *fetcher.Fetcher {
@@ -130,6 +160,8 @@ func applyProcessingServices(
 	localMarkdown markdown.MarkdownExtractor,
 	jinaMarkdown markdown.MarkdownExtractor,
 	summarizer summary.SummarizerService,
+	summaryHandoff pipeline.SummaryHandoff,
+	markdownHandoff pipeline.MarkdownHandoff,
 ) {
 	application.NotificationIDGenerator = notificationIDs
 	application.Jobs = jobsRepository
@@ -139,6 +171,8 @@ func applyProcessingServices(
 	application.LocalMarkdown = localMarkdown
 	application.JinaMarkdown = jinaMarkdown
 	application.Summarizer = summarizer
+	application.SummaryHandoff = summaryHandoff
+	application.MarkdownHandoff = markdownHandoff
 }
 
 func createHTTPClient(logger *slog.Logger) (*ssrf.Guard, *req.Client) {

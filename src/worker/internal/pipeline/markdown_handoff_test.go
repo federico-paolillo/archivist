@@ -18,6 +18,7 @@ import (
 	"codeberg.org/federico-paolillo/archivist/internal/artifacts"
 	"codeberg.org/federico-paolillo/archivist/internal/markdown"
 	"codeberg.org/federico-paolillo/archivist/internal/pipeline"
+	"codeberg.org/federico-paolillo/archivist/internal/summary"
 	"codeberg.org/federico-paolillo/archivist/pkg/jobs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -43,6 +44,32 @@ func (e *fakeMarkdownExtractor) ExtractMarkdown(
 	e.inputs = append(e.inputs, input)
 
 	return e.output, e.err
+}
+
+type fakeSummarizer struct {
+	provider summary.Provider
+	calls    int
+	inputs   []summary.SummarizerRequest
+	output   summary.SummarizerOutput
+	err      error
+}
+
+func (s *fakeSummarizer) Provider() summary.Provider {
+	return s.provider
+}
+
+func (s *fakeSummarizer) Model() string {
+	return "claude-test"
+}
+
+func (s *fakeSummarizer) Summarize(
+	_ context.Context,
+	req summary.SummarizerRequest,
+) (summary.SummarizerOutput, error) {
+	s.calls++
+	s.inputs = append(s.inputs, req)
+
+	return s.output, s.err
 }
 
 func TestMarkdownExtractionHandoffLocalSuccessWritesMarkdownAndStaysNonTerminal(t *testing.T) {
@@ -72,7 +99,7 @@ func TestMarkdownExtractionHandoffLocalSuccessWritesMarkdownAndStaysNonTerminal(
 		},
 	}
 
-	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, nil), store, local, jina)
+	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, nil), store, local, jina, pipeline.NoOpSummaryHandoff)
 	p := newTestPipeline(t, database, store, newTestFetcher(srv.URL), handoff)
 
 	processed, err := p.ProcessOne(t.Context())
@@ -119,7 +146,7 @@ func TestMarkdownExtractionHandoffLocalUnreadableFallsBackToJina(t *testing.T) {
 	}
 
 	var logs bytes.Buffer
-	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, &logs), store, local, jina)
+	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, &logs), store, local, jina, pipeline.NoOpSummaryHandoff)
 
 	err = handoff.Handoff(t.Context(), testJob(), "https://example.com/article")
 	require.NoError(t, err)
@@ -167,7 +194,7 @@ func TestMarkdownExtractionHandoffLocalFailureFallsBackToJina(t *testing.T) {
 	}
 
 	var logs bytes.Buffer
-	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, &logs), store, local, jina)
+	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, &logs), store, local, jina, pipeline.NoOpSummaryHandoff)
 
 	err = handoff.Handoff(t.Context(), testJob(), "https://example.com/article")
 	require.NoError(t, err)
@@ -199,7 +226,7 @@ func TestMarkdownExtractionHandoffJinaFailureReturnsARC010(t *testing.T) {
 	}
 
 	var logs bytes.Buffer
-	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, &logs), store, local, jina)
+	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, &logs), store, local, jina, pipeline.NoOpSummaryHandoff)
 
 	err = handoff.Handoff(t.Context(), testJob(), "https://example.com/article")
 	require.ErrorIs(t, err, arc.ErrJinaReaderFailure)
@@ -235,7 +262,7 @@ func TestMarkdownExtractionHandoffJinaInsufficientBalanceReturnsARC011(t *testin
 		},
 	}
 
-	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, nil), store, local, jina)
+	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, nil), store, local, jina, pipeline.NoOpSummaryHandoff)
 
 	err = handoff.Handoff(t.Context(), testJob(), "https://example.com/article")
 	require.ErrorIs(t, err, arc.ErrJinaInsufficientBalance)
@@ -266,7 +293,7 @@ func TestMarkdownExtractionHandoffMarkdownWriteFailureReturnsARC012(t *testing.T
 	}
 
 	var logs bytes.Buffer
-	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, &logs), store, local, jina)
+	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, &logs), store, local, jina, pipeline.NoOpSummaryHandoff)
 
 	err = handoff.Handoff(t.Context(), testJob(), "https://example.com/article")
 	require.ErrorIs(t, err, arc.ErrMarkdownWrite)
@@ -311,7 +338,7 @@ func TestMarkdownExtractionFailureCommitsTerminalFailureTransactionally(t *testi
 		},
 	}
 
-	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, nil), store, local, jina)
+	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, nil), store, local, jina, pipeline.NoOpSummaryHandoff)
 	p := newTestPipeline(t, database, store, newTestFetcher(srv.URL), handoff)
 
 	processed, err := p.ProcessOne(t.Context())
@@ -365,7 +392,7 @@ func TestMarkdownExtractionFailureRollsBackWhenNotificationInsertFails(t *testin
 		},
 	}
 
-	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, nil), store, local, jina)
+	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, nil), store, local, jina, pipeline.NoOpSummaryHandoff)
 	p := newTestPipeline(t, database, store, newTestFetcher(srv.URL), handoff)
 
 	processed, processErr := p.ProcessOne(t.Context())

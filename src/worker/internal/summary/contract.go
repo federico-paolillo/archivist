@@ -31,5 +31,6 @@ type SummarizerOutput struct {
 // Implementations must not expose provider-specific SDK types.
 type SummarizerService interface {
 	Provider() Provider
+	Model() string
 	Summarize(ctx context.Context, req SummarizerRequest) (SummarizerOutput, error)
 }

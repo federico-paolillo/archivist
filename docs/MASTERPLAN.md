@@ -70,7 +70,7 @@ It is not listed in `docs/REBUILD.md` and is not authoritative by itself. If thi
 
 ### Wave 6 - Summary Pipeline Integration
 
-- [`SUMGEN-004`](./specs/summary-generation/tasks/SUMGEN-004-worker-summary-pipeline-integration.md) - Worker summary pipeline integration. Feature: [`summary-generation`](./specs/summary-generation/SPEC.md). Status: `blocked` because its ExecPlan is `proposed`; dependencies are done. ExecPlan: [`proposed`](./specs/summary-generation/plans/SUMGEN-004-worker-summary-pipeline-integration.execplan.md).
+- [`SUMGEN-004`](./specs/summary-generation/tasks/SUMGEN-004-worker-summary-pipeline-integration.md) - Worker summary pipeline integration. Feature: [`summary-generation`](./specs/summary-generation/SPEC.md). Status: `done`. ExecPlan: [`completed`](./specs/summary-generation/plans/SUMGEN-004-worker-summary-pipeline-integration.execplan.md).
 
 ### Wave 7 - Summary Notification
 
@@ -140,7 +140,7 @@ flowchart TD
     SUMGEN_001["SUMGEN-001<br/>Create feature artifacts and contracts<br/>done"]
     SUMGEN_002["SUMGEN-002<br/>Worker summary artifact access<br/>done"]
     SUMGEN_003["SUMGEN-003<br/>Summarizer provider adapter<br/>done"]
-    SUMGEN_004["SUMGEN-004<br/>Worker summary pipeline integration<br/>blocked"]
+    SUMGEN_004["SUMGEN-004<br/>Worker summary pipeline integration<br/>done"]
     SUMGEN_005["SUMGEN-005<br/>Gateway summary notification<br/>blocked"]
   end
 
@@ -224,8 +224,8 @@ flowchart TD
   classDef blocked fill:#fef3c7,stroke:#b45309,color:#111827
   classDef skipped fill:#e5e7eb,stroke:#6b7280,color:#374151,stroke-dasharray: 4 4
 
-  class AUTHN_001,ARTPROC_001,ARTPROC_002,MDEXT_001,SUMGEN_001,UIEND_001,UI_001,MDEXT_004,SUMGEN_003,TELING_001,TELING_002,TELING_003,AUTHN_002,ARTPROC_003,MDEXT_003,ARTPROC_004,MDEXT_002,TELING_004,AUTHN_003,ARTPROC_005,AUTHN_004,AUTHN_006,AUTHN_005,MDEXT_005,UIEND_003,SUMGEN_002,UI_002,WCFG_001,WCFG_002 done
-  class SUMGEN_004,SUMGEN_005,UIEND_002,UI_003,UI_004 blocked
+  class AUTHN_001,ARTPROC_001,ARTPROC_002,MDEXT_001,SUMGEN_001,UIEND_001,UI_001,MDEXT_004,SUMGEN_003,TELING_001,TELING_002,TELING_003,AUTHN_002,ARTPROC_003,MDEXT_003,ARTPROC_004,MDEXT_002,TELING_004,AUTHN_003,ARTPROC_005,AUTHN_004,AUTHN_006,AUTHN_005,MDEXT_005,UIEND_003,SUMGEN_002,UI_002,WCFG_001,WCFG_002,SUMGEN_004 done
+  class SUMGEN_005,UIEND_002,UI_003,UI_004 blocked
   class ARTPROC_006,MDEXT_006 skipped
 
   click TELING_001 "./specs/telegram-ingestion/SPEC.md" "telegram-ingestion SPEC"

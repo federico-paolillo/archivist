@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"codeberg.org/federico-paolillo/archivist/internal/pipeline"
 	"codeberg.org/federico-paolillo/archivist/internal/summary"
 	"codeberg.org/federico-paolillo/archivist/internal/testutils/slogt"
 	"codeberg.org/federico-paolillo/archivist/pkg/app"
@@ -50,6 +51,11 @@ func TestNewAppReturnsApp(t *testing.T) {
 	assert.NotNil(t, application.SnapshotPipeline)
 	require.NotNil(t, application.Summarizer)
 	assert.Equal(t, summary.ProviderAnthropic, application.Summarizer.Provider())
+	assert.Equal(t, cfg.LLM.Model, application.Summarizer.Model())
+	require.NotNil(t, application.SummaryHandoff)
+	require.IsType(t, &pipeline.SummaryGenerationHandoff{}, application.SummaryHandoff)
+	require.NotNil(t, application.MarkdownHandoff)
+	require.IsType(t, &pipeline.MarkdownExtractionHandoff{}, application.MarkdownHandoff)
 }
 
 func TestNewAppRejectsNilConfig(t *testing.T) {

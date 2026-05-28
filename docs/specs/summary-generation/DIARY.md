@@ -274,3 +274,41 @@ Follow-ups:
 Canonical Updates:
 - `docs/specs/summary-generation/tasks/SUMGEN-002-worker-summary-artifact-access.md` — status: done, validation recorded.
 - `docs/specs/summary-generation/PLAN.md` — SUMGEN-002 row: done.
+
+## 2026-05-23 — SUMGEN-004: Worker Summary Pipeline Integration
+
+Status:
+- done
+
+Summary:
+- Integrated summary generation into the Worker pipeline after Markdown extraction.
+- Made `summary.md` promotion the final v0 success boundary before article/job success and notification creation.
+- Executed the requested coordinator/worker/review/fix workflow: a medium-effort worker implemented the task, a high-effort review found issues, and the worker fixed the confirmed findings.
+
+Changes:
+- Added `SummaryGenerationHandoff` to read `content.md`, call `SummarizerService`, write `summary.md`, and commit terminal success through `jobs.Repository.CompleteTerminal`.
+- Wired summary generation into `MarkdownExtractionHandoff` and `pkg/app.NewApp`; snapshot and Markdown boundaries remain non-terminal.
+- Added provider-neutral `SummarizerService.Model()` so orchestration can log the configured model on success and failure without provider SDK leakage.
+- Added pipeline, executable-surface, composition-root, logging, ARC failure, artifact failure, notification, and rollback tests.
+- Corrected the stale Worker comment that assigned final success to SUMGEN-005; SUMGEN-004 owns Worker terminal success, while SUMGEN-005 owns Gateway summary notification content.
+
+Decisions:
+- No schema, configuration key, ARC code, Gateway API, UI API, or Telegram dispatch behavior changed.
+- Summary provider model metadata is exposed through the Worker-owned summarizer interface for orchestration logging.
+- Unknown non-ARC summarizer failures are mapped to `ARC-999` before terminal persistence.
+
+Validation:
+- `cd src/worker && go test ./...` — passed.
+- `cd src/worker && go tool lefthook run build` — passed.
+- `cd src/worker && go tool lefthook run format` — passed.
+- `cd src/worker && go tool lefthook run lint` — passed.
+- `cd src/worker && go tool lefthook run test` — passed.
+
+Follow-ups:
+- `SUMGEN-005` now has completed task dependencies but remains blocked until its proposed ExecPlan is accepted or updated.
+
+Canonical Updates:
+- `docs/specs/summary-generation/tasks/SUMGEN-004-worker-summary-pipeline-integration.md` — status: done, validation recorded.
+- `docs/specs/summary-generation/plans/SUMGEN-004-worker-summary-pipeline-integration.execplan.md` — status: completed.
+- `docs/specs/summary-generation/PLAN.md` — SUMGEN-004 row: done; SUMGEN-005 blocking note updated.
+- `docs/MASTERPLAN.md` — derived SUMGEN-004 status updated to done.

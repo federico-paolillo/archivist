@@ -15,8 +15,10 @@ import (
 	"time"
 
 	"codeberg.org/federico-paolillo/archivist/internal/fetcher"
+	"codeberg.org/federico-paolillo/archivist/internal/markdown"
 	"codeberg.org/federico-paolillo/archivist/internal/pipeline"
 	"codeberg.org/federico-paolillo/archivist/internal/ssrf"
+	"codeberg.org/federico-paolillo/archivist/internal/summary"
 	pkgapp "codeberg.org/federico-paolillo/archivist/pkg/app"
 	"codeberg.org/federico-paolillo/archivist/pkg/app/config"
 	"codeberg.org/federico-paolillo/archivist/pkg/jobs"
@@ -50,7 +52,7 @@ func TestProcessCommandOnceProcessesQueuedJob(t *testing.T) {
 </html>`))
 	}))
 	defer srv.Close()
-	installProcessTestFetcher(t, application, srv.Listener.Addr().String())
+	installProcessTestPipeline(t, application, srv.Listener.Addr().String())
 
 	seedProcessUser(t, application.DB)
 	seedProcessArticle(t, application.DB, "https://article.example/article")
@@ -68,18 +70,20 @@ func TestProcessCommandOnceProcessesQueuedJob(t *testing.T) {
 	_, err = io.ReadAll(snapshot)
 	require.NoError(t, err)
 
+	summaryContent, err := os.ReadFile(filepath.Join(cfg.Data.Dir, "articles", processTestArticleID, "summary.md"))
+	require.NoError(t, err)
+	assert.Equal(t, "Process command summary.", string(summaryContent))
+
 	assert.NotEmpty(
 		t,
 		scalarNullableString(t, application.DB, `SELECT canonical_url FROM articles WHERE id = ?`, processTestArticleID),
 	)
-	assert.NotEqual(
-		t,
-		"queued",
-		scalarString(t, application.DB, `SELECT status FROM jobs WHERE id = ?`, processTestJobID),
-	)
+	assert.Equal(t, "ready", scalarString(t, application.DB, `SELECT status FROM articles WHERE id = ?`, processTestArticleID))
+	assert.Equal(t, "succeeded", scalarString(t, application.DB, `SELECT status FROM jobs WHERE id = ?`, processTestJobID))
+	assert.Equal(t, "1", scalarString(t, application.DB, `SELECT COUNT(*) FROM notifications WHERE job_id = ?`, processTestJobID))
 }
 
-func installProcessTestFetcher(t *testing.T, application *pkgapp.App, serverAddress string) {
+func installProcessTestPipeline(t *testing.T, application *pkgapp.App, serverAddress string) {
 	t.Helper()
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -103,12 +107,43 @@ func installProcessTestFetcher(t *testing.T, application *pkgapp.App, serverAddr
 		_, validateErr := guard.ValidateURL(rawURL, ssrf.PhaseInitialURL)
 		return validateErr
 	})
+	application.LocalMarkdown = &processTestMarkdownExtractor{
+		provider: markdown.ProviderGoReadability,
+		output: markdown.ExtractOutput{
+			Markdown: "# Process command article\n\nReadable content.",
+		},
+	}
+	application.JinaMarkdown = &processTestMarkdownExtractor{
+		provider: markdown.ProviderJina,
+		output: markdown.ExtractOutput{
+			Markdown: "# Fallback",
+		},
+	}
+	application.Summarizer = &processTestSummarizer{
+		output: summary.SummarizerOutput{
+			Summary:   "Process command summary.",
+			RequestID: "req-process-test",
+		},
+	}
+	summaryHandoff := pipeline.NewSummaryGenerationHandoff(
+		logger,
+		application.Jobs,
+		application.ArtifactStore,
+		application.Summarizer,
+	)
+	markdownHandoff := pipeline.NewMarkdownExtractionHandoff(
+		logger,
+		application.ArtifactStore,
+		application.LocalMarkdown,
+		application.JinaMarkdown,
+		summaryHandoff,
+	)
 	application.SnapshotPipeline = pipeline.NewSnapshotPipeline(
 		logger,
 		application.Jobs,
 		application.ArtifactStore,
 		application.Fetcher,
-		pipeline.NoOpMarkdownHandoff,
+		markdownHandoff,
 	)
 }
 
@@ -223,6 +258,41 @@ func (d processTestDialer) DialContext(ctx context.Context, network string, _ st
 	var dialer net.Dialer
 
 	return dialer.DialContext(ctx, network, d.targetAddress)
+}
+
+type processTestMarkdownExtractor struct {
+	provider markdown.Provider
+	output   markdown.ExtractOutput
+}
+
+func (e *processTestMarkdownExtractor) Provider() markdown.Provider {
+	return e.provider
+}
+
+func (e *processTestMarkdownExtractor) ExtractMarkdown(
+	_ context.Context,
+	_ markdown.ExtractInput,
+) (markdown.ExtractOutput, error) {
+	return e.output, nil
+}
+
+type processTestSummarizer struct {
+	output summary.SummarizerOutput
+}
+
+func (s *processTestSummarizer) Provider() summary.Provider {
+	return summary.ProviderAnthropic
+}
+
+func (s *processTestSummarizer) Model() string {
+	return "claude-process-test"
+}
+
+func (s *processTestSummarizer) Summarize(
+	_ context.Context,
+	_ summary.SummarizerRequest,
+) (summary.SummarizerOutput, error) {
+	return s.output, nil
 }
 
 func scalarString(t *testing.T, database *sql.DB, query string, args ...any) string {

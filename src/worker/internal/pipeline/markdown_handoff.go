@@ -17,10 +17,11 @@ import (
 
 // MarkdownExtractionHandoff runs the Markdown stage after snapshot promotion.
 type MarkdownExtractionHandoff struct {
-	logger   *slog.Logger
-	store    *artifacts.Store
-	local    markdown.MarkdownExtractor
-	fallback markdown.MarkdownExtractor
+	logger         *slog.Logger
+	store          *artifacts.Store
+	local          markdown.MarkdownExtractor
+	fallback       markdown.MarkdownExtractor
+	summaryHandoff SummaryHandoff
 }
 
 var _ MarkdownHandoff = (*MarkdownExtractionHandoff)(nil)
@@ -31,12 +32,14 @@ func NewMarkdownExtractionHandoff(
 	store *artifacts.Store,
 	local markdown.MarkdownExtractor,
 	fallback markdown.MarkdownExtractor,
+	summaryHandoff SummaryHandoff,
 ) *MarkdownExtractionHandoff {
 	return &MarkdownExtractionHandoff{
-		logger:   logger,
-		store:    store,
-		local:    local,
-		fallback: fallback,
+		logger:         logger,
+		store:          store,
+		local:          local,
+		fallback:       fallback,
+		summaryHandoff: summaryHandoff,
 	}
 }
 
@@ -74,7 +77,26 @@ func (h *MarkdownExtractionHandoff) Handoff(ctx context.Context, job *jobs.Job, 
 		return err
 	}
 
-	writeErr := h.store.WriteMarkdown(job.ArticleID, strings.NewReader(selected.Markdown))
+	err = h.writeMarkdown(job, canonicalURL, provider, selected.Markdown)
+	if err != nil {
+		return err
+	}
+
+	err = h.summaryHandoff.Summarize(ctx, job, canonicalURL)
+	if err != nil {
+		return fmt.Errorf("pipeline: summary handoff: %w", err)
+	}
+
+	return nil
+}
+
+func (h *MarkdownExtractionHandoff) writeMarkdown(
+	job *jobs.Job,
+	canonicalURL string,
+	provider markdown.Provider,
+	content string,
+) error {
+	writeErr := h.store.WriteMarkdown(job.ArticleID, strings.NewReader(content))
 	if writeErr != nil {
 		h.logger.Error(
 			"pipeline: markdown write failed",

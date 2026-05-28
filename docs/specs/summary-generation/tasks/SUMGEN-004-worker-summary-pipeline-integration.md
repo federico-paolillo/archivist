@@ -2,7 +2,7 @@
 id: SUMGEN-004
 feature: summary-generation
 title: Worker Summary Pipeline Integration
-status: blocked
+status: done
 depends_on: [SUMGEN-002, SUMGEN-003, WCFG-001, WCFG-002]
 blocks: [SUMGEN-005]
 parallel: false
@@ -146,6 +146,15 @@ Manual validation, if any:
 
 - Inspect SQLite state and artifact directory for one successful local fixture job.
 
+Validation performed on 2026-05-23:
+
+- `cd src/worker && go test ./...` — passed.
+- `cd src/worker && go tool lefthook run build` — passed.
+- `cd src/worker && go tool lefthook run format` — passed.
+- `cd src/worker && go tool lefthook run lint` — passed.
+- `cd src/worker && go tool lefthook run test` — passed.
+- SQLite terminal state and `summary.md` artifact outcomes were validated by Worker pipeline and executable-surface tests.
+
 ## Dependencies
 
 Depends on:
@@ -174,5 +183,5 @@ ExecPlan:
 ## Notes
 
 - Do not call Telegram APIs from the Worker.
-- Status remains `blocked` because the required ExecPlan is still `proposed`; task dependencies are complete, but execution must wait for ExecPlan acceptance or update.
+- Status is `done`; implementation, review fixes, and required Worker validation are complete.
 - SUMGEN-004 is the sole owner of structured log entries for the summarization pipeline: provider, model, provider request id, ARC code on failure, `article_id`, `job_id`, canonical URL, duration (measured by orchestration around the adapter call), and artifact write result. Adapters do not log. See `docs/conventions/WORKER.md` §Structured Logging.

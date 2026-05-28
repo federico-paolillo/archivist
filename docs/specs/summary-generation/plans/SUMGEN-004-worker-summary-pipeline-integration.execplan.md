@@ -1,7 +1,7 @@
 ---
 id: SUMGEN-004-PLAN
 task: ../tasks/SUMGEN-004-worker-summary-pipeline-integration.md
-status: proposed
+status: completed
 canonical: true
 ---
 
@@ -59,6 +59,24 @@ Add only ExecPlan-specific context:
 10. Add structured logs for summarizer provider, model, request ID when available, `article_id`, `job_id`, canonical URL, duration, ARC code, and artifact write result.
 11. Add tests for summary success, Markdown-not-terminal behavior, generic provider failure, context/request-too-large failure, billing failure, summary write failure, notification creation, and rollback behavior.
 12. Update task status, `PLAN.md`, and `DIARY.md` after validation if implementation is completed.
+
+## Coordinator / Worker / Review Workflow
+
+Execution must use a coordinator-led multi-agent loop:
+
+1. The coordinator owns task state, ALM consistency, validation decisions, and final acceptance. The coordinator does not switch into the Worker or Reviewer role.
+2. A `worker` subagent with medium reasoning effort implements the Worker code and focused tests under `src/worker/`. The worker must not modify unrelated Gateway or UI surfaces.
+3. After worker completion, a separate `review` subagent with high reasoning effort reviews the implementation and ALM updates. The review must prioritize idiomatic Go, consistency with new and existing code, repository conventions, and ALM document consistency.
+4. The coordinator sends confirmed findings back to the worker. The worker fixes only confirmed findings and reports changed files and validation results.
+5. The coordinator performs final integration review, runs required validation, and only then updates the task, feature plan, diary, ExecPlan status, and derived masterplan to completion.
+
+Review gates:
+
+- Implementation must match the canonical task, feature spec, Worker conventions, artifact conventions, ARC error conventions, and this ExecPlan.
+- Summary success must be terminal only after `summary.md` is atomically promoted.
+- Markdown and snapshot stages must remain non-terminal.
+- Logs must not include full Markdown, summary text, provider payloads, API keys, or other secrets.
+- ALM updates must keep task frontmatter, feature `PLAN.md`, ExecPlan status, `DIARY.md`, and `docs/MASTERPLAN.md` consistent.
 
 ## Validation Plan
 

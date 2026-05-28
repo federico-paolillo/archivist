@@ -15,19 +15,16 @@ import (
 	"codeberg.org/federico-paolillo/archivist/pkg/jobs"
 )
 
-// MarkdownHandoff is the extension point that MDEXT-005 will implement.
+// MarkdownHandoff is the extension point implemented by Markdown extraction.
 // It is called after snapshot.html is atomically written and canonical_url is updated.
 //
-// MDEXT-005 handoff contract:
+// Handoff contract:
 //   - Input: ctx, job (with ArticleID, ID), canonicalURL (the resolved final URL).
 //   - The implementation opens snapshot.html from the artifact store using job.ArticleID.
-//   - On success: writes content.md and continues to the summary generation stage.
-//     The implementation must not set articles.status=ready, jobs.status=succeeded,
-//     or insert a success notification — those are owned by SUMGEN-005.
+//   - On success: writes content.md and continues to the summary generation stage,
+//     which owns final success after summary.md promotion.
 //   - On failure: returns an ARC-coded error (e.g. ARC-008 through ARC-012).
 //     The pipeline records terminal failure when this returns non-nil.
-//
-// Until MDEXT-005 is wired, use NoOpMarkdownHandoff which returns nil.
 type MarkdownHandoff interface {
 	Handoff(ctx context.Context, job *jobs.Job, canonicalURL string) error
 }
@@ -107,6 +104,10 @@ func (p *SnapshotPipeline) ProcessOne(ctx context.Context) (bool, error) {
 	duration := time.Since(start)
 
 	if processingErr != nil {
+		if _, ok := arc.CodeOf(processingErr); !ok {
+			return false, fmt.Errorf("pipeline: run stages for job %s: %w", job.ID, processingErr)
+		}
+
 		persistErr := p.persistFailure(ctx, job, articleURL, processingErr, duration)
 		if persistErr != nil {
 			return false, persistErr
@@ -116,11 +117,11 @@ func (p *SnapshotPipeline) ProcessOne(ctx context.Context) (bool, error) {
 	}
 
 	p.logger.Info(
-		"pipeline: snapshot stored, handed off to markdown extraction",
+		"pipeline: job stages completed",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
 		slog.Duration("duration", duration),
-		slog.String("status", "snapshot_done"),
+		slog.String("status", "pipeline_done"),
 	)
 
 	return true, nil
@@ -294,11 +295,6 @@ func (p *SnapshotPipeline) updateCanonicalURL(
 func (p *SnapshotPipeline) invokeMarkdownHandoff(ctx context.Context, job *jobs.Job, finalURL string) error {
 	mdErr := p.markdownHandoff.Handoff(ctx, job, finalURL)
 	if mdErr == nil {
-		// Snapshot boundary — NOT a terminal success in final v0.
-		// articles.status is NOT set to ready here.
-		// jobs.status is NOT set to succeeded here.
-		// No success notification is inserted here.
-		// Final v0 terminal success is owned by SUMGEN-005 after summary.md is written.
 		return nil
 	}
 
@@ -321,12 +317,5 @@ func (p *SnapshotPipeline) invokeMarkdownHandoff(ctx context.Context, job *jobs.
 		slog.Any("error", mdErr),
 	)
 
-	return pipelineFailure(
-		"markdown",
-		"handoff",
-		arc.ErrUnknown,
-		mdErr,
-		withJobContext(job.ArticleID, job.ID),
-		withPipelineURL(finalURL),
-	)
+	return fmt.Errorf("pipeline: markdown handoff infrastructure failure: %w", mdErr)
 }

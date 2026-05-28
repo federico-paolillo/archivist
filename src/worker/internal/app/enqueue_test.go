@@ -5,6 +5,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"codeberg.org/federico-paolillo/archivist/pkg/jobs"
@@ -135,7 +137,7 @@ func TestEnqueueCommandCreatedJobCanBeProcessed(t *testing.T) {
 </html>`))
 	}))
 	defer srv.Close()
-	installProcessTestFetcher(t, application, srv.Listener.Addr().String())
+	installProcessTestPipeline(t, application, srv.Listener.Addr().String())
 
 	withArgs(t, "archivist-worker", "enqueue", "https://article.example/article")
 	require.NoError(t, CliProgram(t.Context(), application, cfg))
@@ -152,8 +154,13 @@ func TestEnqueueCommandCreatedJobCanBeProcessed(t *testing.T) {
 	_, err = io.ReadAll(snapshot)
 	require.NoError(t, err)
 
+	summaryContent, err := os.ReadFile(filepath.Join(cfg.Data.Dir, "articles", articleID, "summary.md"))
+	require.NoError(t, err)
+	assert.Equal(t, "Process command summary.", string(summaryContent))
+
 	assert.NotEmpty(t, scalarNullableString(t, application.DB, `SELECT canonical_url FROM articles WHERE id = ?`, articleID))
-	assert.Equal(t, jobs.StatusRunning, scalarString(t, application.DB, `SELECT status FROM jobs WHERE article_id = ?`, articleID))
+	assert.Equal(t, "ready", scalarString(t, application.DB, `SELECT status FROM articles WHERE id = ?`, articleID))
+	assert.Equal(t, jobs.StatusSucceeded, scalarString(t, application.DB, `SELECT status FROM jobs WHERE article_id = ?`, articleID))
 	assert.Equal(t, 0, scalarInt(t, application.DB, `SELECT COUNT(*) FROM notifications`))
 }
 
