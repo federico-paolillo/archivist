@@ -20,6 +20,7 @@ export function LoginForm({
 					type="password"
 					aria-label="Password"
 					className="password-input"
+					placeholder="BEGIN KEY BLOCK..."
 					value={password}
 					onInput={(event) => {
 						onPasswordInput(event.currentTarget.value);
