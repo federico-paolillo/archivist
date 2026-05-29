@@ -1,0 +1,16 @@
+https://localhost:8443 {
+	tls .local/tls/localhost.crt .local/tls/localhost.key
+
+	handle_path /api/* {
+		reverse_proxy localhost:5178 {
+			header_up Host localhost:8443
+			header_up X-Forwarded-Proto https
+			header_up X-Forwarded-Host localhost:8443
+			header_up X-Forwarded-For {remote_host}
+		}
+	}
+
+	handle {
+		reverse_proxy 127.0.0.1:5173
+	}
+}
