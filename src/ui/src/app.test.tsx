@@ -103,6 +103,64 @@ function mountAt(path: string, deps: Deps) {
 	});
 }
 
+function storageSnapshot(storage: Storage): string {
+	return Array.from({ length: storage.length }, (_, index) => {
+		const key = storage.key(index);
+		return key ? `${key}:${storage.getItem(key) ?? ""}` : "";
+	}).join("\n");
+}
+
+function installStorageDouble(name: "localStorage" | "sessionStorage") {
+	const items = new Map<string, string>();
+	const storage = {
+		get length() {
+			return items.size;
+		},
+		clear: vi.fn(() => {
+			items.clear();
+		}),
+		getItem: vi.fn((key: string) => items.get(key) ?? null),
+		key: vi.fn((index: number) => Array.from(items.keys())[index] ?? null),
+		removeItem: vi.fn((key: string) => {
+			items.delete(key);
+		}),
+		setItem: vi.fn((key: string, value: string) => {
+			items.set(key, value);
+		}),
+	} satisfies Storage;
+
+	Object.defineProperty(window, name, {
+		configurable: true,
+		value: storage,
+	});
+
+	return storage;
+}
+
+function installIndexedDbGuard() {
+	const fail = (method: string): never => {
+		throw new Error(`${method} must not be used during login.`);
+	};
+	const indexedDb = {
+		cmp: vi.fn(() => fail("indexedDB.cmp")),
+		databases: vi.fn(() => fail("indexedDB.databases")),
+		deleteDatabase: vi.fn(() => fail("indexedDB.deleteDatabase")),
+		open: vi.fn(() => fail("indexedDB.open")),
+	} as unknown as IDBFactory & {
+		cmp: ReturnType<typeof vi.fn>;
+		databases: ReturnType<typeof vi.fn>;
+		deleteDatabase: ReturnType<typeof vi.fn>;
+		open: ReturnType<typeof vi.fn>;
+	};
+
+	Object.defineProperty(window, "indexedDB", {
+		configurable: true,
+		value: indexedDb,
+	});
+
+	return indexedDb;
+}
+
 afterEach(() => {
 	render(null, document.body);
 	document.body.replaceChildren();
@@ -127,6 +185,40 @@ describe("auth routes", () => {
 			expect(window.location.pathname).toBe("/articles");
 		});
 		expect(deps.api.login).toHaveBeenCalledWith("correct-password");
+	});
+
+	it("does not persist the password after successful login", async () => {
+		const deps = makeTestDeps({
+			login: vi.fn(async () => true),
+			getSession: vi.fn(async () => true),
+		});
+		const secret = "s".repeat(2048);
+		const user = userEvent.setup();
+		const localStorageDouble = installStorageDouble("localStorage");
+		const sessionStorageDouble = installStorageDouble("sessionStorage");
+		const indexedDbGuard = installIndexedDbGuard();
+
+		mountAt("/login", deps);
+
+		expect(screen.getByPlaceholderText("BEGIN KEY BLOCK...")).not.toBeNull();
+		await user.click(screen.getByLabelText("Password"));
+		await user.paste(secret);
+		await user.click(screen.getByRole("button", { name: "IDENTIFY" }));
+
+		await waitFor(() => {
+			expect(window.location.pathname).toBe("/articles");
+		});
+		expect(deps.api.login).toHaveBeenCalledWith(secret);
+		expect(window.location.href).not.toContain(secret);
+		expect(document.cookie).not.toContain(secret);
+		expect(storageSnapshot(window.localStorage)).not.toContain(secret);
+		expect(storageSnapshot(window.sessionStorage)).not.toContain(secret);
+		expect(localStorageDouble.setItem).not.toHaveBeenCalled();
+		expect(sessionStorageDouble.setItem).not.toHaveBeenCalled();
+		expect(indexedDbGuard.open).not.toHaveBeenCalled();
+		expect(indexedDbGuard.deleteDatabase).not.toHaveBeenCalled();
+		expect(indexedDbGuard.databases).not.toHaveBeenCalled();
+		expect(indexedDbGuard.cmp).not.toHaveBeenCalled();
 	});
 
 	it("navigates invalid login to a blank black route", async () => {
@@ -184,6 +276,24 @@ describe("auth routes", () => {
 		await waitFor(() => {
 			expect(screen.getByRole("button", { name: "Logout" })).not.toBeNull();
 		});
+		await user.click(screen.getByRole("button", { name: "Logout" }));
+
+		await waitFor(() => {
+			expect(window.location.pathname).toBe("/login");
+		});
+		expect(deps.api.logout).toHaveBeenCalledTimes(1);
+	});
+
+	it("returns to /login when logout reports 401", async () => {
+		const deps = makeTestDeps({
+			getSession: vi.fn(async () => true),
+			logout: vi.fn(async () => "unauthorized" as const),
+		});
+		const user = userEvent.setup();
+
+		mountAt("/articles", deps);
+
+		await user.click(await screen.findByRole("button", { name: "User menu" }));
 		await user.click(screen.getByRole("button", { name: "Logout" }));
 
 		await waitFor(() => {
