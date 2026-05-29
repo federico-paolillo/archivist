@@ -201,8 +201,10 @@
 
 	.article-shell {
 		display: grid;
+		height: 100vh;
 		min-height: 100vh;
 		grid-template-rows: 80px minmax(0, 1fr) 40px;
+		overflow: hidden;
 		background: #000000;
 		color: #ffffff;
 	}
@@ -297,6 +299,7 @@
 		display: grid;
 		min-height: 0;
 		grid-template-columns: minmax(440px, 532px) minmax(0, 1fr);
+		overflow: hidden;
 		background: #000000;
 		border-bottom: 2px solid #ffffff;
 	}
@@ -597,6 +600,25 @@
 	@keyframes spin {
 		to {
 			transform: rotate(360deg);
+		}
+	}
+}
+
+@media (max-width: 1320px) {
+	@layer components {
+		.article-actions {
+			top: 28px;
+			right: 28px;
+		}
+
+		.detail-hero {
+			min-height: 330px;
+			padding: 96px 28px 32px;
+		}
+
+		.detail-hero h1 {
+			max-width: 100%;
+			font-size: clamp(44px, 6vw, 70px);
 		}
 	}
 }
