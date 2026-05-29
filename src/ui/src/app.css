@@ -54,6 +54,7 @@
 	}
 
 	.login-page {
+		position: relative;
 		display: grid;
 		min-height: 100vh;
 		place-items: center;
@@ -61,20 +62,47 @@
 		background: #000000;
 	}
 
+	.login-page::before {
+		position: fixed;
+		right: 0;
+		bottom: 38px;
+		left: 0;
+		height: 2px;
+		background: #ffffff;
+		content: "";
+	}
+
+	.login-page::after {
+		position: fixed;
+		right: 0;
+		bottom: 15px;
+		left: 0;
+		color: #8e9192;
+		content: "VERSION: 7F8A2C1_STABLE";
+		font-family: "Space Grotesk", Arial, Helvetica, sans-serif;
+		font-size: 12px;
+		font-weight: 700;
+		letter-spacing: 0.1em;
+		line-height: 1;
+		text-align: center;
+	}
+
 	.login-panel {
 		display: grid;
-		width: min(100%, 760px);
-		gap: 24px;
+		width: min(100%, 860px);
+		gap: 48px;
 	}
 
 	.login-title {
+		justify-self: center;
 		margin: 0;
 		color: #ffffff;
 		font-family: "Space Grotesk", Arial, Helvetica, sans-serif;
-		font-size: clamp(48px, 11vw, 96px);
+		font-size: clamp(56px, 5vw, 80px);
 		font-weight: 700;
 		letter-spacing: 0;
 		line-height: 0.9;
+		text-align: center;
 		text-transform: uppercase;
 	}
 
@@ -95,8 +123,8 @@
 
 	.password-input {
 		width: 100%;
-		height: 96px;
-		border: 4px solid #ffffff;
+		height: 288px;
+		border: 2px solid #8e9192;
 		border-radius: 0;
 		background: #000000;
 		color: #ffffff;
@@ -138,10 +166,12 @@
 	}
 
 	.button-primary {
+		justify-self: center;
+		width: 200px;
 		min-height: 64px;
 		padding: 0 24px;
 		font-family: "Space Grotesk", Arial, Helvetica, sans-serif;
-		font-size: 20px;
+		font-size: 14px;
 		font-weight: 700;
 		letter-spacing: 0.1em;
 		text-transform: uppercase;
@@ -171,8 +201,10 @@
 
 	.article-shell {
 		display: grid;
+		height: 100vh;
 		min-height: 100vh;
-		grid-template-rows: 72px minmax(0, 1fr) 40px;
+		grid-template-rows: 80px minmax(0, 1fr) 40px;
+		overflow: hidden;
 		background: #000000;
 		color: #ffffff;
 	}
@@ -181,7 +213,7 @@
 		display: flex;
 		align-items: stretch;
 		justify-content: space-between;
-		border-bottom: 4px solid #ffffff;
+		border-bottom: 2px solid #ffffff;
 		background: #0e0e0e;
 	}
 
@@ -193,7 +225,6 @@
 		font-size: 24px;
 		font-weight: 700;
 		letter-spacing: 0;
-		text-transform: uppercase;
 	}
 
 	.user-menu {
@@ -215,8 +246,31 @@
 		display: block;
 		width: 18px;
 		height: 18px;
-		border: 4px solid currentColor;
-		background: currentColor;
+		position: relative;
+	}
+
+	.user-glyph::before,
+	.user-glyph::after {
+		position: absolute;
+		left: 50%;
+		border: 2px solid currentColor;
+		content: "";
+		transform: translateX(-50%);
+	}
+
+	.user-glyph::before {
+		top: 0;
+		width: 7px;
+		height: 7px;
+		border-radius: 999px;
+	}
+
+	.user-glyph::after {
+		bottom: 0;
+		width: 16px;
+		height: 7px;
+		border-radius: 999px 999px 0 0;
+		border-bottom: 0;
 	}
 
 	.menu {
@@ -244,7 +298,8 @@
 	.article-workspace {
 		display: grid;
 		min-height: 0;
-		grid-template-columns: minmax(280px, 420px) minmax(0, 1fr);
+		grid-template-columns: minmax(440px, 532px) minmax(0, 1fr);
+		overflow: hidden;
 		background: #000000;
 		border-bottom: 2px solid #ffffff;
 	}
@@ -252,9 +307,9 @@
 	.article-master {
 		min-height: 0;
 		overflow: auto;
-		border-right: 4px solid #ffffff;
+		border-right: 2px solid #ffffff;
 		background: #131313;
-		padding: 18px 16px;
+		padding: 20px;
 	}
 
 	.master-message {
@@ -363,13 +418,14 @@
 	}
 
 	.article-actions {
-		position: sticky;
-		top: 0;
+		position: absolute;
+		top: 30px;
+		right: 30px;
 		display: flex;
 		justify-content: flex-end;
 		gap: 10px;
-		padding: 30px 30px 0;
-		background: #1f1f1f;
+		padding: 0;
+		background: transparent;
 		z-index: 2;
 	}
 
@@ -379,7 +435,7 @@
 		align-items: start;
 		border-bottom: 2px solid #ffffff;
 		background: #1f1f1f;
-		padding: 18px 360px 40px 30px;
+		padding: 40px 360px 40px 40px;
 	}
 
 	.detail-hero h1 {
@@ -544,6 +600,25 @@
 	@keyframes spin {
 		to {
 			transform: rotate(360deg);
+		}
+	}
+}
+
+@media (max-width: 1440px) {
+	@layer components {
+		.article-actions {
+			top: 28px;
+			right: 28px;
+		}
+
+		.detail-hero {
+			min-height: 330px;
+			padding: 96px 28px 32px;
+		}
+
+		.detail-hero h1 {
+			max-width: 100%;
+			font-size: clamp(44px, 6vw, 70px);
 		}
 	}
 }
