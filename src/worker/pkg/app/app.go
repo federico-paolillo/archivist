@@ -84,7 +84,7 @@ func NewApp(logger *slog.Logger, logLevel *slog.LevelVar, cfg *config.Root) (*Ap
 	summarizer := summary.NewAnthropicAdapter(application.HTTPClient, cfg.LLM.API.Key, cfg.LLM.Model)
 	jobsRepository := jobs.NewSQLiteRepository(database, notificationIDs)
 	summaryHandoff := createSummaryHandoff(logger, jobsRepository, store, summarizer)
-	markdownHandoff := createMarkdownHandoff(logger, store, localMarkdown, jinaMarkdown, summaryHandoff)
+	markdownHandoff := createMarkdownHandoff(logger, jobsRepository, store, localMarkdown, jinaMarkdown, summaryHandoff)
 
 	applyProcessingServices(
 		application,
@@ -126,6 +126,7 @@ func createSummaryHandoff(
 
 func createMarkdownHandoff(
 	logger *slog.Logger,
+	jobsRepository jobs.Repository,
 	store *artifacts.Store,
 	localMarkdown markdown.MarkdownExtractor,
 	jinaMarkdown markdown.MarkdownExtractor,
@@ -133,6 +134,7 @@ func createMarkdownHandoff(
 ) *pipeline.MarkdownExtractionHandoff {
 	return pipeline.NewMarkdownExtractionHandoff(
 		logger,
+		jobsRepository,
 		store,
 		localMarkdown,
 		jinaMarkdown,

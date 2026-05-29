@@ -329,6 +329,24 @@ func TestClaimQueuedPreservesAllTelegramOriginFields(t *testing.T) {
 	assert.Equal(t, int64(4001), *claimed.TelegramUserID)
 }
 
+func TestUpdateArticleTitlePersistsDiscoveredTitle(t *testing.T) {
+	database := openTestDB(t)
+	seedUser(t, database)
+	seedArticle(t, database, "ARTICLE001")
+
+	repo := jobs.NewSQLiteRepository(database, newTestIDGenerator())
+
+	err := repo.UpdateArticleTitle(t.Context(), "ARTICLE001", "Readable Article")
+	require.NoError(t, err)
+
+	var title sql.NullString
+
+	err = database.QueryRow(`SELECT title FROM articles WHERE id = ?`, "ARTICLE001").Scan(&title)
+	require.NoError(t, err)
+	require.True(t, title.Valid)
+	assert.Equal(t, "Readable Article", title.String)
+}
+
 func TestCompleteTerminalSuccessForTelegramJob(t *testing.T) {
 	database := openTestDB(t)
 	seedUser(t, database)

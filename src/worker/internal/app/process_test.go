@@ -133,6 +133,7 @@ func installProcessTestPipeline(t *testing.T, application *pkgapp.App, serverAdd
 	)
 	markdownHandoff := pipeline.NewMarkdownExtractionHandoff(
 		logger,
+		application.Jobs,
 		application.ArtifactStore,
 		application.LocalMarkdown,
 		application.JinaMarkdown,

@@ -72,6 +72,39 @@ func (s *fakeSummarizer) Summarize(
 	return s.output, s.err
 }
 
+type fakeJobsRepository struct {
+	titleArticleIDs []string
+	titles          []string
+	updateTitleErr  error
+}
+
+func (r *fakeJobsRepository) ClaimQueued(_ context.Context) (*jobs.Job, error) {
+	return nil, errors.New("fake jobs repository does not claim jobs")
+}
+
+func (r *fakeJobsRepository) CompleteTerminal(_ context.Context, _ *jobs.Job, _ jobs.TerminalOutcome) error {
+	return errors.New("fake jobs repository does not complete jobs")
+}
+
+func (r *fakeJobsRepository) ArticleURL(_ context.Context, _ string) (string, error) {
+	return "", errors.New("fake jobs repository does not load article URLs")
+}
+
+func (r *fakeJobsRepository) UpdateCanonicalURL(_ context.Context, _ string, _ string) error {
+	return errors.New("fake jobs repository does not update canonical URLs")
+}
+
+func (r *fakeJobsRepository) UpdateArticleTitle(_ context.Context, articleID string, title string) error {
+	if r.updateTitleErr != nil {
+		return r.updateTitleErr
+	}
+
+	r.titleArticleIDs = append(r.titleArticleIDs, articleID)
+	r.titles = append(r.titles, title)
+
+	return nil
+}
+
 func TestMarkdownExtractionHandoffLocalSuccessWritesMarkdownAndStaysNonTerminal(t *testing.T) {
 	database := openTestDB(t)
 	seedUser(t, database)
@@ -90,6 +123,7 @@ func TestMarkdownExtractionHandoffLocalSuccessWritesMarkdownAndStaysNonTerminal(
 		provider: markdown.ProviderGoReadability,
 		output: markdown.ExtractOutput{
 			Markdown: "# Article\n\nReadable text.",
+			Title:    "  Extracted Article Title  ",
 		},
 	}
 	jina := &fakeMarkdownExtractor{
@@ -99,7 +133,8 @@ func TestMarkdownExtractionHandoffLocalSuccessWritesMarkdownAndStaysNonTerminal(
 		},
 	}
 
-	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, nil), store, local, jina, pipeline.NoOpSummaryHandoff)
+	repo := jobs.NewSQLiteRepository(database, jobs.NewULIDGenerator())
+	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, nil), repo, store, local, jina, pipeline.NoOpSummaryHandoff)
 	p := newTestPipeline(t, database, store, newTestFetcher(srv.URL), handoff)
 
 	processed, err := p.ProcessOne(t.Context())
@@ -125,6 +160,106 @@ func TestMarkdownExtractionHandoffLocalSuccessWritesMarkdownAndStaysNonTerminal(
 
 	notifCount := scalarInt(t, database, `SELECT COUNT(*) FROM notifications WHERE job_id = ?`, jobID)
 	assert.Equal(t, 0, notifCount)
+
+	title := scalarNullableString(t, database, `SELECT title FROM articles WHERE id = ?`, articleID)
+	assert.Equal(t, "Extracted Article Title", title)
+}
+
+func TestMarkdownExtractionHandoffPersistsFirstMarkdownH1WhenExtractorTitleIsEmpty(t *testing.T) {
+	store, err := artifacts.NewStore(t.TempDir())
+	require.NoError(t, err)
+	defer store.Close()
+
+	require.NoError(t, store.WriteSnapshot(articleID, strings.NewReader("<html>saved</html>")))
+
+	local := &fakeMarkdownExtractor{
+		provider: markdown.ProviderGoReadability,
+		output: markdown.ExtractOutput{
+			Markdown: "intro\n\n# Markdown Article Title\n\nReadable text.",
+		},
+	}
+	jina := &fakeMarkdownExtractor{provider: markdown.ProviderJina}
+	repo := &fakeJobsRepository{}
+
+	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, nil), repo, store, local, jina, pipeline.NoOpSummaryHandoff)
+
+	err = handoff.Handoff(t.Context(), testJob(), "https://example.com/article")
+	require.NoError(t, err)
+
+	require.Equal(t, []string{articleID}, repo.titleArticleIDs)
+	require.Equal(t, []string{"Markdown Article Title"}, repo.titles)
+}
+
+func TestMarkdownExtractionHandoffLeavesTitleNullWhenNoTitleIsDiscovered(t *testing.T) {
+	database := openTestDB(t)
+	seedUser(t, database)
+	seedArticle(t, database, articleID, "https://example.com/article")
+
+	store, err := artifacts.NewStore(t.TempDir())
+	require.NoError(t, err)
+	defer store.Close()
+
+	require.NoError(t, store.WriteSnapshot(articleID, strings.NewReader("<html>saved</html>")))
+
+	local := &fakeMarkdownExtractor{
+		provider: markdown.ProviderGoReadability,
+		output: markdown.ExtractOutput{
+			Markdown: "Readable text without a heading.",
+		},
+	}
+	jina := &fakeMarkdownExtractor{provider: markdown.ProviderJina}
+	repo := jobs.NewSQLiteRepository(database, jobs.NewULIDGenerator())
+
+	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, nil), repo, store, local, jina, pipeline.NoOpSummaryHandoff)
+
+	err = handoff.Handoff(t.Context(), testJob(), "https://example.com/article")
+	require.NoError(t, err)
+
+	title := scalarNullableString(t, database, `SELECT title FROM articles WHERE id = ?`, articleID)
+	assert.Empty(t, title)
+}
+
+func TestMarkdownExtractionHandoffTitleUpdateFailureDoesNotBlockSummaryHandoff(t *testing.T) {
+	store, err := artifacts.NewStore(t.TempDir())
+	require.NoError(t, err)
+	defer store.Close()
+
+	require.NoError(t, store.WriteSnapshot(articleID, strings.NewReader("<html>saved</html>")))
+
+	local := &fakeMarkdownExtractor{
+		provider: markdown.ProviderGoReadability,
+		output: markdown.ExtractOutput{
+			Markdown: "# Article\n\nReadable text.",
+			Title:    "Article",
+		},
+	}
+	jina := &fakeMarkdownExtractor{provider: markdown.ProviderJina}
+	repo := &fakeJobsRepository{updateTitleErr: errors.New("title update failed")}
+	var summaryCalls int
+	summaryHandoff := pipeline.SummaryHandoffFunc(func(_ context.Context, j *jobs.Job, canonicalURL string) error {
+		summaryCalls++
+		assert.Equal(t, articleID, j.ArticleID)
+		assert.Equal(t, "https://example.com/article", canonicalURL)
+
+		return nil
+	})
+
+	var logs bytes.Buffer
+	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, &logs), repo, store, local, jina, summaryHandoff)
+
+	err = handoff.Handoff(t.Context(), testJob(), "https://example.com/article")
+	require.NoError(t, err)
+
+	assert.Equal(t, 1, summaryCalls)
+	assert.Contains(t, logs.String(), "pipeline: article title update failed")
+
+	rc, openErr := store.OpenMarkdown(articleID)
+	require.NoError(t, openErr)
+	defer rc.Close()
+
+	content, err := io.ReadAll(rc)
+	require.NoError(t, err)
+	assert.Equal(t, "# Article\n\nReadable text.", string(content))
 }
 
 func TestMarkdownExtractionHandoffLocalUnreadableFallsBackToJina(t *testing.T) {
@@ -146,7 +281,8 @@ func TestMarkdownExtractionHandoffLocalUnreadableFallsBackToJina(t *testing.T) {
 	}
 
 	var logs bytes.Buffer
-	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, &logs), store, local, jina, pipeline.NoOpSummaryHandoff)
+	repo := &fakeJobsRepository{}
+	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, &logs), repo, store, local, jina, pipeline.NoOpSummaryHandoff)
 
 	err = handoff.Handoff(t.Context(), testJob(), "https://example.com/article")
 	require.NoError(t, err)
@@ -194,7 +330,8 @@ func TestMarkdownExtractionHandoffLocalFailureFallsBackToJina(t *testing.T) {
 	}
 
 	var logs bytes.Buffer
-	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, &logs), store, local, jina, pipeline.NoOpSummaryHandoff)
+	repo := &fakeJobsRepository{}
+	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, &logs), repo, store, local, jina, pipeline.NoOpSummaryHandoff)
 
 	err = handoff.Handoff(t.Context(), testJob(), "https://example.com/article")
 	require.NoError(t, err)
@@ -226,7 +363,8 @@ func TestMarkdownExtractionHandoffJinaFailureReturnsARC010(t *testing.T) {
 	}
 
 	var logs bytes.Buffer
-	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, &logs), store, local, jina, pipeline.NoOpSummaryHandoff)
+	repo := &fakeJobsRepository{}
+	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, &logs), repo, store, local, jina, pipeline.NoOpSummaryHandoff)
 
 	err = handoff.Handoff(t.Context(), testJob(), "https://example.com/article")
 	require.ErrorIs(t, err, arc.ErrJinaReaderFailure)
@@ -262,7 +400,8 @@ func TestMarkdownExtractionHandoffJinaInsufficientBalanceReturnsARC011(t *testin
 		},
 	}
 
-	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, nil), store, local, jina, pipeline.NoOpSummaryHandoff)
+	repo := &fakeJobsRepository{}
+	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, nil), repo, store, local, jina, pipeline.NoOpSummaryHandoff)
 
 	err = handoff.Handoff(t.Context(), testJob(), "https://example.com/article")
 	require.ErrorIs(t, err, arc.ErrJinaInsufficientBalance)
@@ -293,7 +432,8 @@ func TestMarkdownExtractionHandoffMarkdownWriteFailureReturnsARC012(t *testing.T
 	}
 
 	var logs bytes.Buffer
-	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, &logs), store, local, jina, pipeline.NoOpSummaryHandoff)
+	repo := &fakeJobsRepository{}
+	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, &logs), repo, store, local, jina, pipeline.NoOpSummaryHandoff)
 
 	err = handoff.Handoff(t.Context(), testJob(), "https://example.com/article")
 	require.ErrorIs(t, err, arc.ErrMarkdownWrite)
@@ -338,7 +478,8 @@ func TestMarkdownExtractionFailureCommitsTerminalFailureTransactionally(t *testi
 		},
 	}
 
-	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, nil), store, local, jina, pipeline.NoOpSummaryHandoff)
+	repo := jobs.NewSQLiteRepository(database, jobs.NewULIDGenerator())
+	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, nil), repo, store, local, jina, pipeline.NoOpSummaryHandoff)
 	p := newTestPipeline(t, database, store, newTestFetcher(srv.URL), handoff)
 
 	processed, err := p.ProcessOne(t.Context())
@@ -392,7 +533,8 @@ func TestMarkdownExtractionFailureRollsBackWhenNotificationInsertFails(t *testin
 		},
 	}
 
-	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, nil), store, local, jina, pipeline.NoOpSummaryHandoff)
+	repo := jobs.NewSQLiteRepository(database, jobs.NewULIDGenerator())
+	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, nil), repo, store, local, jina, pipeline.NoOpSummaryHandoff)
 	p := newTestPipeline(t, database, store, newTestFetcher(srv.URL), handoff)
 
 	processed, processErr := p.ProcessOne(t.Context())

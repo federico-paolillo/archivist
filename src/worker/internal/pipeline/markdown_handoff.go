@@ -18,6 +18,7 @@ import (
 // MarkdownExtractionHandoff runs the Markdown stage after snapshot promotion.
 type MarkdownExtractionHandoff struct {
 	logger         *slog.Logger
+	repo           jobs.Repository
 	store          *artifacts.Store
 	local          markdown.MarkdownExtractor
 	fallback       markdown.MarkdownExtractor
@@ -29,6 +30,7 @@ var _ MarkdownHandoff = (*MarkdownExtractionHandoff)(nil)
 // NewMarkdownExtractionHandoff creates a Markdown handoff backed by provider-neutral extractors.
 func NewMarkdownExtractionHandoff(
 	logger *slog.Logger,
+	repo jobs.Repository,
 	store *artifacts.Store,
 	local markdown.MarkdownExtractor,
 	fallback markdown.MarkdownExtractor,
@@ -36,6 +38,7 @@ func NewMarkdownExtractionHandoff(
 ) *MarkdownExtractionHandoff {
 	return &MarkdownExtractionHandoff{
 		logger:         logger,
+		repo:           repo,
 		store:          store,
 		local:          local,
 		fallback:       fallback,
@@ -82,12 +85,70 @@ func (h *MarkdownExtractionHandoff) Handoff(ctx context.Context, job *jobs.Job, 
 		return err
 	}
 
+	h.persistTitle(ctx, job, canonicalURL, selected)
+
 	err = h.summaryHandoff.Summarize(ctx, job, canonicalURL)
 	if err != nil {
 		return fmt.Errorf("pipeline: summary handoff: %w", err)
 	}
 
 	return nil
+}
+
+func (h *MarkdownExtractionHandoff) persistTitle(
+	ctx context.Context,
+	job *jobs.Job,
+	canonicalURL string,
+	output markdown.ExtractOutput,
+) {
+	title := selectedTitle(output)
+	if title == "" {
+		return
+	}
+
+	err := h.repo.UpdateArticleTitle(ctx, job.ArticleID, title)
+	if err != nil {
+		h.logger.Error(
+			"pipeline: article title update failed",
+			slog.String("article_id", job.ArticleID),
+			slog.String("job_id", job.ID),
+			slog.String("url", canonicalURL),
+			slog.Any("error", err),
+		)
+
+		return
+	}
+
+	h.logger.Info(
+		"pipeline: article title updated",
+		slog.String("article_id", job.ArticleID),
+		slog.String("job_id", job.ID),
+		slog.String("url", canonicalURL),
+	)
+}
+
+func selectedTitle(output markdown.ExtractOutput) string {
+	if title := strings.TrimSpace(output.Title); title != "" {
+		return title
+	}
+
+	return firstMarkdownH1(output.Markdown)
+}
+
+func firstMarkdownH1(content string) string {
+	for line := range strings.SplitSeq(content, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if !strings.HasPrefix(trimmed, "# ") {
+			continue
+		}
+
+		title := strings.TrimSpace(strings.TrimPrefix(trimmed, "# "))
+		if title != "" {
+			return title
+		}
+	}
+
+	return ""
 }
 
 func (h *MarkdownExtractionHandoff) writeMarkdown(

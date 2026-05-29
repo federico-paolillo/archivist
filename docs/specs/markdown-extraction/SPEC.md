@@ -78,6 +78,7 @@ Not included:
 - REQ-012B: The Jina Reader implementation must run behind `MarkdownExtractor` and must not leak Jina SDK/client types into pipeline orchestration.
 - REQ-012C: Jina integration must use an official Jina-provided SDK if a suitable Reader API SDK exists for the implementation language. If no suitable official SDK exists, the Worker may implement a small internal Reader adapter.
 - REQ-012D: The Worker must persist Markdown to `{DATA_DIR}/articles/{article_id}/content.md`.
+- REQ-012E: When Markdown extraction discovers a non-empty article title, the Worker must best-effort persist it to `articles.title`. The title must prefer extractor metadata, fall back to the first Markdown H1, trim surrounding whitespace, and leave `articles.title` null when neither source is available. Title persistence failure must be logged and must not fail an otherwise successful archive.
 - REQ-013: Markdown writes must be atomic: write a temporary file, then rename into place.
 - REQ-014: Markdown success must continue to summary generation and must not set `articles.status = ready`, set `jobs.status = succeeded`, or insert a success notification in final v0.
 - REQ-015: Markdown failure must set `articles.status = failed`, set `articles.error_message` to an ARC-coded public error, set `jobs.status = failed`, persist job error context, set terminal timestamps/TTL, and insert exactly one pending notification in one SQLite transaction.
@@ -161,6 +162,7 @@ This feature uses the existing `users`, `articles`, `jobs`, and `notifications` 
 Successful Markdown extraction in final v0 has these effects:
 
 - filesystem: atomically written `{DATA_DIR}/articles/{article_id}/content.md`.
+- `articles.title`: best-effort title from extractor metadata or the first Markdown H1 when available.
 - downstream pipeline: the job remains non-terminal and proceeds to summary generation.
 
 Successful Markdown extraction must not set `articles.status = ready`, set `jobs.status = succeeded`, set terminal timestamps/TTL, or insert a success notification row in final v0.
@@ -181,6 +183,7 @@ No artifact paths, provider telemetry columns, failure-code columns, score colum
 
 - Worker input artifact: `{DATA_DIR}/articles/{article_id}/snapshot.html`.
 - Worker output artifact: `{DATA_DIR}/articles/{article_id}/content.md`.
+- Worker metadata update: nullable `articles.title`, best-effort only.
 - Local extraction library: `codeberg.org/readeck/go-readability/v2`.
 - Local Markdown conversion library: `github.com/JohannesKaufmann/html-to-markdown/v2`.
 - Jina fallback: Reader API through an official Reader Go SDK if available, otherwise a small internal adapter.
@@ -216,6 +219,7 @@ Impacts:
 - Do not restore candidate scoring for v0 unless a future canonical decision changes the extraction strategy.
 - Do not add article artifact path columns.
 - Do not call an LLM summarizer from this feature.
+- Do not generate article titles from URLs, summaries, or LLM calls in v0; only extractor metadata and Markdown H1 are title sources.
 
 ## Security / Privacy Notes
 

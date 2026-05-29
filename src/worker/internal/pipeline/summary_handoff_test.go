@@ -89,7 +89,8 @@ func TestMarkdownBoundaryIsNonTerminalBeforeSummaryHandoff(t *testing.T) {
 
 		return arc.ErrSummarizerProviderFailure
 	})
-	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, nil), store, local, jina, summaryHandoff)
+	repo := jobs.NewSQLiteRepository(database, jobs.NewULIDGenerator())
+	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, nil), repo, store, local, jina, summaryHandoff)
 	p := newTestPipeline(t, database, store, newTestFetcher(srv.URL), handoff)
 
 	processed, err := p.ProcessOne(t.Context())
@@ -361,6 +362,7 @@ func newPipelineWithSummaryLogger(
 	summaryHandoff := pipeline.NewSummaryGenerationHandoff(newBufferLogger(t, logs), repo, store, summarizer)
 	markdownHandoff := pipeline.NewMarkdownExtractionHandoff(
 		newBufferLogger(t, logs),
+		repo,
 		store,
 		successfulMarkdownExtractor(),
 		successfulFallbackExtractor(),

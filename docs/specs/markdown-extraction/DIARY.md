@@ -476,3 +476,33 @@ Follow-ups:
 
 Canonical Updates:
 - None.
+
+---
+
+## 2026-05-29 - Ad Hoc: Persist Article Titles After Markdown Extraction
+
+Status:
+- done
+
+Summary:
+- Added best-effort article title persistence after Markdown extraction succeeds.
+- The Worker now prefers extractor-provided titles and falls back to the first Markdown H1 before summary handoff.
+- Title persistence failure is logged and does not fail the archive.
+
+Decisions:
+- No schema or Gateway response contract change was needed because `articles.title` and nullable API `title` fields already existed.
+- No backfill was added for existing processed articles.
+- Title generation from URLs, summaries, or LLM calls remains out of scope.
+
+Validation:
+- `cd src/worker && go test ./pkg/jobs ./internal/pipeline ./internal/app ./pkg/app` passed.
+- `cd src/worker && go tool lefthook run build` passed.
+- `cd src/worker && go tool lefthook run format` passed.
+- `cd src/worker && go tool lefthook run lint` passed.
+- `cd src/worker && go tool lefthook run test` passed.
+
+Follow-ups:
+- None.
+
+Canonical Updates:
+- `docs/specs/markdown-extraction/SPEC.md`

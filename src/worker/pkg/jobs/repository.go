@@ -54,6 +54,9 @@ type Repository interface {
 
 	// UpdateCanonicalURL sets articles.canonical_url to canonicalURL for the given articleID.
 	UpdateCanonicalURL(ctx context.Context, articleID string, canonicalURL string) error
+
+	// UpdateArticleTitle sets articles.title to title for the given articleID.
+	UpdateArticleTitle(ctx context.Context, articleID string, title string) error
 }
 
 // SQLiteRepository is the SQLite-backed implementation of Repository.
@@ -494,6 +497,21 @@ func (r *SQLiteRepository) UpdateCanonicalURL(ctx context.Context, articleID str
 	)
 	if err != nil {
 		return fmt.Errorf("jobs: failed to update canonical URL for article %s: %w", articleID, err)
+	}
+
+	return nil
+}
+
+// UpdateArticleTitle sets articles.title for the given articleID.
+func (r *SQLiteRepository) UpdateArticleTitle(ctx context.Context, articleID string, title string) error {
+	_, err := r.db.ExecContext(
+		ctx,
+		`UPDATE articles SET title = ? WHERE id = ?`,
+		title,
+		articleID,
+	)
+	if err != nil {
+		return fmt.Errorf("jobs: failed to update title for article %s: %w", articleID, err)
 	}
 
 	return nil
