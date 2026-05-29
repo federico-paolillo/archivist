@@ -1,6 +1,6 @@
 ---
 feature: ui
-status: in_progress
+status: done
 canonical: true
 ---
 
@@ -50,7 +50,7 @@ UIEND-003 -> UI-003
 | `UI-001` | Create canonical UI artifacts | done | - | `UI-002` | no | - |
 | `UI-002` | UI routing, design system, API base config, and auth shell | done | `UI-001`, `AUTHN-004` | `UI-003` | no | `plans/UI-002-ui-routing-design-system-api-base-auth-shell.execplan.md` (completed) |
 | `UI-003` | Article master-detail view and delete workflow | done | `UI-002`, `UIEND-002`, `UIEND-003` | `UI-004` | no | `plans/UI-003-article-master-detail-and-delete-workflow.execplan.md` (completed) |
-| `UI-004` | Final UI validation pass | ready | `UI-003` | - | no | - |
+| `UI-004` | Final UI validation pass | done | `UI-003` | - | no | - |
 
 ---
 

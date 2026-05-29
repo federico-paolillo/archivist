@@ -213,3 +213,38 @@ Canonical Updates:
 - `docs/specs/ui/PLAN.md`
 - `docs/specs/ui/tasks/UI-003-article-master-detail-and-delete-workflow.md`
 - `docs/specs/ui/plans/UI-003-article-master-detail-and-delete-workflow.execplan.md`
+
+## 2026-05-29 - UI-004: Final UI Validation Pass
+
+Status:
+- completed
+
+Summary:
+- Completed the final UI validation pass for the v0 browser UI using automated frontend checks and Gateway-seeded browser validation.
+
+Changes:
+- Added frontend coverage for password non-persistence across URL, cookies, local storage, session storage, and IndexedDB use.
+- Added the canonical login placeholder text visible in `docs/design/login.png`.
+- Adjusted the UI CSS to better match the canonical login and article-view screenshots, keep the article shell constrained to the viewport, keep the footer visible, and prevent action/title overlap at common desktop widths.
+- Marked `UI-004` and the `ui` feature complete.
+
+Decisions:
+- Gateway-seeded browser validation used a local HTTPS same-origin proxy that stripped `/api/*` before forwarding to Gateway and sent forwarded `https` host context. Auth semantics, Secure cookies, and same-origin checks were not disabled.
+- Browser automation established the authenticated session through the real Gateway `/login` endpoint, then captured authenticated UI routes against seeded SQLite and artifact data.
+
+Validation:
+- `cd src/ui && npm run format`: passed.
+- `cd src/ui && npm run lint`: passed.
+- `cd src/ui && npm run build`: passed.
+- `cd src/ui && npm run test`: passed, 2 test files and 21 tests.
+- Gateway-seeded browser validation passed for `/login`, `/login/failed`, `/articles`, and `/articles/01HY0000000000000000000003`.
+- The ready detail rendered title, summary Markdown, content Markdown, `Delete`, and `Original`; `Retry` was absent.
+- The 1366x768 layout check found no action/title overlap, visible footer, no document scrolling, and internal pane scrolling.
+
+Follow-ups:
+- None.
+
+Canonical Updates:
+- `docs/specs/ui/tasks/UI-004-final-ui-validation-pass.md`
+- `docs/specs/ui/PLAN.md`
+- `docs/specs/INDEX.md`

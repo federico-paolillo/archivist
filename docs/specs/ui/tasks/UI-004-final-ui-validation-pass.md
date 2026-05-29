@@ -2,7 +2,7 @@
 id: UI-004
 feature: ui
 title: Final UI validation pass
-status: blocked
+status: done
 depends_on: [UI-003]
 blocks: []
 parallel: false
@@ -103,6 +103,19 @@ Manual validation:
 - Capture and review `/login/failed`.
 - Capture and review `/articles`.
 - Capture and review `/articles/<article_id>`.
+
+Result:
+
+- `cd src/ui && npm run format`: passed.
+- `cd src/ui && npm run lint`: passed.
+- `cd src/ui && npm run build`: passed.
+- `cd src/ui && npm run test`: passed, 2 test files and 21 tests.
+- Gateway-seeded browser validation passed through a local HTTPS same-origin proxy with `/api/*` stripped to Gateway unprefixed routes.
+- Browser captures were reviewed for `/login`, `/login/failed`, `/articles`, and `/articles/01HY0000000000000000000003`.
+- The seeded ready article rendered title, summary Markdown, content Markdown, `Delete`, and `Original`; `Retry` was not present.
+- The `/articles` route rendered the Gateway-backed article list with blank black detail when no article id was selected.
+- The `/login/failed` route rendered a blank black page.
+- A 1366x768 layout check confirmed no action/title overlap, visible footer, and internal pane scrolling.
 
 ## Dependencies
 
