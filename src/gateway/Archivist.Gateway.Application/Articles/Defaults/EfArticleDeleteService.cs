@@ -52,16 +52,6 @@ public sealed class EfArticleDeleteService(
                 return ArticleDeleteResult.RunningJobConflict;
             }
 
-            var artifactDeleted = await artifactDeletion
-                .DeleteArticleDirectoryAsync(articleId, cancellationToken)
-                .ConfigureAwait(false);
-
-            if (!artifactDeleted)
-            {
-                await db.Database.ExecuteSqlRawAsync("ROLLBACK;", cancellationToken).ConfigureAwait(false);
-                return ArticleDeleteResult.ArtifactCleanupFailed;
-            }
-
             var jobIds = await db.Jobs
                 .Where(x => x.ArticleId == articleId && x.UserId == userId)
                 .Select(x => x.Id)
@@ -82,6 +72,16 @@ public sealed class EfArticleDeleteService(
                 .Where(x => x.Id == articleId && x.UserId == userId)
                 .ExecuteDeleteAsync(cancellationToken)
                 .ConfigureAwait(false);
+
+            var artifactDeleted = await artifactDeletion
+                .DeleteArticleDirectoryAsync(articleId, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (!artifactDeleted)
+            {
+                await db.Database.ExecuteSqlRawAsync("ROLLBACK;", cancellationToken).ConfigureAwait(false);
+                return ArticleDeleteResult.ArtifactCleanupFailed;
+            }
 
             await db.Database.ExecuteSqlRawAsync("COMMIT;", cancellationToken).ConfigureAwait(false);
             return ArticleDeleteResult.Deleted;

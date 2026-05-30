@@ -60,7 +60,7 @@ cd src/gateway && dotnet test
 
 ## Risks
 
-- Filesystem and SQLite changes are not an atomic distributed transaction. The v0 handler performs artifact cleanup before committing the SQLite delete, so cleanup failure returns `500` and leaves article state intact.
+- Filesystem and SQLite changes are not an atomic distributed transaction. The v0 handler deletes database rows inside an open SQLite write transaction, performs artifact cleanup before commit, and rolls back the database deletes if cleanup fails. Cleanup failure returns `500` and leaves article state intact.
 
 ## Rollback / Recovery Notes
 
