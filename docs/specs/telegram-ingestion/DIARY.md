@@ -313,3 +313,31 @@ Follow-ups:
 Canonical Updates:
 - `docs/specs/telegram-ingestion/tasks/TELING-002-telegram-webhook-ingestion.md` — status: done
 - `docs/specs/telegram-ingestion/PLAN.md` — TELING-002 status: done
+
+## 2026-05-30 — TELING-SEC: Telegram Runtime Security Hardening
+
+Status:
+- completed
+
+Summary:
+- Hardened Gateway Telegram registration so required runtime secrets are validated during startup and the Telegram Bot API typed HTTP client does not use default `IHttpClientFactory` request logging.
+
+Changes:
+- `src/gateway/Archivist.Gateway.Application/Telegram/Extensions/ServiceCollectionExtensions.cs` — bound `TelegramSettings` with validation for nonblank `BotToken`/`WebhookSecret`, positive `AllowedUserId`, `ValidateOnStart()`, and `RemoveAllLoggers()` on the typed Telegram client.
+- `src/gateway/Archivist.Gateway.Tests/Api/GatewayConfigurationSourceTest.cs` — added tests for valid binding, startup validation failure cases, typed client registration, and reflected `HttpClientFactoryOptions` logger suppression state.
+- `src/gateway/Archivist.Gateway.Tests/IntegrationTest.cs` — added fake Telegram settings to the shared integration-test configuration so unrelated host-start tests satisfy the new startup contract.
+
+Decisions:
+- Telegram settings validation is a durable startup behavior and is promoted to `SPEC.md`.
+- Telegram Bot API token exposure is mitigated at the typed-client registration by calling Microsoft `IHttpClientBuilder.RemoveAllLoggers()` instead of relying on application-wide logging filters.
+
+Validation:
+- `cd src/gateway && dotnet format --verify-no-changes` — passed.
+- `cd src/gateway && dotnet build` — passed, 0 warnings, 0 errors.
+- `cd src/gateway && dotnet test` — passed, 156/156 tests.
+
+Follow-ups:
+- None.
+
+Canonical Updates:
+- `docs/specs/telegram-ingestion/SPEC.md` — added REQ-030 for Telegram runtime configuration startup validation.
