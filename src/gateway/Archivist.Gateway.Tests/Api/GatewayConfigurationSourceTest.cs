@@ -1,8 +1,10 @@
 using Archivist.Gateway.Api;
 using Archivist.Gateway.Application.Configuration;
 using Archivist.Gateway.Application.Telegram;
+using Archivist.Gateway.Application.Telegram.Defaults;
 using Archivist.Gateway.Application.Telegram.Extensions;
 
+using Microsoft.Extensions.Http;
 using Microsoft.Extensions.Options;
 
 namespace Archivist.Gateway.Tests.Api;
@@ -48,14 +50,7 @@ public sealed class GatewayConfigurationSourceTest
     [Fact]
     public void TelegramSettings_BindFromHierarchicalConfiguration()
     {
-        var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["Telegram:BotToken"] = "fake-token",
-                ["Telegram:AllowedUserId"] = "12345",
-                ["Telegram:WebhookSecret"] = "secret",
-            })
-            .Build();
+        var configuration = CreateTelegramConfiguration("fake-token", "12345", "secret");
 
         var services = new ServiceCollection();
         services.AddSingleton<IConfiguration>(configuration);
@@ -68,5 +63,104 @@ public sealed class GatewayConfigurationSourceTest
         Assert.Equal("fake-token", settings.BotToken);
         Assert.Equal(12345, settings.AllowedUserId);
         Assert.Equal("secret", settings.WebhookSecret);
+    }
+
+    [Fact]
+    public void TelegramSettings_ValidConfiguration_PassesStartupValidation()
+    {
+        var configuration = CreateTelegramConfiguration("fake-token", "12345", "secret");
+        var services = new ServiceCollection();
+        services.AddSingleton<IConfiguration>(configuration);
+        services.AddTelegram(configuration);
+
+        using var provider = services.BuildServiceProvider();
+
+        provider.GetRequiredService<IStartupValidator>().Validate();
+    }
+
+    [Theory]
+    [InlineData("", "12345", "secret", "Telegram:BotToken is required.")]
+    [InlineData("  ", "12345", "secret", "Telegram:BotToken is required.")]
+    [InlineData("fake-token", "12345", "", "Telegram:WebhookSecret is required.")]
+    [InlineData("fake-token", "12345", "  ", "Telegram:WebhookSecret is required.")]
+    [InlineData("fake-token", "0", "secret", "Telegram:AllowedUserId must be greater than zero.")]
+    [InlineData("fake-token", "-1", "secret", "Telegram:AllowedUserId must be greater than zero.")]
+    public void TelegramSettings_InvalidConfiguration_FailsStartupValidation(
+        string botToken,
+        string allowedUserId,
+        string webhookSecret,
+        string expectedFailure)
+    {
+        var configuration = CreateTelegramConfiguration(botToken, allowedUserId, webhookSecret);
+        var services = new ServiceCollection();
+        services.AddSingleton<IConfiguration>(configuration);
+        services.AddTelegram(configuration);
+
+        using var provider = services.BuildServiceProvider();
+
+        var exception = Assert.Throws<OptionsValidationException>(
+            () => provider.GetRequiredService<IStartupValidator>().Validate());
+
+        Assert.Contains(expectedFailure, exception.Failures);
+    }
+
+    [Fact]
+    public void AddTelegram_RegistersHttpTelegramClient()
+    {
+        var configuration = CreateTelegramConfiguration("fake-token", "12345", "secret");
+        var services = new ServiceCollection();
+        services.AddSingleton<IConfiguration>(configuration);
+        services.AddTelegram(configuration);
+
+        using var provider = services.BuildServiceProvider();
+
+        var client = provider.GetRequiredService<ITelegramClient>();
+
+        Assert.IsType<HttpTelegramClient>(client);
+    }
+
+    [Fact]
+    public void AddTelegram_RemovesHttpClientFactoryLoggingForTelegramClient()
+    {
+        var configuration = CreateTelegramConfiguration("fake-token", "12345", "secret");
+        var services = new ServiceCollection();
+        services.AddSingleton<IConfiguration>(configuration);
+        services.AddTelegram(configuration);
+
+        using var provider = services.BuildServiceProvider();
+
+        var options = provider
+            .GetRequiredService<IOptionsMonitor<HttpClientFactoryOptions>>()
+            .Get(nameof(ITelegramClient));
+
+        var suppressDefaultLoggingProperty = typeof(HttpClientFactoryOptions).GetProperty(
+            "SuppressDefaultLogging",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        var loggingBuilderActionsProperty = typeof(HttpClientFactoryOptions).GetProperty(
+            "LoggingBuilderActions",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+
+        Assert.NotNull(suppressDefaultLoggingProperty);
+        Assert.NotNull(loggingBuilderActionsProperty);
+        Assert.True((bool)suppressDefaultLoggingProperty.GetValue(options)!);
+
+        var loggingBuilderActions = Assert.IsAssignableFrom<System.Collections.IEnumerable>(
+            loggingBuilderActionsProperty.GetValue(options));
+        Assert.Empty(loggingBuilderActions);
+    }
+
+    private static IConfiguration CreateTelegramConfiguration(
+        string botToken,
+        string allowedUserId,
+        string webhookSecret)
+    {
+        return new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Telegram:BotToken"] = botToken,
+                ["Telegram:AllowedUserId"] = allowedUserId,
+                ["Telegram:WebhookSecret"] = webhookSecret,
+            })
+            .Build();
     }
 }

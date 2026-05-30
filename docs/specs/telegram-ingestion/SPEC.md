@@ -92,6 +92,7 @@ Not included:
 - REQ-027: Notification states must be limited to `pending`, `sent`, and `failed`.
 - REQ-028: Terminal jobs expire after 14 days.
 - REQ-029: Sent or failed notifications expire after 7 days.
+- REQ-030: Gateway startup must validate Telegram runtime configuration and fail when `Telegram:BotToken` or `Telegram:WebhookSecret` is blank, or when `Telegram:AllowedUserId` is less than or equal to zero.
 
 ## Acceptance Criteria
 

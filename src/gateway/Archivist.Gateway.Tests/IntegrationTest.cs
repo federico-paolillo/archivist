@@ -46,6 +46,9 @@ public abstract class IntegrationTest(
             [Settings.SqlitePathKey] = Path.Combine(_testRoot, "archive.db"),
             [Settings.DataDirectoryKey] = Path.Combine(_testRoot, "data"),
             [Settings.GatewayPublicHostsKey] = environmentName == Environments.Production ? null : "localhost",
+            [$"{Settings.TelegramSection}:BotToken"] = "test-bot-token",
+            [$"{Settings.TelegramSection}:AllowedUserId"] = "12345",
+            [$"{Settings.TelegramSection}:WebhookSecret"] = "test-webhook-secret",
         });
 
         configureConfiguration?.Invoke(cfgBuilder);
