@@ -248,3 +248,28 @@ Canonical Updates:
 - `docs/specs/ui/tasks/UI-004-final-ui-validation-pass.md`
 - `docs/specs/ui/PLAN.md`
 - `docs/specs/INDEX.md`
+
+## 2026-05-30 - UI Status Coherence Correction
+
+Status:
+- completed
+
+Summary:
+- Corrected the canonical UI feature status in `SPEC.md` from `draft` to `done` so it matches the completed UI plan and global feature index.
+
+Changes:
+- Updated only `docs/specs/ui/SPEC.md` frontmatter status.
+- Verified `docs/specs/ui/PLAN.md` and `docs/specs/INDEX.md` already record the UI feature as `done`.
+- Made no behavior, source code, task, or review document changes.
+
+Decisions:
+- Treated this as a documentation coherence fix, not a feature behavior change.
+
+Validation:
+- Non-mutating `rg`/`nl` checks verified UI `SPEC.md`, UI `PLAN.md`, and `docs/specs/INDEX.md` agree on `done` status.
+
+Follow-ups:
+- None.
+
+Canonical Updates:
+- `docs/specs/ui/SPEC.md`

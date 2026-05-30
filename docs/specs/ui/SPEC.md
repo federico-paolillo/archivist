@@ -2,7 +2,7 @@
 id: UI
 slug: ui
 title: Final Browser UI
-status: draft
+status: done
 owner: null
 depends_on: [authn, ui-endpoints]
 impacts: [ui, gateway, deployment]
