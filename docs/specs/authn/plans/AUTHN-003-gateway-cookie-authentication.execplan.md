@@ -19,7 +19,7 @@ Implement the gateway HTTP authentication surface using opaque server-issued ses
 
 - `../tasks/AUTHN-003-gateway-cookie-authentication-endpoints.md`
 - `../SPEC.md`
-- `docs/conventions/GATEWAY.md`
+- `.agents/skills/archivist-gateway/SKILL.md`
 
 ## Assumptions
 
@@ -66,7 +66,7 @@ Manual checks:
 ## Documentation Updates Required
 
 - `docs/specs/authn/SPEC.md`
-- `docs/conventions/GATEWAY.md`
+- `.agents/skills/archivist-gateway/SKILL.md`
 
 ## Risks
 

@@ -258,8 +258,8 @@ Depends on:
 - `telegram-ingestion` persistence foundation for the shared `users` table contract.
 - `docs/ARCHITECTURE.md` v0 single-user gateway/UI boundary.
 - `docs/ARCHITECTURE.md` reverse-proxy deployment topology.
-- `docs/conventions/GATEWAY.md` ASP.NET Core Minimal API conventions.
-- `docs/conventions/UI.md` Preact/Vite conventions.
+
+Implementation agents should use `.agents/skills/archivist-gateway/SKILL.md` and `.agents/skills/archivist-ui/SKILL.md` for module coding guidance. These skills are not feature dependencies or rebuild sources of truth.
 
 Impacts:
 

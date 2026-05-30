@@ -43,7 +43,7 @@ This task does not include:
 src/gateway/Archivist.Gateway.Api/Articles/
 src/gateway/Archivist.Gateway.Application/Articles/
 src/gateway/Archivist.Gateway.Tests/Api/
-docs/conventions/GATEWAY.md
+.agents/skills/archivist-gateway/SKILL.md
 ```
 
 ## Required Context
@@ -52,9 +52,9 @@ Read before execution:
 
 - `../SPEC.md`
 - `../PLAN.md`
-- `docs/conventions/GENERAL.md`
-- `docs/conventions/GATEWAY.md`
-- `docs/conventions/ARTIFACTS.md`
+- `.agents/skills/archivist-general/SKILL.md`
+- `.agents/skills/archivist-gateway/SKILL.md`
+- `docs/ARTIFACTS.md`
 - `docs/specs/authn/SPEC.md`
 - `docs/specs/telegram-ingestion/SPEC.md`
 - `../plans/UIEND-003-gateway-article-delete-api.execplan.md`

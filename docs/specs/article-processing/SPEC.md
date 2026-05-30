@@ -77,7 +77,7 @@ Not included:
 - REQ-010: Snapshot writes must be atomic: write a temporary file, then rename into place.
 - REQ-011: Snapshot success must continue to Markdown extraction and must not set `articles.status = ready`, set `jobs.status = succeeded`, or insert a success notification in final v0.
 - REQ-012: Processing failure must set `articles.status = failed`, set `articles.error_message` to an ARC-coded public error, set `jobs.status = failed`, persist job error context, set terminal timestamps/TTL, and insert exactly one pending notification in one SQLite transaction.
-- REQ-013: Persisted public article errors must use codes defined in `docs/conventions/ERRORS.md`.
+- REQ-013: Persisted public article errors must use codes defined in `docs/ERRORS.md`.
 - REQ-014: The Worker must not call Telegram APIs directly.
 - REQ-015: Gateway snapshot-stage notification work is skipped in final v0; success notification content is summary-based and owned by `summary-generation`.
 - REQ-016: Extraction and rating pipeline steps must exist only as no-op slots or documentation boundaries in this feature.
@@ -204,11 +204,11 @@ Depends on:
 - `telegram-ingestion`
 - `docs/ARCHITECTURE.md`
 - `docs/DESIGN.md`
-- `docs/conventions/GENERAL.md`
-- `docs/conventions/ARTIFACTS.md`
-- `docs/conventions/WORKER.md`
-- `docs/conventions/GATEWAY.md`
-- `docs/conventions/ERRORS.md`
+- `.agents/skills/archivist-general/SKILL.md`
+- `docs/ARTIFACTS.md`
+- `.agents/skills/archivist-worker/SKILL.md`
+- `.agents/skills/archivist-gateway/SKILL.md`
+- `docs/ERRORS.md`
 
 Impacts:
 

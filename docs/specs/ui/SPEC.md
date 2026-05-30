@@ -223,7 +223,8 @@ Depends on:
 - `docs/design/DESIGN.md`
 - `docs/design/login.png`
 - `docs/design/view.png`
-- `docs/conventions/UI.md`
+
+Implementation agents should use `.agents/skills/archivist-ui/SKILL.md` for UI coding guidance. The skill is not a feature dependency or rebuild source of truth.
 
 Impacts:
 

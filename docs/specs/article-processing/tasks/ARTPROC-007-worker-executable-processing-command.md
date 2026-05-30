@@ -65,7 +65,7 @@ Expected outputs, files, behavior, or interfaces:
 src/worker/internal/app/
 src/worker/internal/pipeline/
 docs/specs/article-processing/
-docs/conventions/WORKER.md
+.agents/skills/archivist-worker/SKILL.md
 docs/ARCHITECTURE.md
 ```
 
@@ -76,8 +76,8 @@ Read before execution:
 - `../SPEC.md`
 - `../PLAN.md`
 - `docs/ARCHITECTURE.md`
-- `docs/conventions/GENERAL.md`
-- `docs/conventions/WORKER.md`
+- `.agents/skills/archivist-general/SKILL.md`
+- `.agents/skills/archivist-worker/SKILL.md`
 - `./ARTPROC-005-worker-snapshot-pipeline-orchestration.md`
 - `../plans/ARTPROC-007-worker-executable-processing-command.execplan.md`
 

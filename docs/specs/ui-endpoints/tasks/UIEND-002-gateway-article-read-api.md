@@ -52,9 +52,9 @@ Read before execution:
 
 - `../SPEC.md`
 - `../PLAN.md`
-- `docs/conventions/GENERAL.md`
-- `docs/conventions/GATEWAY.md`
-- `docs/conventions/ARTIFACTS.md`
+- `.agents/skills/archivist-general/SKILL.md`
+- `.agents/skills/archivist-gateway/SKILL.md`
+- `docs/ARTIFACTS.md`
 - `docs/specs/authn/SPEC.md`
 - `docs/specs/telegram-ingestion/SPEC.md`
 - `docs/specs/summary-generation/SPEC.md`

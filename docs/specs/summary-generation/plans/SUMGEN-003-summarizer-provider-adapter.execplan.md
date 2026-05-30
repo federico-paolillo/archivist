@@ -23,8 +23,8 @@ Start from the linked task's `Required Context` and the linked task file:
 
 Add only ExecPlan-specific context:
 
-- `docs/conventions/WORKER.md`
-- `docs/conventions/ERRORS.md`
+- `.agents/skills/archivist-worker/SKILL.md`
+- `docs/ERRORS.md`
 - Anthropic Client SDK documentation
 - Anthropic Go SDK repository or documentation
 - Anthropic API error documentation

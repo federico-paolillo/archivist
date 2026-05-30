@@ -30,12 +30,9 @@ Implementation may discover missing decisions. When that happens, the decision m
     BOOKKEEPING.md
     REBUILD.md
     ARCHITECTURE.md
+    ERRORS.md
+    ARTIFACTS.md
     DESIGN.md
-    conventions/
-      GENERAL.md
-      GATEWAY.md
-      UI.md
-      WORKER.md
     templates/
       DIARY.md
       EXECPLAN.md
@@ -54,6 +51,14 @@ Implementation may discover missing decisions. When that happens, the decision m
           <task-id>-<task-slug>.execplan.md
   .agents/
     skills/
+      archivist-general/
+        SKILL.md
+      archivist-gateway/
+        SKILL.md
+      archivist-ui/
+        SKILL.md
+      archivist-worker/
+        SKILL.md
       planner-agent/
         SKILL.md
 ```
@@ -88,13 +93,19 @@ Describes global system architecture: executables, services, boundaries, data ow
 
 Architecture decisions that constrain all features belong here or in `docs/DESIGN.md`.
 
-### `docs/conventions/*.md`
+### `docs/ERRORS.md`
 
-Defines coding, testing, naming, configuration, error handling, logging, security, and repository conventions.
+Defines shared persisted public error-code contracts. `docs/ERRORS.md` is canonical because ARC codes and public messages are shared by Worker, Gateway, UI, Telegram notification behavior, persisted state, and rebuild documentation.
 
-`docs/conventions/GENERAL.md` defines cross-module conventions. Module files such as `GATEWAY.md`, `WORKER.md`, and `UI.md` define conventions for their respective source areas.
+### `docs/ARTIFACTS.md`
 
-Agents must treat conventions as binding unless a task explicitly changes them.
+Defines deterministic filesystem artifact paths, artifact access boundaries, and artifact write/delete contracts. `docs/ARTIFACTS.md` is canonical because artifact layout is shared by Worker, Gateway, UI, backups, storage behavior, and rebuild documentation.
+
+### `.agents/skills`
+
+Defines repo-local development guidance: coding practice, testing guidance, naming style, module workflow, review posture, and validation commands.
+
+Skills are not canonical rebuild artifacts. They may restate or point to canonical contracts, but a requirement that must survive rebuild belongs in `docs/`, `docs/specs/`, or root `AGENTS.md`.
 
 ### `docs/DESIGN.md`
 
@@ -177,7 +188,8 @@ AGENTS.md
 docs/BOOKKEEPING.md
 docs/REBUILD.md
 docs/ARCHITECTURE.md
-docs/conventions/*.md
+docs/ERRORS.md
+docs/ARTIFACTS.md
 docs/DESIGN.md
 docs/design/DESIGN.md
 docs/design/login.png
@@ -277,7 +289,10 @@ If implementation discovers a durable decision, it must be promoted from `DIARY.
 - the relevant task file
 - `docs/DESIGN.md`
 - `docs/ARCHITECTURE.md`
-- relevant `docs/conventions/*.md`
+- `docs/ERRORS.md`
+- `docs/ARTIFACTS.md`
+
+If the discovery is only a reusable development practice and not rebuild-critical behavior, update the relevant `.agents/skills` file instead.
 
 ### 8. Rebuild
 
@@ -387,14 +402,14 @@ Task files and linked ExecPlans define the required execution context.
 The default implementation context is:
 
 ```text
-docs/conventions/GENERAL.md
-docs/conventions/<relevant-module>.md
+.agents/skills/archivist-general/SKILL.md
+.agents/skills/<relevant-skill>/SKILL.md
 docs/specs/<feature>/SPEC.md
 docs/specs/<feature>/PLAN.md
 docs/specs/<feature>/tasks/<task>.md
 ```
 
-Read only the module convention files relevant to the task unless the task spans modules.
+Read only the skills relevant to the task unless the task spans modules.
 
 If the task has an ExecPlan, also read:
 
@@ -407,6 +422,8 @@ Load global docs by trigger, not by default:
 - `docs/BOOKKEEPING.md`: ALM artifact creation or update, task status changes, dependency or concurrency questions, diary rules, ExecPlan rules.
 - `docs/ARCHITECTURE.md`: executables, service boundaries, storage, runtime topology, integrations, authentication boundaries, deployment assumptions.
 - `docs/DESIGN.md`: durable cross-task decisions, decision changes, rebuild-relevant rationale.
+- `docs/ERRORS.md`: persisted public ARC error-code changes.
+- `docs/ARTIFACTS.md`: artifact path, filename, access, write, or delete contracts.
 - Related feature specs: only when listed in `docs/specs/INDEX.md`, the feature `SPEC.md`, the feature `PLAN.md`, task dependencies, or task required context.
 
 ---
@@ -518,8 +535,9 @@ AGENTS.md
 docs/BOOKKEEPING.md
 docs/REBUILD.md
 docs/ARCHITECTURE.md
-docs/conventions/GENERAL.md
-docs/conventions/<module>.md
+.agents/skills/archivist-general/SKILL.md
+docs/ERRORS.md
+docs/ARTIFACTS.md
 docs/specs/INDEX.md
 docs/specs/<feature>/SPEC.md
 docs/specs/<feature>/PLAN.md

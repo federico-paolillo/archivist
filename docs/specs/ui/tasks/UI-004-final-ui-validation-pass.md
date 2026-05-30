@@ -63,8 +63,8 @@ Read before execution:
 
 - `../SPEC.md`
 - `../PLAN.md`
-- `docs/conventions/GENERAL.md`
-- `docs/conventions/UI.md`
+- `.agents/skills/archivist-general/SKILL.md`
+- `.agents/skills/archivist-ui/SKILL.md`
 - `docs/design/DESIGN.md`
 
 Do not load unrelated feature folders unless listed here or required by dependencies.

@@ -75,10 +75,10 @@ Read before execution:
 - `../PLAN.md`
 - `docs/ARCHITECTURE.md`
 - `docs/DESIGN.md`
-- `docs/conventions/ARTIFACTS.md`
-- `docs/conventions/ERRORS.md`
-- `docs/conventions/GENERAL.md`
-- `docs/conventions/WORKER.md`
+- `docs/ARTIFACTS.md`
+- `docs/ERRORS.md`
+- `.agents/skills/archivist-general/SKILL.md`
+- `.agents/skills/archivist-worker/SKILL.md`
 - `docs/specs/telegram-ingestion/SPEC.md`
 - `docs/specs/telegram-ingestion/PLAN.md`
 - `docs/specs/telegram-ingestion/tasks/TELING-001-persistence-contracts.md`

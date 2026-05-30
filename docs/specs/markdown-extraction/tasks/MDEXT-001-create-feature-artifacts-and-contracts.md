@@ -26,7 +26,7 @@ This task includes:
 
 - Feature `SPEC.md`, `PLAN.md`, `DIARY.md`, task files, and required ExecPlan.
 - `docs/specs/INDEX.md` update.
-- Artifact path convention under `docs/conventions/ARTIFACTS.md`.
+- Artifact path convention under `docs/ARTIFACTS.md`.
 - Error catalog extension for Markdown extraction failures.
 - Architecture and design updates for Markdown-complete interim success before summary generation.
 - Worker configuration and logging convention updates.
@@ -50,9 +50,9 @@ Required inputs, existing files, interfaces, or decisions:
 - `docs/BOOKKEEPING.md`
 - `docs/ARCHITECTURE.md`
 - `docs/DESIGN.md`
-- `docs/conventions/ERRORS.md`
-- `docs/conventions/GENERAL.md`
-- `docs/conventions/WORKER.md`
+- `docs/ERRORS.md`
+- `.agents/skills/archivist-general/SKILL.md`
+- `.agents/skills/archivist-worker/SKILL.md`
 
 ## Outputs
 
@@ -68,7 +68,9 @@ docs/specs/markdown-extraction/
 docs/specs/INDEX.md
 docs/ARCHITECTURE.md
 docs/DESIGN.md
-docs/conventions/
+docs/ERRORS.md
+docs/ARTIFACTS.md
+.agents/skills/
 ```
 
 ## Required Context
@@ -81,10 +83,10 @@ Read before execution:
 - `docs/specs/INDEX.md`
 - `docs/ARCHITECTURE.md`
 - `docs/DESIGN.md`
-- `docs/conventions/ERRORS.md`
-- `docs/conventions/GENERAL.md`
-- `docs/conventions/WORKER.md`
-- `docs/conventions/GATEWAY.md`
+- `docs/ERRORS.md`
+- `.agents/skills/archivist-general/SKILL.md`
+- `.agents/skills/archivist-worker/SKILL.md`
+- `.agents/skills/archivist-gateway/SKILL.md`
 - `docs/specs/article-processing/SPEC.md`
 - `docs/specs/article-processing/PLAN.md`
 
@@ -113,8 +115,8 @@ Scenario: Durable contracts are promoted
 - Feature folder and task artifacts exist.
 - `MDEXT-005` has a linked ExecPlan.
 - `docs/specs/INDEX.md` includes `markdown-extraction`.
-- `docs/conventions/ARTIFACTS.md` defines article artifact paths.
-- `docs/conventions/ERRORS.md` includes Markdown extraction ARC codes.
+- `docs/ARTIFACTS.md` defines article artifact paths.
+- `docs/ERRORS.md` includes Markdown extraction ARC codes.
 - Architecture, design, general, and worker conventions reflect the feature.
 - `DIARY.md` records this planning task completion.
 

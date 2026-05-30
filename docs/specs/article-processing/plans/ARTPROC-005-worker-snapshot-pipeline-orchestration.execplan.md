@@ -25,9 +25,9 @@ Add only ExecPlan-specific context:
 
 - `docs/ARCHITECTURE.md`
 - `docs/DESIGN.md`
-- `docs/conventions/ARTIFACTS.md`
-- `docs/conventions/ERRORS.md`
-- `docs/conventions/WORKER.md`
+- `docs/ARTIFACTS.md`
+- `docs/ERRORS.md`
+- `.agents/skills/archivist-worker/SKILL.md`
 - `docs/specs/telegram-ingestion/tasks/TELING-001-persistence-contracts.md`
 - `docs/specs/telegram-ingestion/tasks/TELING-003-worker-terminal-notification-contract.md`
 
@@ -79,7 +79,7 @@ Manual checks:
 - Update `../tasks/ARTPROC-005-worker-snapshot-pipeline-orchestration.md` status when complete.
 - Update `../PLAN.md` task table when status changes.
 - Append to `../DIARY.md` after implementation.
-- Promote any new processing behavior, failure code, or state transition to `../SPEC.md` or `docs/conventions/ERRORS.md`.
+- Promote any new processing behavior, failure code, or state transition to `../SPEC.md` or `docs/ERRORS.md`.
 
 ## Risks
 

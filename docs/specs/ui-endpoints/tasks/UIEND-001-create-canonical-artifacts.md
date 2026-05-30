@@ -43,7 +43,7 @@ Read before execution:
 - `../SPEC.md`
 - `../PLAN.md`
 - `docs/BOOKKEEPING.md`
-- `docs/conventions/GATEWAY.md`
+- `.agents/skills/archivist-gateway/SKILL.md`
 
 ## Acceptance Criteria
 
@@ -66,7 +66,7 @@ Scenario: UI endpoint artifacts exist
 Required checks:
 
 ```bash
-git diff -- docs/specs/ui-endpoints docs/specs/INDEX.md docs/conventions/GATEWAY.md
+git diff -- docs/specs/ui-endpoints docs/specs/INDEX.md .agents/skills/archivist-gateway/SKILL.md
 ```
 
 ## Dependencies

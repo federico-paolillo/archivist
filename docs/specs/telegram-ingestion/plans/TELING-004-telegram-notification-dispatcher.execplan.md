@@ -25,8 +25,8 @@ Add only ExecPlan-specific context:
 
 - `docs/ARCHITECTURE.md`
 - `docs/DESIGN.md`
-- `docs/conventions/ERRORS.md`
-- `docs/conventions/GATEWAY.md`
+- `docs/ERRORS.md`
+- `.agents/skills/archivist-gateway/SKILL.md`
 
 ## Assumptions
 

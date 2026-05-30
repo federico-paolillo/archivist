@@ -62,7 +62,7 @@ Expected outputs, files, behavior, or interfaces:
 docs/specs/ui/
 docs/specs/INDEX.md
 docs/ARCHITECTURE.md
-docs/conventions/UI.md
+.agents/skills/archivist-ui/SKILL.md
 docs/specs/authn/
 docs/specs/ui-endpoints/
 ```
@@ -76,7 +76,7 @@ Read before execution:
 - `docs/REBUILD.md`
 - `docs/specs/INDEX.md`
 - `docs/ARCHITECTURE.md`
-- `docs/conventions/UI.md`
+- `.agents/skills/archivist-ui/SKILL.md`
 - `docs/specs/authn/SPEC.md`
 - `docs/specs/ui-endpoints/SPEC.md`
 - `docs/design/DESIGN.md`

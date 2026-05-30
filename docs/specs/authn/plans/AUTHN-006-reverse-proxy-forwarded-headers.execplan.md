@@ -25,8 +25,8 @@ ExecPlan-specific context:
 
 - `docs/ARCHITECTURE.md`
 - `docs/DESIGN.md`
-- `docs/conventions/GENERAL.md`
-- `docs/conventions/GATEWAY.md`
+- `.agents/skills/archivist-general/SKILL.md`
+- `.agents/skills/archivist-gateway/SKILL.md`
 - `AMEND.md`
 
 ## Assumptions
@@ -79,8 +79,8 @@ Manual checks:
 - `docs/specs/authn/PLAN.md`
 - `docs/specs/authn/tasks/AUTHN-006-reverse-proxy-forwarded-headers-and-effective-https-auth.md`
 - `docs/ARCHITECTURE.md`
-- `docs/conventions/GENERAL.md`
-- `docs/conventions/GATEWAY.md`
+- `.agents/skills/archivist-general/SKILL.md`
+- `.agents/skills/archivist-gateway/SKILL.md`
 - `docs/DESIGN.md`
 
 ## Risks

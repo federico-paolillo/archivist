@@ -88,7 +88,7 @@ Manual checks:
 - Update `../tasks/UI-003-article-master-detail-and-delete-workflow.md` status when complete.
 - Update `../PLAN.md` task table when status changes.
 - Append a `DIARY.md` entry with validation results.
-- Promote any Markdown renderer dependency or sanitizer policy to `docs/conventions/UI.md` if it becomes durable.
+- Promote any Markdown renderer dependency or sanitizer policy to `docs/ARCHITECTURE.md`, `docs/DESIGN.md`, or the affected feature spec/task if it becomes durable.
 
 ## Risks
 

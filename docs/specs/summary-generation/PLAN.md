@@ -75,8 +75,8 @@ TELING-004 -> SUMGEN-005
 
 - Existing SQLite `articles`, `jobs`, and `notifications` contracts from `telegram-ingestion`.
 - Markdown output from `markdown-extraction`.
-- Deterministic artifact paths in `docs/conventions/ARTIFACTS.md`.
-- ARC error-code catalog in `docs/conventions/ERRORS.md`.
+- Deterministic artifact paths in `docs/ARTIFACTS.md`.
+- ARC error-code catalog in `docs/ERRORS.md`.
 - Worker-owned `SummarizerService` contract.
 - Worker configuration for `LLM_PROVIDER`, `LLM_API_KEY`, and `LLM_MODEL`.
 - Gateway read-only artifact abstraction for summary notification.

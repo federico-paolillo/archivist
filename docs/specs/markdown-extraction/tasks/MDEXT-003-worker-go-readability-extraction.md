@@ -51,8 +51,8 @@ Required inputs, existing files, interfaces, or decisions:
 
 - Completed `MDEXT-001`.
 - `../SPEC.md`
-- `docs/conventions/ERRORS.md`
-- `docs/conventions/WORKER.md`
+- `docs/ERRORS.md`
+- `.agents/skills/archivist-worker/SKILL.md`
 
 ## Outputs
 
@@ -74,9 +74,9 @@ Read before execution:
 
 - `../SPEC.md`
 - `../PLAN.md`
-- `docs/conventions/ERRORS.md`
-- `docs/conventions/GENERAL.md`
-- `docs/conventions/WORKER.md`
+- `docs/ERRORS.md`
+- `.agents/skills/archivist-general/SKILL.md`
+- `.agents/skills/archivist-worker/SKILL.md`
 
 Do not load unrelated feature folders unless listed here or required by dependencies.
 
@@ -155,4 +155,4 @@ null
 ## Notes
 
 - Do not add scoring or quality thresholds in this task.
-- `GoReadabilityExtractor` does not accept a logger and must not emit structured log entries. Structured logging for provider attempt, selected provider, ARC code, duration, and artifact write result is owned by MDEXT-005 pipeline orchestration per `docs/conventions/WORKER.md`.
+- `GoReadabilityExtractor` does not accept a logger and must not emit structured log entries. Structured logging for provider attempt, selected provider, ARC code, duration, and artifact write result is owned by MDEXT-005 pipeline orchestration per `.agents/skills/archivist-worker/SKILL.md`.

@@ -48,8 +48,8 @@ Required inputs, existing files, interfaces, or decisions:
 
 - Completed `SUMGEN-004`.
 - Completed `TELING-004`.
-- `docs/conventions/GATEWAY.md`
-- `docs/conventions/ARTIFACTS.md`
+- `.agents/skills/archivist-gateway/SKILL.md`
+- `docs/ARTIFACTS.md`
 
 ## Outputs
 
@@ -73,8 +73,8 @@ Read before execution:
 
 - `../SPEC.md`
 - `../PLAN.md`
-- `docs/conventions/ARTIFACTS.md`
-- `docs/conventions/GATEWAY.md`
+- `docs/ARTIFACTS.md`
+- `.agents/skills/archivist-gateway/SKILL.md`
 - `docs/specs/telegram-ingestion/SPEC.md`
 - `docs/specs/telegram-ingestion/PLAN.md`
 - `docs/specs/telegram-ingestion/tasks/TELING-004-telegram-notification-dispatcher.md`

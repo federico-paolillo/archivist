@@ -17,7 +17,8 @@ AGENTS.md
 docs/BOOKKEEPING.md
 docs/REBUILD.md
 docs/ARCHITECTURE.md
-docs/conventions/*.md
+docs/ERRORS.md
+docs/ARTIFACTS.md
 docs/DESIGN.md
 docs/design/DESIGN.md
 docs/design/login.png
@@ -63,7 +64,7 @@ For a full rebuild:
 
 1. Start from canonical Markdown artifacts.
 2. Ignore existing implementation unless explicitly referenced by canonical documents.
-3. Recreate the application according to feature specs, feature plans, task files, standards, and design decisions.
+3. Recreate the application according to feature specs, feature plans, task files, architecture, shared contracts, and design decisions.
 4. Do not infer behavior from old code.
 5. Do not add behavior that is not specified.
 6. If required behavior is missing, add or update the relevant spec/task before implementing it.
@@ -78,8 +79,8 @@ Read documents in this order:
 2. `docs/BOOKKEEPING.md`
 3. `docs/REBUILD.md`
 4. `docs/ARCHITECTURE.md`
-5. `docs/conventions/GENERAL.md`
-6. relevant module convention files under `docs/conventions/`
+5. `docs/ERRORS.md`
+6. `docs/ARTIFACTS.md`
 7. `docs/DESIGN.md`
 8. `docs/design/DESIGN.md` and referenced design assets when rebuilding UI behavior
 9. `docs/specs/INDEX.md`
@@ -88,7 +89,7 @@ Read documents in this order:
 12. task files in executable order
 13. linked ExecPlans when present
 
-Always read `docs/conventions/GENERAL.md`. Read only the relevant module convention files unless the rebuild step spans modules.
+Repo-local skills under `.agents/skills/` are development guidance, not rebuild artifacts. They may help an implementation agent work idiomatically, but required rebuild behavior must be present in the canonical files above.
 
 ---
 

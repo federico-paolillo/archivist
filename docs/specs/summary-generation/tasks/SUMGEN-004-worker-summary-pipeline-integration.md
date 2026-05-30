@@ -76,10 +76,10 @@ Read before execution:
 - `../PLAN.md`
 - `docs/ARCHITECTURE.md`
 - `docs/DESIGN.md`
-- `docs/conventions/ARTIFACTS.md`
-- `docs/conventions/ERRORS.md`
-- `docs/conventions/GENERAL.md`
-- `docs/conventions/WORKER.md`
+- `docs/ARTIFACTS.md`
+- `docs/ERRORS.md`
+- `.agents/skills/archivist-general/SKILL.md`
+- `.agents/skills/archivist-worker/SKILL.md`
 - `docs/specs/article-processing/SPEC.md`
 - `docs/specs/markdown-extraction/SPEC.md`
 - `docs/specs/markdown-extraction/tasks/MDEXT-005-worker-markdown-pipeline-integration.md`
@@ -184,4 +184,4 @@ ExecPlan:
 
 - Do not call Telegram APIs from the Worker.
 - Status is `done`; implementation, review fixes, and required Worker validation are complete.
-- SUMGEN-004 is the sole owner of structured log entries for the summarization pipeline: provider, model, provider request id, ARC code on failure, `article_id`, `job_id`, canonical URL, duration (measured by orchestration around the adapter call), and artifact write result. Adapters do not log. See `docs/conventions/WORKER.md` §Structured Logging.
+- SUMGEN-004 is the sole owner of structured log entries for the summarization pipeline: provider, model, provider request id, ARC code on failure, `article_id`, `job_id`, canonical URL, duration (measured by orchestration around the adapter call), and artifact write result. Adapters do not log. See `.agents/skills/archivist-worker/SKILL.md` §Structured Logging.

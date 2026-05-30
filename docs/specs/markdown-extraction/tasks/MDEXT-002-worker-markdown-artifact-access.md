@@ -47,8 +47,8 @@ Required inputs, existing files, interfaces, or decisions:
 
 - Completed `MDEXT-001`.
 - Completed `ARTPROC-003`.
-- `docs/conventions/ARTIFACTS.md`
-- `docs/conventions/WORKER.md`
+- `docs/ARTIFACTS.md`
+- `.agents/skills/archivist-worker/SKILL.md`
 
 ## Outputs
 
@@ -69,9 +69,9 @@ Read before execution:
 
 - `../SPEC.md`
 - `../PLAN.md`
-- `docs/conventions/ARTIFACTS.md`
-- `docs/conventions/GENERAL.md`
-- `docs/conventions/WORKER.md`
+- `docs/ARTIFACTS.md`
+- `.agents/skills/archivist-general/SKILL.md`
+- `.agents/skills/archivist-worker/SKILL.md`
 - `docs/specs/article-processing/tasks/ARTPROC-003-worker-filesystem-artifact-access-layer.md`
 
 Do not load unrelated feature folders unless listed here or required by dependencies.
@@ -95,7 +95,7 @@ Scenario: Artifact access rejects traversal
 ## Done When
 
 - Worker artifact access supports atomic `content.md` writes.
-- Artifact paths match `docs/conventions/ARTIFACTS.md`.
+- Artifact paths match `docs/ARTIFACTS.md`.
 - Tests cover deterministic path, atomic write, failed-write cleanup, and traversal rejection.
 - No placeholder future artifacts are created.
 - Task status and `PLAN.md` are updated if the task is completed.

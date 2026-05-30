@@ -24,7 +24,7 @@ Start from the linked task's `Required Context` and the linked task file:
 Add only ExecPlan-specific context:
 
 - `docs/ARCHITECTURE.md`
-- `docs/conventions/WORKER.md`
+- `.agents/skills/archivist-worker/SKILL.md`
 - `../tasks/ARTPROC-005-worker-snapshot-pipeline-orchestration.md`
 
 ## Assumptions
@@ -73,7 +73,7 @@ Manual checks:
 - Update `../PLAN.md` with `ARTPROC-007`.
 - Add this task and ExecPlan.
 - Update `docs/ARCHITECTURE.md`.
-- Update `docs/conventions/WORKER.md`.
+- Update `.agents/skills/archivist-worker/SKILL.md`.
 - Update `docs/BOOKKEEPING.md` and `docs/REBUILD.md` executable-boundary validation rules.
 - Append `../DIARY.md`.
 

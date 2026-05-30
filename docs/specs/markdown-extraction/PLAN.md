@@ -74,8 +74,8 @@ MDEXT-005 -> SUMGEN-002
 
 - Existing SQLite `articles`, `jobs`, and `notifications` contracts from `telegram-ingestion`.
 - HTML snapshot output from `article-processing`.
-- Deterministic artifact paths in `docs/conventions/ARTIFACTS.md`.
-- ARC error-code catalog in `docs/conventions/ERRORS.md`.
+- Deterministic artifact paths in `docs/ARTIFACTS.md`.
+- ARC error-code catalog in `docs/ERRORS.md`.
 - Worker-owned `MarkdownExtractor` contract shared by local and Jina implementations.
 - Worker configuration for required `JINA_API_KEY`.
 - Gateway terminal notification content selection for summary-complete success in `summary-generation`.

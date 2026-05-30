@@ -53,8 +53,8 @@ Required inputs, existing files, interfaces, or decisions:
 - `../SPEC.md`
 - Completed `ARTPROC-002`
 - Completed `ARTPROC-003`
-- `docs/conventions/ERRORS.md`
-- `docs/conventions/WORKER.md`
+- `docs/ERRORS.md`
+- `.agents/skills/archivist-worker/SKILL.md`
 
 ## Outputs
 
@@ -77,9 +77,9 @@ Read before execution:
 
 - `../SPEC.md`
 - `../PLAN.md`
-- `docs/conventions/ERRORS.md`
-- `docs/conventions/GENERAL.md`
-- `docs/conventions/WORKER.md`
+- `docs/ERRORS.md`
+- `.agents/skills/archivist-general/SKILL.md`
+- `.agents/skills/archivist-worker/SKILL.md`
 - `./ARTPROC-002-define-shared-arc-error-code-convention.md`
 - `./ARTPROC-003-worker-filesystem-artifact-access-layer.md`
 

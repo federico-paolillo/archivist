@@ -21,7 +21,7 @@ Create the gateway application services and SQLite persistence needed for passwo
 - `../SPEC.md`
 - `docs/ARCHITECTURE.md`
 - `docs/DESIGN.md`
-- `docs/conventions/GATEWAY.md`
+- `.agents/skills/archivist-gateway/SKILL.md`
 - `docs/specs/telegram-ingestion/tasks/TELING-001-persistence-contracts.md`
 - `docs/specs/telegram-ingestion/plans/TELING-001-persistence-contracts.execplan.md`
 

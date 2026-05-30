@@ -78,8 +78,8 @@ Read before execution:
 - `../PLAN.md`
 - `docs/ARCHITECTURE.md`
 - `docs/DESIGN.md`
-- `docs/conventions/GENERAL.md`
-- `docs/conventions/GATEWAY.md`
+- `.agents/skills/archivist-general/SKILL.md`
+- `.agents/skills/archivist-gateway/SKILL.md`
 - `./TELING-001-persistence-contracts.md`
 
 Do not load unrelated feature folders unless required by discovered dependencies.

@@ -66,7 +66,7 @@ TELING-003 -> TELING-004
 - Deterministic article artifact path convention under `DATA_DIR`.
 - Gateway repository interfaces used by webhook ingestion.
 - Worker repository interfaces used for terminal job transitions and notification creation.
-- ARC-coded public article-processing failure convention in `docs/conventions/ERRORS.md`; terminal failure notification dispatch must preserve `[ARC-NNN]` prefixes from `jobs.error_message`.
+- ARC-coded public article-processing failure convention in `docs/ERRORS.md`; terminal failure notification dispatch must preserve `[ARC-NNN]` prefixes from `jobs.error_message`.
 - Telegram reply text fixtures:
   - `Nope, you must send only an URL`
   - `Ok, I will have a look`

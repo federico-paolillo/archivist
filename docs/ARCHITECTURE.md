@@ -102,7 +102,7 @@ Filesystem storage under `/data` stores larger raw and derived artifacts:
 
 Artifact writes must be atomic: write to a temporary path and then rename into place. Artifact paths are deterministic from `DATA_DIR` and `article_id`; v0 does not store artifact path columns in SQLite. Optional artifact hashes may be stored for integrity checks and debugging if a future spec requires them.
 
-The canonical artifact path convention is defined in `docs/conventions/ARTIFACTS.md`.
+The canonical artifact path contract is defined in `docs/ARTIFACTS.md`.
 
 Core user state includes:
 

@@ -60,8 +60,8 @@ Read before execution:
 
 - `../SPEC.md`
 - `../PLAN.md`
-- `docs/conventions/GENERAL.md`
-- TODO: relevant `docs/conventions/<MODULE>.md`
+- `.agents/skills/archivist-general/SKILL.md`
+- TODO: relevant `.agents/skills/<relevant-skill>/SKILL.md`
 - TODO: task-specific architecture or design docs, only if needed
 - TODO: related feature specs, only if needed
 

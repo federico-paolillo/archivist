@@ -44,8 +44,8 @@ Read before execution:
 - `../SPEC.md`
 - `../PLAN.md`
 - `./AUTHN-002-password-persistence-and-bootstrap.md`
-- `docs/conventions/GENERAL.md`
-- `docs/conventions/GATEWAY.md`
+- `.agents/skills/archivist-general/SKILL.md`
+- `.agents/skills/archivist-gateway/SKILL.md`
 
 ## Acceptance Criteria
 

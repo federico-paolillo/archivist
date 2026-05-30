@@ -35,8 +35,8 @@ rg "legacy Worker config names" src/worker docs
 
 ## Documentation Updates Required
 
-- `docs/conventions/WORKER.md`
-- `docs/conventions/GENERAL.md`
+- `.agents/skills/archivist-worker/SKILL.md`
+- `.agents/skills/archivist-general/SKILL.md`
 - `docs/ARCHITECTURE.md`
 - `docs/specs/INDEX.md`
 - Affected completed task notes in article-processing, markdown-extraction, and summary-generation.

@@ -23,8 +23,8 @@ Start from the linked task's `Required Context` and the linked task file:
 
 Add only ExecPlan-specific context:
 
-- `docs/conventions/ARTIFACTS.md`
-- `docs/conventions/GATEWAY.md`
+- `docs/ARTIFACTS.md`
+- `.agents/skills/archivist-gateway/SKILL.md`
 - `docs/specs/telegram-ingestion/tasks/TELING-004-telegram-notification-dispatcher.md`
 - `docs/specs/summary-generation/tasks/SUMGEN-004-worker-summary-pipeline-integration.md`
 

@@ -24,7 +24,7 @@ As Worker, Gateway, and UI implementers, we need stable user-facing error codes 
 
 This task includes:
 
-- `docs/conventions/ERRORS.md`.
+- `docs/ERRORS.md`.
 - Initial `ARC-001` through `ARC-007` and `ARC-999` catalog.
 - Convention updates requiring persisted article-processing errors to use ARC codes.
 
@@ -41,8 +41,8 @@ This task does not include:
 Required inputs, existing files, interfaces, or decisions:
 
 - `../SPEC.md`
-- `docs/conventions/GENERAL.md`
-- `docs/conventions/WORKER.md`
+- `.agents/skills/archivist-general/SKILL.md`
+- `.agents/skills/archivist-worker/SKILL.md`
 
 ## Outputs
 
@@ -54,9 +54,9 @@ Expected outputs, files, behavior, or interfaces:
 ## Expected Affected Areas
 
 ```text
-docs/conventions/ERRORS.md
-docs/conventions/GENERAL.md
-docs/conventions/WORKER.md
+docs/ERRORS.md
+.agents/skills/archivist-general/SKILL.md
+.agents/skills/archivist-worker/SKILL.md
 ```
 
 ## Required Context
@@ -65,8 +65,8 @@ Read before execution:
 
 - `../SPEC.md`
 - `../PLAN.md`
-- `docs/conventions/GENERAL.md`
-- `docs/conventions/WORKER.md`
+- `.agents/skills/archivist-general/SKILL.md`
+- `.agents/skills/archivist-worker/SKILL.md`
 
 Do not load unrelated feature folders unless listed here or required by dependencies.
 
@@ -76,7 +76,7 @@ Do not load unrelated feature folders unless listed here or required by dependen
 Scenario: ARC catalog is canonical
   Given article-processing failures need user-facing codes
   When the shared convention is created
-  Then ARC codes and public message rules are documented in docs/conventions/ERRORS.md
+  Then ARC codes and public message rules are documented in docs/ERRORS.md
   And Worker conventions require persisted processing failures to use those codes
 ```
 
@@ -92,7 +92,7 @@ Scenario: ARC catalog is canonical
 Required checks:
 
 ```bash
-git diff -- docs/conventions/ERRORS.md docs/conventions/GENERAL.md docs/conventions/WORKER.md
+git diff -- docs/ERRORS.md .agents/skills/archivist-general/SKILL.md .agents/skills/archivist-worker/SKILL.md
 ```
 
 Manual validation, if any:

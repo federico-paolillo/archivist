@@ -27,7 +27,7 @@ WCFG-001 -> WCFG-002
 
 - Worker config package: `src/worker/pkg/app/config`.
 - Worker composition root: `src/worker/pkg/app`.
-- Canonical runtime keys from `docs/conventions/GENERAL.md`, `docs/conventions/WORKER.md`, and `docs/ARCHITECTURE.md`.
+- Canonical runtime keys from this feature spec, its task files, and `docs/ARCHITECTURE.md`.
 - Required Worker runtime values include `SQLITE_PATH`, `DATA_DIR`, `JINA_API_KEY`, and `LLM_API_KEY` when `LLM_PROVIDER=anthropic`.
 
 ## Validation Sequence

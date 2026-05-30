@@ -242,8 +242,9 @@ Depends on:
 - `authn` for `app-cookie` authentication and same-origin unsafe-method checks.
 - `telegram-ingestion` for SQLite article/job/notification schema.
 - `summary-generation` for final v0 `summary.md` production and Gateway artifact conventions.
-- `docs/conventions/GATEWAY.md`
-- `docs/conventions/ARTIFACTS.md`
+- `docs/ARTIFACTS.md`
+
+Implementation agents should use `.agents/skills/archivist-gateway/SKILL.md` for Gateway coding guidance. The skill is not a feature dependency or rebuild source of truth.
 
 Impacts:
 

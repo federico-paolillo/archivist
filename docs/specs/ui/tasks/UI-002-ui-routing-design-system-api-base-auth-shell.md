@@ -89,8 +89,8 @@ Read before execution:
 - `../SPEC.md`
 - `../PLAN.md`
 - `../plans/UI-002-ui-routing-design-system-api-base-auth-shell.execplan.md`
-- `docs/conventions/GENERAL.md`
-- `docs/conventions/UI.md`
+- `.agents/skills/archivist-general/SKILL.md`
+- `.agents/skills/archivist-ui/SKILL.md`
 - `docs/specs/authn/SPEC.md`
 - `docs/specs/authn/tasks/AUTHN-004-protect-ui-api-and-validate-auth-client-contract.md`
 - `docs/design/DESIGN.md`

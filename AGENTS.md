@@ -18,6 +18,16 @@ Historical logs may inform implementation, but they do not define required behav
 
 ---
 
+## Repo-Local Multi-Agent Tooling
+
+Significant parallel feature work may use `.agents/skills/archivist-agentic-feature/SKILL.md`.
+
+Repo-local role profiles live under `.agents/agents/`. Workflow handoff templates live under `.agents/workflows/templates/`.
+
+These files are non-canonical tooling. Durable behavior must still be captured in canonical docs, feature specs, feature plans, task files, or linked ExecPlans.
+
+---
+
 ## Context Loading Policy
 
 Start each request by reading only the orientation bundle:
@@ -35,15 +45,16 @@ Then classify the request before loading more context:
 - review
 - question-answering
 
-Identify the affected feature, module or modules, and durable surfaces before loading more files. Durable surfaces include architecture, design decisions, conventions, schema, API contracts, storage, authentication, deployment, and ALM process rules.
+Identify the affected feature, module or modules, and durable surfaces before loading more files. Durable surfaces include architecture, design decisions, schema, API contracts, storage, authentication, deployment, artifact contracts, user-visible error contracts, and ALM process rules.
 
 Load additional context by trigger:
 
 - `docs/BOOKKEEPING.md`: creating or updating specs, plans, tasks, ExecPlans, or diaries; changing task status; resolving dependency or concurrency questions; applying diary or ExecPlan rules.
 - `docs/ARCHITECTURE.md`: changing or depending on executables, service boundaries, storage, runtime topology, integrations, authentication boundaries, or deployment assumptions.
 - `docs/DESIGN.md`: relying on or changing durable cross-task decisions, decision rationale, or rebuild-relevant tradeoffs.
-- `docs/conventions/GENERAL.md`: implementation, validation, or standards changes.
-- `docs/conventions/<MODULE>.md`: work that touches or plans for that module.
+- `docs/ERRORS.md`: changing persisted public ARC error codes, public messages, or error classification contracts.
+- `docs/ARTIFACTS.md`: changing artifact paths, filenames, access, write, or delete contracts.
+- `.agents/skills/archivist-general/SKILL.md` and the relevant module skill: implementation practice, validation guidance, or module-specific development workflow.
 - Feature `SPEC.md`, `PLAN.md`, task files, and ExecPlans: work on that feature or task.
 - Related feature specs: only when listed in `docs/specs/INDEX.md`, the feature `SPEC.md`, the feature `PLAN.md`, task dependencies, or task required context.
 
@@ -120,8 +131,10 @@ When implementing a task, update all relevant bookkeeping artifacts:
 1. task frontmatter status;
 2. task status row in `PLAN.md`;
 3. `DIARY.md` with an append-only entry;
-4. `SPEC.md`, `PLAN.md`, relevant `docs/conventions/*.md`, `ARCHITECTURE.md`, or `DESIGN.md` if durable decisions changed;
+4. `SPEC.md`, `PLAN.md`, `ARCHITECTURE.md`, `DESIGN.md`, `docs/ERRORS.md`, or `docs/ARTIFACTS.md` if durable decisions changed;
 5. `docs/specs/INDEX.md` if feature status or dependencies changed.
+
+Update `.agents/skills` only when non-canonical development guidance itself changes. Do not use skills as the only record of rebuild-critical behavior.
 
 ---
 

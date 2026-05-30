@@ -80,9 +80,9 @@ Read before execution:
 - `../PLAN.md`
 - `docs/ARCHITECTURE.md`
 - `docs/DESIGN.md`
-- `docs/conventions/ERRORS.md`
-- `docs/conventions/GENERAL.md`
-- `docs/conventions/GATEWAY.md`
+- `docs/ERRORS.md`
+- `.agents/skills/archivist-general/SKILL.md`
+- `.agents/skills/archivist-gateway/SKILL.md`
 - `./TELING-002-telegram-webhook-ingestion.md`
 - `./TELING-003-worker-terminal-notification-contract.md`
 - `../plans/TELING-004-telegram-notification-dispatcher.execplan.md`

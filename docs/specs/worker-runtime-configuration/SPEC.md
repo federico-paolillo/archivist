@@ -72,4 +72,4 @@ Scenario: strict config produces a fully wired Worker
 
 ## Rebuild Notes
 
-Rebuild agents must implement Worker runtime configuration from this spec and `docs/conventions/WORKER.md`, not from historical diary entries that mention legacy application-prefixed variables or flattened configuro-derived names.
+Rebuild agents must implement Worker runtime configuration from this spec, its task files, and `docs/ARCHITECTURE.md`, not from historical diary entries that mention legacy application-prefixed variables or flattened configuro-derived names. Implementation agents may use `.agents/skills/archivist-worker/SKILL.md` for Worker coding guidance.

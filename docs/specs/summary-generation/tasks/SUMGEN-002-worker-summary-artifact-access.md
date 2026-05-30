@@ -50,9 +50,9 @@ Required inputs, existing files, interfaces, or decisions:
 - Completed `MDEXT-005`.
 - Completed `WCFG-001`.
 - Completed `WCFG-002`.
-- `docs/conventions/ARTIFACTS.md`
-- `docs/conventions/ERRORS.md`
-- `docs/conventions/WORKER.md`
+- `docs/ARTIFACTS.md`
+- `docs/ERRORS.md`
+- `.agents/skills/archivist-worker/SKILL.md`
 
 ## Outputs
 
@@ -74,10 +74,10 @@ Read before execution:
 
 - `../SPEC.md`
 - `../PLAN.md`
-- `docs/conventions/ARTIFACTS.md`
-- `docs/conventions/ERRORS.md`
-- `docs/conventions/GENERAL.md`
-- `docs/conventions/WORKER.md`
+- `docs/ARTIFACTS.md`
+- `docs/ERRORS.md`
+- `.agents/skills/archivist-general/SKILL.md`
+- `.agents/skills/archivist-worker/SKILL.md`
 - `docs/specs/markdown-extraction/tasks/MDEXT-002-worker-markdown-artifact-access.md`
 - `docs/specs/markdown-extraction/tasks/MDEXT-005-worker-markdown-pipeline-integration.md`
 - `docs/specs/worker-runtime-configuration/tasks/WCFG-001-canonical-worker-config-loading.md`
@@ -111,7 +111,7 @@ Scenario: Artifact access rejects traversal
 - Worker artifact access supports reading `content.md`.
 - Worker artifact access supports atomic `summary.md` writes.
 - Summary write failures map to `ARC-016`.
-- Artifact paths match `docs/conventions/ARTIFACTS.md`.
+- Artifact paths match `docs/ARTIFACTS.md`.
 - No placeholder `summary.json` artifact is created.
 - Tests cover deterministic path, atomic write, failed-write cleanup, missing input, and traversal rejection.
 - Task status and `PLAN.md` are updated if the task is completed.

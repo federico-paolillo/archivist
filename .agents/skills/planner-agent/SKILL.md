@@ -20,7 +20,7 @@ The planner agent produces or updates:
 - `docs/specs/<feature-slug>/PLAN.md`
 - optional `docs/specs/<feature-slug>/plans/*.execplan.md`
 - optional updates to `docs/specs/INDEX.md`
-- optional updates to `docs/ARCHITECTURE.md`, `docs/conventions/*.md`, or `docs/DESIGN.md`
+- optional updates to `docs/ARCHITECTURE.md`, `docs/DESIGN.md`, `docs/ERRORS.md`, or `docs/ARTIFACTS.md`
 
 The planner does not implement code unless explicitly instructed.
 
@@ -58,8 +58,8 @@ Load additional context by trigger:
 - `docs/BOOKKEEPING.md`: creating or updating ALM artifacts, task dependencies, task status, ExecPlans, or diaries.
 - `docs/ARCHITECTURE.md`: planning executables, service boundaries, storage, runtime topology, integrations, authentication boundaries, or deployment assumptions.
 - `docs/DESIGN.md`: planning durable cross-task decisions, decision changes, or rebuild-relevant rationale.
-- `docs/conventions/GENERAL.md`: planning implementation, validation, or standards changes.
-- `docs/conventions/<MODULE>.md`: planning work for that module.
+- `docs/ERRORS.md`: planning persisted public ARC error-code changes.
+- `docs/ARTIFACTS.md`: planning artifact path, filename, access, write, or delete behavior.
 
 If planning an existing feature, also read:
 
@@ -162,11 +162,12 @@ Before creating tasks, extract anything that should not be local to the feature.
 Promote these to canonical docs when needed:
 
 - architectural constraints → `docs/ARCHITECTURE.md`
-- cross-module coding or testing conventions → `docs/conventions/GENERAL.md`
-- module-specific coding or testing conventions → relevant `docs/conventions/<MODULE>.md`
 - durable decisions → `docs/DESIGN.md`
+- persisted public ARC error changes → `docs/ERRORS.md`
+- artifact path/access/write/delete contracts → `docs/ARTIFACTS.md`
+- feature-specific behavior → the relevant feature `SPEC.md`, `PLAN.md`, task, or ExecPlan
 
-Do not bury standards inside tasks.
+Development practice belongs in `.agents/skills`; rebuild-critical contracts belong in canonical docs. Do not bury standards or contracts inside tasks when they affect multiple tasks.
 
 ### 5. Decompose Into Tasks
 

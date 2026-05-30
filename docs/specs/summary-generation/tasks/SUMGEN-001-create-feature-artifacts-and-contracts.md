@@ -52,11 +52,11 @@ Required inputs, existing files, interfaces, or decisions:
 - `docs/BOOKKEEPING.md`
 - `docs/ARCHITECTURE.md`
 - `docs/DESIGN.md`
-- `docs/conventions/ARTIFACTS.md`
-- `docs/conventions/ERRORS.md`
-- `docs/conventions/GENERAL.md`
-- `docs/conventions/WORKER.md`
-- `docs/conventions/GATEWAY.md`
+- `docs/ARTIFACTS.md`
+- `docs/ERRORS.md`
+- `.agents/skills/archivist-general/SKILL.md`
+- `.agents/skills/archivist-worker/SKILL.md`
+- `.agents/skills/archivist-gateway/SKILL.md`
 
 ## Outputs
 
@@ -74,7 +74,9 @@ docs/specs/article-processing/
 docs/specs/INDEX.md
 docs/ARCHITECTURE.md
 docs/DESIGN.md
-docs/conventions/
+docs/ERRORS.md
+docs/ARTIFACTS.md
+.agents/skills/
 ```
 
 ## Required Context
@@ -87,11 +89,11 @@ Read before execution:
 - `docs/specs/INDEX.md`
 - `docs/ARCHITECTURE.md`
 - `docs/DESIGN.md`
-- `docs/conventions/ARTIFACTS.md`
-- `docs/conventions/ERRORS.md`
-- `docs/conventions/GENERAL.md`
-- `docs/conventions/WORKER.md`
-- `docs/conventions/GATEWAY.md`
+- `docs/ARTIFACTS.md`
+- `docs/ERRORS.md`
+- `.agents/skills/archivist-general/SKILL.md`
+- `.agents/skills/archivist-worker/SKILL.md`
+- `.agents/skills/archivist-gateway/SKILL.md`
 - `docs/specs/article-processing/SPEC.md`
 - `docs/specs/markdown-extraction/SPEC.md`
 - `docs/specs/telegram-ingestion/SPEC.md`
@@ -121,8 +123,8 @@ Scenario: Durable contracts are promoted
 - Feature folder and task artifacts exist.
 - `SUMGEN-003`, `SUMGEN-004`, and `SUMGEN-005` have linked ExecPlans.
 - `docs/specs/INDEX.md` includes `summary-generation`.
-- `docs/conventions/ARTIFACTS.md` defines `summary.md` as the v0 summary artifact.
-- `docs/conventions/ERRORS.md` includes summary ARC codes.
+- `docs/ARTIFACTS.md` defines `summary.md` as the v0 summary artifact.
+- `docs/ERRORS.md` includes summary ARC codes.
 - Architecture, design, Worker, and Gateway conventions reflect the feature.
 - `DIARY.md` records this planning task completion.
 

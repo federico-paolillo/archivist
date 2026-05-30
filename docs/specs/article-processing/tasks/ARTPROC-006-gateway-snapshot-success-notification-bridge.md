@@ -69,7 +69,7 @@ Read before execution:
 
 - `../SPEC.md`
 - `../PLAN.md`
-- `docs/conventions/GATEWAY.md`
+- `.agents/skills/archivist-gateway/SKILL.md`
 - `docs/specs/telegram-ingestion/SPEC.md`
 - `docs/specs/telegram-ingestion/tasks/TELING-004-telegram-notification-dispatcher.md`
 - `./ARTPROC-005-worker-snapshot-pipeline-orchestration.md`

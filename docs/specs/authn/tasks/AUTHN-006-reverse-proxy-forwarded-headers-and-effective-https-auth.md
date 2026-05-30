@@ -43,8 +43,8 @@ Required inputs, existing files, interfaces, or decisions:
 - `AMEND.md` as the source amendment note.
 - `../SPEC.md` effective public HTTPS requirements.
 - `docs/ARCHITECTURE.md` deployment topology.
-- `docs/conventions/GENERAL.md` configuration conventions.
-- `docs/conventions/GATEWAY.md` Gateway middleware and auth conventions.
+- `.agents/skills/archivist-general/SKILL.md` configuration conventions.
+- `.agents/skills/archivist-gateway/SKILL.md` Gateway middleware and auth conventions.
 
 ## Outputs
 
@@ -62,8 +62,8 @@ Expected outputs, files, behavior, or interfaces:
 src/gateway/
 docs/specs/authn/
 docs/ARCHITECTURE.md
-docs/conventions/GENERAL.md
-docs/conventions/GATEWAY.md
+.agents/skills/archivist-general/SKILL.md
+.agents/skills/archivist-gateway/SKILL.md
 docs/DESIGN.md
 ```
 
@@ -78,8 +78,8 @@ Read before execution:
 - `../plans/AUTHN-006-reverse-proxy-forwarded-headers.execplan.md`
 - `docs/ARCHITECTURE.md`
 - `docs/DESIGN.md`
-- `docs/conventions/GENERAL.md`
-- `docs/conventions/GATEWAY.md`
+- `.agents/skills/archivist-general/SKILL.md`
+- `.agents/skills/archivist-gateway/SKILL.md`
 
 Do not load unrelated feature folders unless required by dependencies.
 

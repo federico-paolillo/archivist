@@ -82,7 +82,7 @@ Not included:
 - REQ-013: Markdown writes must be atomic: write a temporary file, then rename into place.
 - REQ-014: Markdown success must continue to summary generation and must not set `articles.status = ready`, set `jobs.status = succeeded`, or insert a success notification in final v0.
 - REQ-015: Markdown failure must set `articles.status = failed`, set `articles.error_message` to an ARC-coded public error, set `jobs.status = failed`, persist job error context, set terminal timestamps/TTL, and insert exactly one pending notification in one SQLite transaction.
-- REQ-016: Persisted public article errors must use codes defined in `docs/conventions/ERRORS.md`.
+- REQ-016: Persisted public article errors must use codes defined in `docs/ERRORS.md`.
 - REQ-017: The Worker must log provider attempts, fallback reason, selected provider, ARC code on failure, `article_id`, `job_id`, canonical URL, duration, and artifact write result when available.
 - REQ-018: Gateway Markdown-stage success notification work is skipped in final v0; success notification content is summary-based and owned by `summary-generation`.
 - REQ-019: Snapshot-stage and Markdown-stage success notifications are superseded by summary-complete success in final v0.
@@ -199,11 +199,11 @@ Depends on:
 - `article-processing`
 - `docs/ARCHITECTURE.md`
 - `docs/DESIGN.md`
-- `docs/conventions/ARTIFACTS.md`
-- `docs/conventions/ERRORS.md`
-- `docs/conventions/GENERAL.md`
-- `docs/conventions/WORKER.md`
-- `docs/conventions/GATEWAY.md`
+- `docs/ARTIFACTS.md`
+- `docs/ERRORS.md`
+- `.agents/skills/archivist-general/SKILL.md`
+- `.agents/skills/archivist-worker/SKILL.md`
+- `.agents/skills/archivist-gateway/SKILL.md`
 
 Impacts:
 

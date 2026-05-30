@@ -42,7 +42,7 @@ Read before execution:
 
 - `../SPEC.md`
 - `../PLAN.md`
-- `docs/conventions/GATEWAY.md`
+- `.agents/skills/archivist-gateway/SKILL.md`
 - `docs/specs/ui/SPEC.md`
 
 ## Acceptance Criteria

@@ -19,8 +19,8 @@ Implement authenticated article hard deletion with SQLite cleanup and determinis
 
 - `../tasks/UIEND-003-gateway-article-delete-api.md`
 - `../SPEC.md`
-- `docs/conventions/GATEWAY.md`
-- `docs/conventions/ARTIFACTS.md`
+- `.agents/skills/archivist-gateway/SKILL.md`
+- `docs/ARTIFACTS.md`
 - `docs/specs/authn/SPEC.md`
 - `docs/specs/telegram-ingestion/SPEC.md`
 

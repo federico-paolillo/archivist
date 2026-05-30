@@ -39,8 +39,8 @@ Read before execution:
 
 - `../SPEC.md`
 - `../PLAN.md`
-- `docs/conventions/GENERAL.md`
-- `docs/conventions/GATEWAY.md`
+- `.agents/skills/archivist-general/SKILL.md`
+- `.agents/skills/archivist-gateway/SKILL.md`
 - `docs/ARCHITECTURE.md`
 - `docs/DESIGN.md`
 - `docs/specs/telegram-ingestion/tasks/TELING-001-persistence-contracts.md`

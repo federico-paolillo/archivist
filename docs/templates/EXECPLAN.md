@@ -25,7 +25,7 @@ Add only ExecPlan-specific context:
 
 - TODO: additional `docs/ARCHITECTURE.md` sections, only if needed
 - TODO: additional `docs/DESIGN.md` decisions, only if needed
-- TODO: additional `docs/conventions/<MODULE>.md`, only if needed
+- TODO: additional `.agents/skills/<relevant-skill>/SKILL.md`, only if needed
 
 ## Assumptions
 

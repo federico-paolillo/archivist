@@ -82,8 +82,8 @@ Read before execution:
 - `../SPEC.md`
 - `../PLAN.md`
 - `../plans/UI-003-article-master-detail-and-delete-workflow.execplan.md`
-- `docs/conventions/GENERAL.md`
-- `docs/conventions/UI.md`
+- `.agents/skills/archivist-general/SKILL.md`
+- `.agents/skills/archivist-ui/SKILL.md`
 - `docs/specs/ui-endpoints/SPEC.md`
 - `docs/specs/authn/SPEC.md`
 - `docs/design/DESIGN.md`

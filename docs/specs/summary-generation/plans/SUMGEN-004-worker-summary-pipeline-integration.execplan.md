@@ -25,9 +25,9 @@ Add only ExecPlan-specific context:
 
 - `docs/ARCHITECTURE.md`
 - `docs/DESIGN.md`
-- `docs/conventions/ARTIFACTS.md`
-- `docs/conventions/ERRORS.md`
-- `docs/conventions/WORKER.md`
+- `docs/ARTIFACTS.md`
+- `docs/ERRORS.md`
+- `.agents/skills/archivist-worker/SKILL.md`
 - `docs/specs/markdown-extraction/tasks/MDEXT-005-worker-markdown-pipeline-integration.md`
 - `docs/specs/telegram-ingestion/tasks/TELING-003-worker-terminal-notification-contract.md`
 
@@ -98,7 +98,7 @@ Manual checks:
 - Update `../tasks/SUMGEN-004-worker-summary-pipeline-integration.md` status when complete.
 - Update `../PLAN.md` task table when status changes.
 - Append to `../DIARY.md` after implementation.
-- Promote any new processing behavior, failure code, configuration, logging field, or state transition to `../SPEC.md`, `docs/conventions/ERRORS.md`, or the relevant convention file.
+- Promote any new processing behavior, failure code, configuration, logging field, or state transition to `../SPEC.md`, `docs/ERRORS.md`, or the relevant convention file.
 
 ## Risks
 

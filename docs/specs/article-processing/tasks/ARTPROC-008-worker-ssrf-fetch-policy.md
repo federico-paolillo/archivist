@@ -51,9 +51,9 @@ Required inputs, existing files, interfaces, or decisions:
 - `../SPEC.md`
 - `../PLAN.md`
 - `../plans/ARTPROC-008-worker-ssrf-fetch-policy.execplan.md`
-- `docs/conventions/ERRORS.md`
-- `docs/conventions/WORKER.md`
-- `docs/conventions/GENERAL.md`
+- `docs/ERRORS.md`
+- `.agents/skills/archivist-worker/SKILL.md`
+- `.agents/skills/archivist-general/SKILL.md`
 - `REVIEW.md`
 
 ## Outputs
@@ -69,8 +69,8 @@ Expected outputs, files, behavior, or interfaces:
 ## Expected Affected Areas
 
 ```text
-docs/conventions/ERRORS.md
-docs/conventions/WORKER.md
+docs/ERRORS.md
+.agents/skills/archivist-worker/SKILL.md
 docs/specs/article-processing/
 REVIEW.md
 src/worker/internal/arc/
@@ -87,9 +87,9 @@ Read before execution:
 - `../SPEC.md`
 - `../PLAN.md`
 - `docs/BOOKKEEPING.md`
-- `docs/conventions/ERRORS.md`
-- `docs/conventions/GENERAL.md`
-- `docs/conventions/WORKER.md`
+- `docs/ERRORS.md`
+- `.agents/skills/archivist-general/SKILL.md`
+- `.agents/skills/archivist-worker/SKILL.md`
 - `REVIEW.md`
 - `../plans/ARTPROC-008-worker-ssrf-fetch-policy.execplan.md`
 

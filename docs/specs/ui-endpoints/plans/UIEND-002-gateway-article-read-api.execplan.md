@@ -19,8 +19,8 @@ Implement authenticated article list/detail routes backed by SQLite and determin
 
 - `../tasks/UIEND-002-gateway-article-read-api.md`
 - `../SPEC.md`
-- `docs/conventions/GATEWAY.md`
-- `docs/conventions/ARTIFACTS.md`
+- `.agents/skills/archivist-gateway/SKILL.md`
+- `docs/ARTIFACTS.md`
 - `docs/specs/authn/SPEC.md`
 - `docs/specs/telegram-ingestion/SPEC.md`
 - `docs/specs/summary-generation/SPEC.md`

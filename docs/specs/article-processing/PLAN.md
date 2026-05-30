@@ -88,7 +88,7 @@ TELING-004 -> ARTPROC-006
 
 - Existing SQLite `articles`, `jobs`, and `notifications` contracts from `telegram-ingestion`.
 - Deterministic article artifact path convention under `DATA_DIR`.
-- ARC error-code catalog in `docs/conventions/ERRORS.md`.
+- ARC error-code catalog in `docs/ERRORS.md`.
 - Worker HTTP fetch and SSRF policy using `github.com/imroc/req/v3` and `src/worker/internal/ssrf`.
 - Worker executable command surface: `archivist-worker process`.
 - Snapshot-only Gateway success notification is superseded by summary-complete notification in `summary-generation`.

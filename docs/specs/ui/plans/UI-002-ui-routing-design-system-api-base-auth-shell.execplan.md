@@ -81,7 +81,7 @@ Manual checks:
 - Update `../tasks/UI-002-ui-routing-design-system-api-base-auth-shell.md` status when complete.
 - Update `../PLAN.md` task table when status changes.
 - Append a `DIARY.md` entry with validation results and any durable decisions promoted to canonical docs.
-- Promote any new frontend dependency or design decision to `docs/conventions/UI.md` if it must survive rebuild.
+- Promote any new frontend dependency or design decision to `docs/ARCHITECTURE.md`, `docs/DESIGN.md`, or the affected feature spec/task if it must survive rebuild.
 
 ## Risks
 

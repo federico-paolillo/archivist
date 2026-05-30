@@ -86,7 +86,7 @@ Not included:
 - REQ-023: Successful final v0 completion replies must read `summary.md` from the deterministic article artifact path under `DATA_DIR` once summary generation is implemented.
 - REQ-023A: Snapshot-only or Markdown-only success replies are interim bridges only before downstream processing is implemented; final v0 success replies are summary-based.
 - REQ-024: Failed completion replies must use `jobs.error_message`.
-- REQ-024A: Failed article-processing completion replies must preserve ARC-coded public error text from `jobs.error_message`, including the leading `[ARC-NNN]` prefix defined by `docs/conventions/ERRORS.md`.
+- REQ-024A: Failed article-processing completion replies must preserve ARC-coded public error text from `jobs.error_message`, including the leading `[ARC-NNN]` prefix defined by `docs/ERRORS.md`.
 - REQ-025: Terminal Telegram replies must fit within Telegram message length limits by deterministic truncation when necessary.
 - REQ-026: Telegram notification delivery errors must mark the notification `failed` with an error message and must not be retried automatically.
 - REQ-027: Notification states must be limited to `pending`, `sent`, and `failed`.
@@ -267,7 +267,7 @@ Notifications are gateway delivery records. They do not copy article IDs, Telegr
 - SQLite queue contract: gateway inserts article and queued job records; worker claims queued jobs atomically with `UPDATE ... RETURNING`.
 - SQLite notification contract: worker inserts one pending notification when a job reaches `succeeded` or `failed`; gateway dispatches pending notifications.
 - Filesystem artifact contract: worker writes deterministic article artifacts under `DATA_DIR`; summary-generation owns Gateway summary artifact reads for success replies, and UI endpoints own UI artifact reads.
-- Error convention contract: `docs/conventions/ERRORS.md` defines ARC-coded public article-processing failures that Telegram notification dispatch must preserve when transported through `jobs.error_message`.
+- Error convention contract: `docs/ERRORS.md` defines ARC-coded public article-processing failures that Telegram notification dispatch must preserve when transported through `jobs.error_message`.
 - Configuration:
   - `DATA_DIR`
   - `SQLITE_PATH`
@@ -282,8 +282,8 @@ Depends on:
 
 - `docs/ARCHITECTURE.md` gateway, worker, SQLite, filesystem, and Telegram boundaries.
 - `docs/DESIGN.md` decisions DSGN-002, DSGN-003, DSGN-005, DSGN-011, and DSGN-014.
-- `docs/conventions/ERRORS.md` for ARC-coded public article-processing failure text transported by terminal Telegram notifications.
-- `docs/conventions/ARTIFACTS.md` for deterministic article artifact paths used by downstream success notification features.
+- `docs/ERRORS.md` for ARC-coded public article-processing failure text transported by terminal Telegram notifications.
+- `docs/ARTIFACTS.md` for deterministic article artifact paths used by downstream success notification features.
 
 Impacts:
 

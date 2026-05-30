@@ -17,15 +17,15 @@ Required context:
 - `../tasks/ARTPROC-008-worker-ssrf-fetch-policy.md`
 - `../SPEC.md`
 - `../PLAN.md`
-- `docs/conventions/ERRORS.md`
-- `docs/conventions/WORKER.md`
-- `docs/conventions/GENERAL.md`
+- `docs/ERRORS.md`
+- `.agents/skills/archivist-worker/SKILL.md`
+- `.agents/skills/archivist-general/SKILL.md`
 - `REVIEW.md`
 
 ## Implementation Plan
 
 1. Promote durable behavior to canonical docs.
-   - Add `ARC-017` to `docs/conventions/ERRORS.md` and `src/worker/internal/arc`.
+   - Add `ARC-017` to `docs/ERRORS.md` and `src/worker/internal/arc`.
    - Update article-processing requirements for HTTPS-only Worker fetches, one redirect, SSRF blocks, and DNS failure mapping.
    - Update Worker HTTP conventions with guarded-client and logging rules.
 

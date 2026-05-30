@@ -55,9 +55,9 @@ Required inputs, existing files, interfaces, or decisions:
 - Anthropic Client SDK documentation.
 - Anthropic Go SDK documentation.
 - Anthropic API error documentation.
-- `docs/conventions/ERRORS.md`
-- `docs/conventions/GENERAL.md`
-- `docs/conventions/WORKER.md`
+- `docs/ERRORS.md`
+- `.agents/skills/archivist-general/SKILL.md`
+- `.agents/skills/archivist-worker/SKILL.md`
 
 ## Outputs
 
@@ -82,9 +82,9 @@ Read before execution:
 
 - `../SPEC.md`
 - `../PLAN.md`
-- `docs/conventions/ERRORS.md`
-- `docs/conventions/GENERAL.md`
-- `docs/conventions/WORKER.md`
+- `docs/ERRORS.md`
+- `.agents/skills/archivist-general/SKILL.md`
+- `.agents/skills/archivist-worker/SKILL.md`
 - `../plans/SUMGEN-003-summarizer-provider-adapter.execplan.md`
 
 Do not load unrelated feature folders unless listed here or required by dependencies.
@@ -166,6 +166,6 @@ ExecPlan:
 ## Notes
 
 - Do not implement chunking or source truncation in this task.
-- `AnthropicAdapter` does not accept a logger and must not emit `slog.Info` or `slog.Error` calls. Structured logging for provider, model, request id, ARC code, duration, and article context is owned by SUMGEN-004 pipeline orchestration per `docs/conventions/WORKER.md`.
+- `AnthropicAdapter` does not accept a logger and must not emit `slog.Info` or `slog.Error` calls. Structured logging for provider, model, request id, ARC code, duration, and article context is owned by SUMGEN-004 pipeline orchestration per `.agents/skills/archivist-worker/SKILL.md`.
 - `SummarizerRequest` carries `ArticleID`, `JobID`, and `URL` metadata fields so orchestration can thread article context into log entries without a second interface change.
 - Worker runtime configuration key reconciliation is corrected by `docs/specs/worker-runtime-configuration/tasks/WCFG-001-canonical-worker-config-loading.md`; SUMGEN-004 must consume LLM settings from that canonical config shape.
