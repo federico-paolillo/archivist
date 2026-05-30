@@ -1,14 +1,18 @@
 namespace Archivist.Gateway.Tests.Api;
 
+using System.Data.Common;
 using System.Net;
 
 using Archivist.Gateway.Application.ArticleArtifacts;
+using Archivist.Gateway.Application.Articles;
+using Archivist.Gateway.Application.Articles.Defaults;
 using Archivist.Gateway.Application.Auth.Services;
 using Archivist.Gateway.Application.Auth.Services.Defaults;
 using Archivist.Gateway.Application.Persistence;
 using Archivist.Gateway.Application.Persistence.Entities;
 
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Time.Testing;
@@ -129,6 +133,48 @@ public sealed class ArticleDeleteEndpointTest(ITestOutputHelper testOutputHelper
         Assert.Equal(1, await db.Articles.CountAsync());
         Assert.Equal(1, await db.Jobs.CountAsync());
         Assert.Equal(1, await db.Notifications.CountAsync());
+    }
+
+    [Fact]
+    public async Task DeleteArticle_ArtifactCleanupFailureAfterDatabaseDeletes_RollsBackDatabaseState()
+    {
+        var sqlitePath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.db");
+        var articleId = "01H00000000000000000000010";
+        var jobId = "01H00000000000000000000011";
+        var operationLog = new List<string>();
+
+        await SeedArticleAsync(
+            sqlitePath,
+            articleId,
+            PersonalUserId,
+            PersistenceConstants.ArticleQueued,
+            jobId,
+            PersistenceConstants.JobQueued,
+            addNotification: true);
+
+        await using (var db = CreateDb(sqlitePath, new DeleteCommandRecorder(operationLog)))
+        {
+            var service = new EfArticleDeleteService(
+                db,
+                new RecordingFailingArticleArtifactDeletion(operationLog));
+
+            var result = await service.DeleteAsync(articleId, PersonalUserId, CancellationToken.None);
+
+            Assert.Equal(ArticleDeleteResult.ArtifactCleanupFailed, result);
+        }
+
+        Assert.Contains("delete notifications", operationLog);
+        Assert.Contains("delete jobs", operationLog);
+        Assert.Contains("delete articles", operationLog);
+        Assert.Contains("artifact cleanup", operationLog);
+        Assert.True(operationLog.IndexOf("delete notifications") < operationLog.IndexOf("artifact cleanup"));
+        Assert.True(operationLog.IndexOf("delete jobs") < operationLog.IndexOf("artifact cleanup"));
+        Assert.True(operationLog.IndexOf("delete articles") < operationLog.IndexOf("artifact cleanup"));
+
+        await using var verificationDb = CreateDb(sqlitePath);
+        Assert.Equal(1, await verificationDb.Articles.CountAsync());
+        Assert.Equal(1, await verificationDb.Jobs.CountAsync());
+        Assert.Equal(1, await verificationDb.Notifications.CountAsync());
     }
 
     [Fact]
@@ -319,13 +365,17 @@ public sealed class ArticleDeleteEndpointTest(ITestOutputHelper testOutputHelper
         await db.SaveChangesAsync();
     }
 
-    private static ArchivistDbContext CreateDb(string sqlitePath)
+    private static ArchivistDbContext CreateDb(string sqlitePath, IInterceptor? interceptor = null)
     {
         var options = new DbContextOptionsBuilder<ArchivistDbContext>()
-            .UseSqlite($"Data Source={sqlitePath}")
-            .Options;
+            .UseSqlite($"Data Source={sqlitePath}");
 
-        return new ArchivistDbContext(options);
+        if (interceptor is not null)
+        {
+            options.AddInterceptors(interceptor);
+        }
+
+        return new ArchivistDbContext(options.Options);
     }
 
     private sealed record TestEnvironment(string SqlitePath, string DataDirectory);
@@ -334,5 +384,43 @@ public sealed class ArticleDeleteEndpointTest(ITestOutputHelper testOutputHelper
     {
         public Task<bool> DeleteArticleDirectoryAsync(string articleId, CancellationToken cancellationToken) =>
             Task.FromResult(false);
+    }
+
+    private sealed class RecordingFailingArticleArtifactDeletion(List<string> operationLog) : IArticleArtifactDeletion
+    {
+        public Task<bool> DeleteArticleDirectoryAsync(string articleId, CancellationToken cancellationToken)
+        {
+            operationLog.Add("artifact cleanup");
+            return Task.FromResult(false);
+        }
+    }
+
+    private sealed class DeleteCommandRecorder(List<string> operationLog) : DbCommandInterceptor
+    {
+        public override ValueTask<InterceptionResult<int>> NonQueryExecutingAsync(
+            DbCommand command,
+            CommandEventData eventData,
+            InterceptionResult<int> result,
+            CancellationToken cancellationToken = default)
+        {
+            Record(command.CommandText);
+            return base.NonQueryExecutingAsync(command, eventData, result, cancellationToken);
+        }
+
+        private void Record(string commandText)
+        {
+            if (commandText.Contains("DELETE FROM \"notifications\"", StringComparison.Ordinal))
+            {
+                operationLog.Add("delete notifications");
+            }
+            else if (commandText.Contains("DELETE FROM \"jobs\"", StringComparison.Ordinal))
+            {
+                operationLog.Add("delete jobs");
+            }
+            else if (commandText.Contains("DELETE FROM \"articles\"", StringComparison.Ordinal))
+            {
+                operationLog.Add("delete articles");
+            }
+        }
     }
 }

@@ -172,3 +172,33 @@ Canonical Updates:
 - `docs/specs/ui-endpoints/tasks/UIEND-002-gateway-article-read-api.md` — status: done.
 - `docs/specs/ui-endpoints/plans/UIEND-002-gateway-article-read-api.execplan.md` — status: completed.
 - `docs/specs/INDEX.md` — ui-endpoints status: done.
+
+## 2026-05-30 — UIEND-003: Delete cleanup rollback ordering fix
+
+Task ID: UIEND-003
+Status: completed
+
+Summary:
+- Fixed Gateway hard delete ordering so article notifications, jobs, and the article row are deleted inside the open SQLite `BEGIN IMMEDIATE` transaction before artifact cleanup runs.
+- The service now commits only after artifact cleanup succeeds; cleanup failure rolls back the database deletes and returns the existing `500` delete failure path.
+
+Changes:
+- Reordered `EfArticleDeleteService` to collect job IDs, delete notifications/jobs/article rows, invoke artifact cleanup, and commit only on cleanup success.
+- Added regression coverage that records SQL delete command timing and proves artifact cleanup failure after database deletes leaves article, job, and notification rows intact after rollback.
+- Updated the `UIEND-003` ExecPlan risk text to match the current database-delete-then-cleanup-before-commit contract.
+
+Decisions:
+- Preserved not-found, running-job conflict, and missing-artifact-directory behavior.
+- Kept the delete-only artifact cleanup abstraction separate from read-only artifact access.
+
+Validation:
+- `cd src/gateway && dotnet test --filter ArticleDeleteEndpointTest` — passed, 14 tests.
+- `cd src/gateway && dotnet format --verify-no-changes` — passed after applying formatter corrections.
+- `cd src/gateway && dotnet build` — passed.
+- `cd src/gateway && dotnet test` — passed, 148 tests.
+
+Follow-ups:
+- None.
+
+Canonical Updates:
+- `docs/specs/ui-endpoints/plans/UIEND-003-gateway-article-delete-api.execplan.md`
