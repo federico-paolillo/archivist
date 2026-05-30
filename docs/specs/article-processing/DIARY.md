@@ -611,3 +611,29 @@ Follow-ups:
 
 Canonical Updates:
 - None.
+
+---
+
+## 2026-05-30 - ARTPROC-004/ARTPROC-008: Worker Fetch Contract Canonical Correction
+
+Status:
+- done
+
+Summary:
+- Corrected stale `ARTPROC-004` wording that still allowed `http` URLs and up to 10 redirects.
+- Aligned `ARTPROC-004` scope, acceptance criteria, and done criteria with the final Worker fetch contract: absolute `https` URLs only, at most one redirect, and redirect targets subject to the same SSRF policy.
+- Left `ARTPROC-008` and the article-processing `SPEC.md` as the stricter source for final SSRF hardening details.
+
+Decisions:
+- `ARTPROC-008` remains the later hardening task that finalizes reusable Worker SSRF guard behavior, including DNS/IP checks and `ARC-017` policy-block mapping.
+- No code behavior changed.
+
+Validation:
+- `rg`/`nl` documentation checks confirmed `ARTPROC-004` no longer says it accepts `http`/`https` URLs or follows 10 redirects.
+- `rg`/`nl` documentation checks confirmed `SPEC.md` and `ARTPROC-008` still require HTTPS-only fetching and at most one redirect.
+
+Follow-ups:
+- None.
+
+Canonical Updates:
+- `docs/specs/article-processing/tasks/ARTPROC-004-worker-url-resolver-and-html-fetcher.md` — corrected the canonical fetch contract wording.

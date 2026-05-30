@@ -25,14 +25,16 @@ As the Worker, I need to turn an article's original URL into bounded HTML bytes 
 This task includes:
 
 - Adding `github.com/imroc/req/v3` to the Worker module.
-- Accepting only `http` and `https` URLs.
-- Following at most 10 redirects.
+- Accepting only absolute `https` URLs. Omitted ports are treated as HTTPS port `443`; explicit `:443` is allowed; every other explicit port is rejected.
+- Following at most 1 redirect, with every redirect target subject to the same Worker SSRF policy as the original URL.
 - Applying a 20 second total timeout.
 - Enforcing a 10 MiB maximum response body.
 - Accepting only `text/html` and `application/xhtml+xml`.
 - Returning the final redirected URL.
 - Mapping resolution, HTTP status, content type, size, timeout, and unknown failures to ARC codes.
 - Worker tests with local HTTP test servers.
+
+`ARTPROC-008` is the later hardening task that finalizes the reusable Worker SSRF guard, including the absolute-HTTPS-only policy, one-redirect limit, redirect-target revalidation, DNS/IP checks, and `ARC-017` policy-block mapping.
 
 ## Out of Scope
 
@@ -87,10 +89,25 @@ Do not load unrelated feature folders unless listed here or required by dependen
 
 ```gherkin
 Scenario: HTML URL resolves successfully
-  Given a URL redirects to a 200 text/html response
+  Given an absolute https URL redirects once to a 200 text/html response
   When the Worker fetcher requests the URL
   Then it returns the final redirected URL
   And it returns the HTML bytes
+
+Scenario: HTTP URL is rejected
+  Given an absolute http URL
+  When the Worker fetcher requests the URL
+  Then it returns an ARC-coded public error without fetching the URL
+
+Scenario: Second redirect is rejected
+  Given an absolute https URL redirects more than once
+  When the Worker fetcher requests the URL
+  Then it rejects the second redirect
+
+Scenario: Redirect target must pass SSRF policy
+  Given an absolute https URL redirects to a target rejected by Worker SSRF policy
+  When the Worker fetcher follows the redirect
+  Then it returns an ARC-coded public error without fetching the blocked target
 
 Scenario: URL returns forbidden
   Given a URL returns 401 or 403
@@ -117,8 +134,10 @@ Scenario: Response exceeds size limit
 
 - Worker uses `github.com/imroc/req/v3` for article HTTP requests.
 - URL scheme, redirect, timeout, body size, and content-type rules are enforced.
+- Worker fetches only absolute `https` article URLs.
+- Worker follows at most 1 redirect, and redirect targets pass the same SSRF policy as the original URL.
 - Failure classes map to ARC-coded public errors.
-- Tests cover redirects, 401/403, 404, timeout/5xx, non-HTML, and max body size.
+- Tests cover allowed redirects, rejected second redirects, blocked redirect targets, 401/403, 404, timeout/5xx, non-HTML, and max body size.
 - Task status and `PLAN.md` are updated if the task is completed.
 - `DIARY.md` has an entry if implementation is performed.
 
