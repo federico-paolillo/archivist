@@ -114,6 +114,46 @@ public sealed class TelegramWebhookEndpointTest(ITestOutputHelper testOutputHelp
         Assert.Equal("Nope, you must send only an URL", reply.Text);
     }
 
+    [Fact]
+    public async Task PostWebhook_AuthorizedMediaOnlyMessage_Returns200AndSendsInvalidReply()
+    {
+        var repo = new FakeTelegramIngestionRepository();
+        var client = new FakeTelegramClient();
+
+        PrepareWebhookEnvironment(repo, client);
+
+        using var http = CreateHttpClient();
+        var update = BuildMediaOnlyUpdate(4, AllowedUserId, ChatId, MessageId);
+        var response = await SendWithSecret(http, update);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.False(repo.WasCalled);
+        var reply = Assert.Single(client.SentReplies);
+        Assert.Equal(ChatId, reply.ChatId);
+        Assert.Equal(MessageId, reply.ReplyToMessageId);
+        Assert.Equal("Nope, you must send only an URL", reply.Text);
+    }
+
+    [Fact]
+    public async Task PostWebhook_AuthorizedCaptionMessage_Returns200AndSendsInvalidReply()
+    {
+        var repo = new FakeTelegramIngestionRepository();
+        var client = new FakeTelegramClient();
+
+        PrepareWebhookEnvironment(repo, client);
+
+        using var http = CreateHttpClient();
+        var update = BuildCaptionUpdate(5, AllowedUserId, ChatId, MessageId, "https://example.com/article");
+        var response = await SendWithSecret(http, update);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.False(repo.WasCalled);
+        var reply = Assert.Single(client.SentReplies);
+        Assert.Equal(ChatId, reply.ChatId);
+        Assert.Equal(MessageId, reply.ReplyToMessageId);
+        Assert.Equal("Nope, you must send only an URL", reply.Text);
+    }
+
     // -------------------------------------------------------------------------
     // Valid URL
     // -------------------------------------------------------------------------
@@ -233,6 +273,24 @@ public sealed class TelegramWebhookEndpointTest(ITestOutputHelper testOutputHelp
         Assert.Empty(client.SentReplies);
     }
 
+    [Fact]
+    public async Task PostWebhook_AuthorizedMessageWithoutReplyTarget_Returns200WithNoSideEffects()
+    {
+        var repo = new FakeTelegramIngestionRepository();
+        var client = new FakeTelegramClient();
+
+        PrepareWebhookEnvironment(repo, client);
+
+        using var http = CreateHttpClient();
+        var update = BuildTextUpdate(71, AllowedUserId, chatId: 0, messageId: null, "https://example.com/article");
+        update.Message!.Chat = null;
+        var response = await SendWithSecret(http, update);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.False(repo.WasCalled);
+        Assert.Empty(client.SentReplies);
+    }
+
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
@@ -275,7 +333,7 @@ public sealed class TelegramWebhookEndpointTest(ITestOutputHelper testOutputHelp
         long updateId,
         long fromUserId,
         long chatId,
-        long messageId,
+        long? messageId,
         string text)
     {
         return new UpdatePayload
@@ -287,6 +345,46 @@ public sealed class TelegramWebhookEndpointTest(ITestOutputHelper testOutputHelp
                 From = new UserPayload { Id = fromUserId },
                 Chat = new ChatPayload { Id = chatId },
                 Text = text,
+            },
+        };
+    }
+
+    private static UpdatePayload BuildMediaOnlyUpdate(
+        long updateId,
+        long fromUserId,
+        long chatId,
+        long messageId)
+    {
+        return new UpdatePayload
+        {
+            UpdateId = updateId,
+            Message = new MessagePayload
+            {
+                MessageId = messageId,
+                From = new UserPayload { Id = fromUserId },
+                Chat = new ChatPayload { Id = chatId },
+                Photo = [new PhotoPayload { FileId = "photo-file-id" }],
+            },
+        };
+    }
+
+    private static UpdatePayload BuildCaptionUpdate(
+        long updateId,
+        long fromUserId,
+        long chatId,
+        long messageId,
+        string caption)
+    {
+        return new UpdatePayload
+        {
+            UpdateId = updateId,
+            Message = new MessagePayload
+            {
+                MessageId = messageId,
+                From = new UserPayload { Id = fromUserId },
+                Chat = new ChatPayload { Id = chatId },
+                Caption = caption,
+                Photo = [new PhotoPayload { FileId = "photo-file-id" }],
             },
         };
     }
@@ -355,7 +453,7 @@ public sealed class TelegramWebhookEndpointTest(ITestOutputHelper testOutputHelp
     private sealed class MessagePayload
     {
         [JsonPropertyName("message_id")]
-        public long MessageId { get; set; }
+        public long? MessageId { get; set; }
 
         [JsonPropertyName("from")]
         public UserPayload? From { get; set; }
@@ -365,6 +463,18 @@ public sealed class TelegramWebhookEndpointTest(ITestOutputHelper testOutputHelp
 
         [JsonPropertyName("text")]
         public string? Text { get; set; }
+
+        [JsonPropertyName("caption")]
+        public string? Caption { get; set; }
+
+        [JsonPropertyName("photo")]
+        public PhotoPayload[]? Photo { get; set; }
+    }
+
+    private sealed class PhotoPayload
+    {
+        [JsonPropertyName("file_id")]
+        public string FileId { get; set; } = string.Empty;
     }
 
     private sealed class UserPayload

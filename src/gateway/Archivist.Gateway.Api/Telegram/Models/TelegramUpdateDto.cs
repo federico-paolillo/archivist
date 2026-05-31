@@ -29,7 +29,7 @@ public sealed class TelegramMessageDto
     /// Gets or sets the message identifier.
     /// </summary>
     [JsonPropertyName("message_id")]
-    public long MessageId { get; set; }
+    public long? MessageId { get; set; }
 
     /// <summary>
     /// Gets or sets the chat that the message was sent in.
