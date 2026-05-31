@@ -372,3 +372,31 @@ Follow-ups:
 
 Canonical Updates:
 - `docs/specs/telegram-ingestion/DIARY.md` — this review-remediation entry.
+
+## 2026-05-31 — TELING-001/TELING-002-REVIEW-P3: Concurrent duplicate update idempotency
+
+Status:
+- completed
+
+Summary:
+- Hardened Gateway Telegram ingestion against concurrent duplicate `telegram_update_id` delivery.
+- Added file-backed SQLite regression coverage with independent `ArchivistDbContext` instances that both pass the duplicate pre-read before one insert wins.
+
+Changes:
+- `EfTelegramIngestionRepository` now performs the duplicate fast-path read before opening the write transaction, writes the personal user through an idempotent SQLite upsert that preserves `password_hash`, catches the `jobs.telegram_update_id` unique constraint, rolls back and clears tracked entities, re-queries the existing job, and returns `Created = false`.
+- `TelegramIngestionRepositoryTest` now covers the concurrent duplicate path across separate contexts/connections.
+
+Decisions:
+- No canonical contract changes were required; `SPEC.md` and `ARCHITECTURE.md` already define `jobs.telegram_update_id` as the ingestion idempotency key.
+
+Validation:
+- `cd src/gateway && dotnet test Archivist.Gateway.Tests/Archivist.Gateway.Tests.csproj --filter "TelegramIngestionRepositoryTest|ArticleDeleteEndpointTest"` — passed, 21 tests.
+- `cd src/gateway && dotnet format` — passed.
+- `cd src/gateway && dotnet build` — passed.
+- `cd src/gateway && dotnet test` — passed, 165 tests.
+
+Follow-ups:
+- None.
+
+Canonical Updates:
+- None; historical diary entry only.

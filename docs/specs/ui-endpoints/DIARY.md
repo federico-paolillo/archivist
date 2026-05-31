@@ -202,3 +202,31 @@ Follow-ups:
 
 Canonical Updates:
 - `docs/specs/ui-endpoints/plans/UIEND-003-gateway-article-delete-api.execplan.md`
+
+## 2026-05-31 — UIEND-003-REVIEW-P3: File-backed delete/claim coverage
+
+Task ID: UIEND-003
+Status: completed
+
+Summary:
+- Added file-backed SQLite cross-connection coverage for Gateway hard delete and Worker-equivalent job claim ordering.
+- Covered both delete-first and claim-first outcomes without introducing Worker code dependencies into Gateway tests.
+
+Changes:
+- `ArticleDeleteEndpointTest` now exercises the real `EfArticleDeleteService` and filesystem artifact deletion service against a file-backed database.
+- Added raw claim SQL that matches the canonical Worker claim shape: a SQLite write transaction, `UPDATE ... RETURNING`, and an `articles` join so deleted article jobs are not claimable.
+
+Decisions:
+- No canonical contract changes were required; `SPEC.md` already defines delete/claim serialization, delete-first no-claim behavior, and claim-first `409 Conflict` behavior.
+
+Validation:
+- `cd src/gateway && dotnet test Archivist.Gateway.Tests/Archivist.Gateway.Tests.csproj --filter "TelegramIngestionRepositoryTest|ArticleDeleteEndpointTest"` — passed, 21 tests.
+- `cd src/gateway && dotnet format` — passed.
+- `cd src/gateway && dotnet build` — passed.
+- `cd src/gateway && dotnet test` — passed, 165 tests.
+
+Follow-ups:
+- None.
+
+Canonical Updates:
+- None; historical diary entry only.
