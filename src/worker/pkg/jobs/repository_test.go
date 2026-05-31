@@ -126,6 +126,21 @@ func seedNonTelegramJob(t *testing.T, database *sql.DB, jobID, articleID string)
 	require.NoError(t, err)
 }
 
+func seedTypedJob(t *testing.T, database *sql.DB, jobID, articleID, jobType string) {
+	t.Helper()
+
+	_, err := database.Exec(
+		`INSERT INTO jobs (id, user_id, article_id, type, status, created_at)
+		 VALUES (?, ?, ?, ?, 'queued', ?)`,
+		jobID,
+		"01ASB2XFCZJY7WHZ2FNRTMQJCT",
+		articleID,
+		jobType,
+		time.Now().UTC().Format(time.RFC3339Nano),
+	)
+	require.NoError(t, err)
+}
+
 func TestEnqueueURLCreatesQueuedArticleAndNonTelegramJob(t *testing.T) {
 	database := openTestDB(t)
 	seedUser(t, database)
@@ -286,6 +301,28 @@ func TestClaimQueuedReturnsErrNoRowsForOrphanQueuedJob(t *testing.T) {
 
 	_, err = database.Exec(`PRAGMA foreign_keys = ON`)
 	require.NoError(t, err)
+
+	repo := jobs.NewSQLiteRepository(database, newTestIDGenerator())
+
+	ctx := t.Context()
+
+	claimed, err := repo.ClaimQueued(ctx)
+
+	require.ErrorIs(t, err, sql.ErrNoRows)
+	assert.Nil(t, claimed)
+
+	var dbStatus string
+
+	err = database.QueryRowContext(ctx, `SELECT status FROM jobs WHERE id = ?`, "JOB001").Scan(&dbStatus)
+	require.NoError(t, err)
+	assert.Equal(t, jobs.StatusQueued, dbStatus)
+}
+
+func TestClaimQueuedDoesNotClaimNonArticleProcessingJob(t *testing.T) {
+	database := openTestDB(t)
+	seedUser(t, database)
+	seedArticle(t, database, "ARTICLE001")
+	seedTypedJob(t, database, "JOB001", "ARTICLE001", "summary-generation")
 
 	repo := jobs.NewSQLiteRepository(database, newTestIDGenerator())
 

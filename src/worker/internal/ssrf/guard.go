@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"strings"
 
+	"codeberg.org/federico-paolillo/archivist/internal/arc"
 	"github.com/imroc/req/v3"
 	"golang.org/x/net/idna"
 )
@@ -103,7 +104,7 @@ func (g *Guard) RedirectPolicy() req.RedirectPolicy {
 
 			target := targetFromURL(request.URL)
 			err := policyBlock(PhaseRedirect, ReasonRedirectLimit, rawURL, target)
-			g.logDecision(ctx, PhaseRedirect, false, ReasonRedirectLimit, rawURL, target, nil, netip.Addr{})
+			g.logDecision(ctx, PhaseRedirect, false, ReasonRedirectLimit, rawURL, target, nil, netip.Addr{}, err)
 
 			return err
 		}
@@ -120,7 +121,7 @@ func (g *Guard) DialContext(ctx context.Context, network, address string) (net.C
 	if splitErr != nil {
 		target := target{Host: address}
 		err := resolutionFailure(PhaseDial, ReasonEmptyHost, "", target, splitErr)
-		g.logDecision(ctx, PhaseDial, false, ReasonEmptyHost, "", target, nil, netip.Addr{})
+		g.logDecision(ctx, PhaseDial, false, ReasonEmptyHost, "", target, nil, netip.Addr{}, err)
 
 		return nil, err
 	}
@@ -130,7 +131,7 @@ func (g *Guard) DialContext(ctx context.Context, network, address string) (net.C
 	target := target{Host: host, Port: port}
 	if port != httpsPort {
 		err := policyBlock(PhaseDial, ReasonNon443Port, "", target)
-		g.logDecision(ctx, PhaseDial, false, ReasonNon443Port, "", target, nil, netip.Addr{})
+		g.logDecision(ctx, PhaseDial, false, ReasonNon443Port, "", target, nil, netip.Addr{}, err)
 
 		return nil, err
 	}
@@ -138,14 +139,14 @@ func (g *Guard) DialContext(ctx context.Context, network, address string) (net.C
 	ips, lookupErr := g.resolve.LookupNetIP(ctx, "ip", host)
 	if lookupErr != nil {
 		err := resolutionFailure(PhaseDial, ReasonDNSResolutionFailed, "", target, lookupErr)
-		g.logDecision(ctx, PhaseDial, false, ReasonDNSResolutionFailed, "", target, nil, netip.Addr{})
+		g.logDecision(ctx, PhaseDial, false, ReasonDNSResolutionFailed, "", target, nil, netip.Addr{}, err)
 
 		return nil, err
 	}
 
 	if len(ips) == 0 {
 		err := resolutionFailure(PhaseDial, ReasonNoResolvedIPs, "", target, errors.New("no DNS results"))
-		g.logDecision(ctx, PhaseDial, false, ReasonNoResolvedIPs, "", target, nil, netip.Addr{})
+		g.logDecision(ctx, PhaseDial, false, ReasonNoResolvedIPs, "", target, nil, netip.Addr{}, err)
 
 		return nil, err
 	}
@@ -153,13 +154,13 @@ func (g *Guard) DialContext(ctx context.Context, network, address string) (net.C
 	for _, ip := range ips {
 		if deniedIP(ip, g.policy) {
 			err := policyBlock(PhaseDial, ReasonDeniedIP, "", target, withResolvedIPs(ips), withBlockedIP(ip))
-			g.logDecision(ctx, PhaseDial, false, ReasonDeniedIP, "", target, ips, ip)
+			g.logDecision(ctx, PhaseDial, false, ReasonDeniedIP, "", target, ips, ip, err)
 
 			return nil, err
 		}
 	}
 
-	g.logDecision(ctx, PhaseDial, true, ReasonAllowed, "", target, ips, netip.Addr{})
+	g.logDecision(ctx, PhaseDial, true, ReasonAllowed, "", target, ips, netip.Addr{}, nil)
 
 	conn, dialErr := g.dial.DialContext(ctx, network, net.JoinHostPort(ips[0].String(), port))
 	if dialErr != nil {
@@ -178,7 +179,7 @@ func (g *Guard) ValidateURLContext(ctx context.Context, rawURL string, phase Pha
 	parsed, parseErr := url.Parse(rawURL)
 	if parseErr != nil {
 		err := resolutionFailure(phase, ReasonInvalidHostname, rawURL, target{}, parseErr)
-		g.logDecision(ctx, phase, false, ReasonInvalidHostname, rawURL, target{}, nil, netip.Addr{})
+		g.logDecision(ctx, phase, false, ReasonInvalidHostname, rawURL, target{}, nil, netip.Addr{}, err)
 
 		return nil, err
 	}
@@ -199,7 +200,7 @@ func (g *Guard) ValidateURLContext(ctx context.Context, rawURL string, phase Pha
 
 	target.Host = normalized
 	target.Port = httpsPort
-	g.logDecision(ctx, phase, true, ReasonAllowed, rawURL, target, nil, netip.Addr{})
+	g.logDecision(ctx, phase, true, ReasonAllowed, rawURL, target, nil, netip.Addr{}, nil)
 
 	return parsed, nil
 }
@@ -281,7 +282,7 @@ func (g *Guard) blockURL(
 	opts ...func(*Error),
 ) error {
 	err := policyBlock(phase, reason, rawURL, target, opts...)
-	g.logDecision(ctx, phase, false, reason, rawURL, target, nil, netip.Addr{})
+	g.logDecision(ctx, phase, false, reason, rawURL, target, nil, netip.Addr{}, err)
 
 	return err
 }
@@ -391,6 +392,7 @@ func (g *Guard) logDecision(
 	target target,
 	resolvedIPs []netip.Addr,
 	blockedIP netip.Addr,
+	decisionErr error,
 ) {
 	level := slog.LevelDebug
 	decision := "allow"
@@ -405,10 +407,16 @@ func (g *Guard) logDecision(
 		slog.String("phase", string(phase)),
 		slog.String("decision", decision),
 		slog.String("reason", string(reason)),
-		slog.String("arc_code", "ARC-017"),
 		slog.String("host", target.Host),
 		slog.String("port", target.Port),
 	}
+
+	if !allowed {
+		if code, ok := arc.CodeOf(decisionErr); ok {
+			attrs = append(attrs, slog.String("arc_code", string(code)))
+		}
+	}
+
 	if rawURL != "" {
 		attrs = append(attrs,
 			slog.String("url_redacted", redactURL(rawURL)),

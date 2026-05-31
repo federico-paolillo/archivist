@@ -84,6 +84,7 @@ Not included:
 - REQ-017: The `markdown-extraction` and `summary-generation` features supersede the snapshot-stage success criterion with summary-complete processing.
 - REQ-018: The Worker executable must expose an explicit `process` command that runs the processing pipeline, validates the snapshot pipeline is configured, and supports a one-shot mode for executable-surface validation.
 - REQ-019: The Worker SSRF policy must reject userinfo, empty hosts, invalid hostnames, all IP literals, single-label hosts, localhost names, Docker-internal names, cloud metadata hostnames, and private or special resolved IP ranges. DNS parse or resolution failures map to `ARC-001`; SSRF policy blocks map to `ARC-017`.
+- REQ-020: HTTP statuses other than `401`, `403`, and `404` that prevent fetching the article, including non-specialized 4xx statuses such as `410 Gone`, must map to `ARC-004`.
 
 ## Acceptance Criteria
 
@@ -115,6 +116,15 @@ Scenario: URL returns not found
   When the Worker processes the job
   Then articles.status is "failed"
   And articles.error_message starts with "[ARC-003]"
+  And jobs.status is "failed"
+  And one pending failure notification row exists for the job
+
+Scenario: URL returns a non-specialized HTTP failure
+  Given a queued article-processing job exists
+  And the article original_url resolves to a 410 response
+  When the Worker processes the job
+  Then articles.status is "failed"
+  And articles.error_message starts with "[ARC-004]"
   And jobs.status is "failed"
   And one pending failure notification row exists for the job
 
