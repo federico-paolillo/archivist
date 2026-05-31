@@ -138,6 +138,7 @@ func TestLogDecisionRedactsSensitiveURLParts(t *testing.T) {
 	output := logs.String()
 	assert.Contains(t, output, `"level":"WARN"`)
 	assert.Contains(t, output, `"decision":"block"`)
+	assert.Contains(t, output, `"arc_code":"ARC-017"`)
 	assert.Contains(t, output, `"url_redacted":"https://example.com/path"`)
 	assert.NotContains(t, output, "user:secret")
 	assert.NotContains(t, output, "token=secret")
@@ -153,6 +154,21 @@ func TestLogDecisionUsesDebugForAllow(t *testing.T) {
 	output := logs.String()
 	assert.Contains(t, output, `"level":"DEBUG"`)
 	assert.Contains(t, output, `"decision":"allow"`)
+	assert.NotContains(t, output, "arc_code")
+}
+
+func TestLogDecisionUsesARC001ForDNSFailure(t *testing.T) {
+	resolver := fakeResolver{err: errors.New("no such host")}
+	guard, logs := newTestGuard(WithResolver(resolver))
+
+	_, err := guard.DialContext(t.Context(), "tcp", "example.com:443")
+
+	require.ErrorIs(t, err, arc.ErrURLResolutionFailed)
+	output := logs.String()
+	assert.Contains(t, output, `"level":"WARN"`)
+	assert.Contains(t, output, `"decision":"block"`)
+	assert.Contains(t, output, `"reason":"dns_resolution_failed"`)
+	assert.Contains(t, output, `"arc_code":"ARC-001"`)
 }
 
 func newTestGuard(opts ...Option) (*Guard, *bytes.Buffer) {

@@ -168,6 +168,7 @@ func (r *SQLiteRepository) ClaimQueued(ctx context.Context) (*Job, error) {
 		WHERE  id = (
 		    SELECT id FROM jobs
 		    WHERE  status = 'queued'
+		    AND    type = 'article-processing'
 		    AND    EXISTS (
 		        SELECT 1
 		        FROM   articles

@@ -637,3 +637,35 @@ Follow-ups:
 
 Canonical Updates:
 - `docs/specs/article-processing/tasks/ARTPROC-004-worker-url-resolver-and-html-fetcher.md` — corrected the canonical fetch contract wording.
+
+---
+
+## 2026-05-31 - REVIEW-P3: Worker Remediation
+
+Status:
+- completed with validation environment gap
+
+Summary:
+- Restricted SQLite queued-job claiming to `article-processing` jobs.
+- Corrected SSRF decision logging so allow decisions omit `arc_code`, DNS resolution failures log `ARC-001`, and SSRF policy blocks log `ARC-017`.
+- Added a fetcher regression for `410 Gone` mapping to `ARC-004`.
+
+Decisions:
+- Completed ALM task statuses stayed `done` for this explicitly assigned review remediation.
+- Non-401/403/404 HTTP statuses that prevent fetch completion are canonicalized under article-processing as `ARC-004`.
+
+Validation:
+- `cd src/worker && go test ./pkg/jobs` passed.
+- `cd src/worker && go test ./internal/ssrf` passed.
+- `cd src/worker && go test ./internal/fetcher` passed.
+- `cd src/worker && go tool lefthook run build` failed only in the UI npm leg because `tsc` was not installed; Go build and Gateway build passed.
+- `cd src/worker && go tool lefthook run format` failed only in the UI npm leg because `biome` was not installed; Go and Gateway format legs passed.
+- `cd src/worker && go tool lefthook run lint` failed only in the UI npm leg because `biome` was not installed; Go lint and Gateway build legs passed.
+- `cd src/worker && go tool lefthook run test` failed only in the UI npm leg because `vitest` was not installed; Go race tests and Gateway tests passed.
+
+Follow-ups:
+- Install UI npm dependencies outside this worker write scope before rerunning full lefthook validation.
+
+Canonical Updates:
+- `docs/specs/article-processing/SPEC.md` — promoted non-specialized HTTP status mapping to `ARC-004`.
+- `docs/specs/article-processing/tasks/ARTPROC-004-worker-url-resolver-and-html-fetcher.md` — added the representative `410` acceptance case.

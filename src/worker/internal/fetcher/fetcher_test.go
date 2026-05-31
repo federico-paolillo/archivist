@@ -130,6 +130,20 @@ func TestFetch404ReturnsARC003(t *testing.T) {
 	assertFetcherError(t, err, "http status", http.StatusNotFound)
 }
 
+func TestFetch410ReturnsARC004(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusGone)
+	}))
+	defer server.Close()
+
+	f := fetcher.New(req.NewClient())
+
+	_, err := f.Fetch(t.Context(), server.URL)
+
+	require.ErrorIs(t, err, arc.ErrURLFetchTransientFailure)
+	assertFetcherError(t, err, "http status", http.StatusGone)
+}
+
 func TestFetchNonHTMLContentTypeReturnsARC005(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/pdf")

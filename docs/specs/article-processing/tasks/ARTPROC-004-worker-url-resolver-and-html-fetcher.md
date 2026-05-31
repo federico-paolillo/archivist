@@ -119,6 +119,11 @@ Scenario: URL returns not found
   When the Worker fetcher requests the URL
   Then it returns an ARC-003 public error
 
+Scenario: URL returns non-specialized HTTP failure
+  Given a URL returns 410
+  When the Worker fetcher requests the URL
+  Then it returns an ARC-004 public error
+
 Scenario: Response is not HTML
   Given a URL returns 200 application/pdf
   When the Worker fetcher requests the URL
@@ -137,7 +142,7 @@ Scenario: Response exceeds size limit
 - Worker fetches only absolute `https` article URLs.
 - Worker follows at most 1 redirect, and redirect targets pass the same SSRF policy as the original URL.
 - Failure classes map to ARC-coded public errors.
-- Tests cover allowed redirects, rejected second redirects, blocked redirect targets, 401/403, 404, timeout/5xx, non-HTML, and max body size.
+- Tests cover allowed redirects, rejected second redirects, blocked redirect targets, 401/403, 404, non-specialized HTTP failures such as 410, timeout/5xx, non-HTML, and max body size.
 - Task status and `PLAN.md` are updated if the task is completed.
 - `DIARY.md` has an entry if implementation is performed.
 
