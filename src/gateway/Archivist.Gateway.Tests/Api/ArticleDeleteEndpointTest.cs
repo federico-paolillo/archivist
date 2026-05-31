@@ -1,9 +1,12 @@
 namespace Archivist.Gateway.Tests.Api;
 
 using System.Data.Common;
+using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Net;
 
 using Archivist.Gateway.Application.ArticleArtifacts;
+using Archivist.Gateway.Application.ArticleArtifacts.Defaults;
 using Archivist.Gateway.Application.Articles;
 using Archivist.Gateway.Application.Articles.Defaults;
 using Archivist.Gateway.Application.Auth.Services;
@@ -11,6 +14,7 @@ using Archivist.Gateway.Application.Auth.Services.Defaults;
 using Archivist.Gateway.Application.Persistence;
 using Archivist.Gateway.Application.Persistence.Entities;
 
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -238,6 +242,83 @@ public sealed class ArticleDeleteEndpointTest(ITestOutputHelper testOutputHelper
         Assert.Equal(0, claimableJobs);
     }
 
+    [Fact]
+    public async Task DeleteArticle_FileBackedDeleteFirst_PreventsWorkerEquivalentClaimAcrossConnections()
+    {
+        var sqlitePath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.db");
+        var dataDirectory = Path.Combine(Path.GetTempPath(), $"archivist-data-{Guid.NewGuid():N}");
+        var articleId = "01H00000000000000000000016";
+        var jobId = "01H00000000000000000000017";
+
+        await SeedArticleAsync(
+            sqlitePath,
+            articleId,
+            PersonalUserId,
+            PersistenceConstants.ArticleQueued,
+            jobId,
+            PersistenceConstants.JobQueued,
+            addNotification: false);
+        CreateArtifact(dataDirectory, articleId);
+
+        await using (var deleteDb = CreateDb(sqlitePath))
+        {
+            var service = CreateRealDeleteService(deleteDb, dataDirectory);
+
+            var result = await service.DeleteAsync(articleId, PersonalUserId, CancellationToken.None);
+
+            Assert.Equal(ArticleDeleteResult.Deleted, result);
+        }
+
+        var claimed = await ClaimOneQueuedJobAsync(sqlitePath);
+
+        Assert.Null(claimed);
+        Assert.False(Directory.Exists(Path.Combine(dataDirectory, "articles", articleId)));
+
+        await using var verificationDb = CreateDb(sqlitePath);
+        Assert.Equal(0, await verificationDb.Articles.CountAsync());
+        Assert.Equal(0, await verificationDb.Jobs.CountAsync());
+    }
+
+    [Fact]
+    public async Task DeleteArticle_FileBackedClaimFirst_ReturnsConflictAcrossConnections()
+    {
+        var sqlitePath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.db");
+        var dataDirectory = Path.Combine(Path.GetTempPath(), $"archivist-data-{Guid.NewGuid():N}");
+        var articleId = "01H00000000000000000000018";
+        var jobId = "01H00000000000000000000019";
+
+        await SeedArticleAsync(
+            sqlitePath,
+            articleId,
+            PersonalUserId,
+            PersistenceConstants.ArticleQueued,
+            jobId,
+            PersistenceConstants.JobQueued,
+            addNotification: false);
+        CreateArtifact(dataDirectory, articleId);
+
+        var claimed = await ClaimOneQueuedJobAsync(sqlitePath);
+        Assert.NotNull(claimed);
+        Assert.Equal(jobId, claimed!.JobId);
+        Assert.Equal(articleId, claimed.ArticleId);
+
+        await using (var deleteDb = CreateDb(sqlitePath))
+        {
+            var service = CreateRealDeleteService(deleteDb, dataDirectory);
+
+            var result = await service.DeleteAsync(articleId, PersonalUserId, CancellationToken.None);
+
+            Assert.Equal(ArticleDeleteResult.RunningJobConflict, result);
+        }
+
+        Assert.True(Directory.Exists(Path.Combine(dataDirectory, "articles", articleId)));
+
+        await using var verificationDb = CreateDb(sqlitePath);
+        Assert.Equal(1, await verificationDb.Articles.CountAsync());
+        var job = await verificationDb.Jobs.SingleAsync();
+        Assert.Equal(PersistenceConstants.JobRunning, job.Status);
+    }
+
     private TestEnvironment PrepareArticleEnvironment(IArticleArtifactDeletion? artifactDeletion = null)
     {
         var sqlitePath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.db");
@@ -378,7 +459,74 @@ public sealed class ArticleDeleteEndpointTest(ITestOutputHelper testOutputHelper
         return new ArchivistDbContext(options.Options);
     }
 
+    private static EfArticleDeleteService CreateRealDeleteService(ArchivistDbContext db, string dataDirectory)
+    {
+        return new EfArticleDeleteService(
+            db,
+            new FileSystemArticleArtifactDeletion(new ArticleArtifactPaths(dataDirectory)));
+    }
+
+    private static async Task<ClaimedJob?> ClaimOneQueuedJobAsync(string sqlitePath)
+    {
+        await using var connection = new SqliteConnection($"Data Source={sqlitePath}");
+        await connection.OpenAsync();
+
+        await ExecuteNonQueryAsync(connection, "BEGIN IMMEDIATE;");
+
+        try
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText =
+                $"""
+                UPDATE jobs
+                SET status = '{PersistenceConstants.JobRunning}',
+                    started_at = $startedAt
+                WHERE id = (
+                    SELECT jobs.id
+                    FROM jobs
+                    INNER JOIN articles ON articles.id = jobs.article_id
+                    WHERE jobs.status = '{PersistenceConstants.JobQueued}'
+                    ORDER BY jobs.created_at ASC, jobs.id ASC
+                    LIMIT 1
+                )
+                RETURNING id, article_id;
+                """;
+            command.Parameters.Add(new SqliteParameter(
+                "$startedAt",
+                DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture)));
+
+            ClaimedJob? claimed = null;
+
+            await using (var reader = await command.ExecuteReaderAsync())
+            {
+                if (await reader.ReadAsync())
+                {
+                    claimed = new ClaimedJob(reader.GetString(0), reader.GetString(1));
+                }
+            }
+
+            await ExecuteNonQueryAsync(connection, "COMMIT;");
+
+            return claimed;
+        }
+        catch
+        {
+            await ExecuteNonQueryAsync(connection, "ROLLBACK;");
+            throw;
+        }
+    }
+
+    [SuppressMessage("Security", "CA2100:Review SQL queries for security vulnerabilities", Justification = "Test helper executes fixed transaction control statements only.")]
+    private static async Task ExecuteNonQueryAsync(SqliteConnection connection, string commandText)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = commandText;
+        await command.ExecuteNonQueryAsync();
+    }
+
     private sealed record TestEnvironment(string SqlitePath, string DataDirectory);
+
+    private sealed record ClaimedJob(string JobId, string ArticleId);
 
     private sealed class FailingArticleArtifactDeletion : IArticleArtifactDeletion
     {

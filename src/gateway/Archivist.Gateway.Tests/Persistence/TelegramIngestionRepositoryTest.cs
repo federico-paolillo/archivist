@@ -1,9 +1,12 @@
+using System.Data.Common;
+
 using Archivist.Gateway.Application.ArticleArtifacts;
 using Archivist.Gateway.Application.Persistence;
 using Archivist.Gateway.Application.Persistence.Defaults;
 using Archivist.Gateway.Application.Persistence.Entities;
 
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Archivist.Gateway.Tests.Persistence;
@@ -75,6 +78,54 @@ public sealed class TelegramIngestionRepositoryTest
     }
 
     [Fact]
+    public async Task RecordValidUrlConcurrentDuplicateTelegramUpdateReturnsExistingJob()
+    {
+        var dbPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.db");
+        await EnsureSchemaAsync(dbPath);
+        var barrier = new TransactionStartBarrier();
+        await using var db1 = CreateDbContext(dbPath, barrier);
+        await using var db2 = CreateDbContext(dbPath, barrier);
+        var time = new FakeTimeProvider(new DateTimeOffset(2026, 5, 7, 12, 0, 0, TimeSpan.Zero));
+        var repo1 = new EfTelegramIngestionRepository(
+            db1,
+            new QueueIdGenerator("01H00000000000000000000012", "01H00000000000000000000013"),
+            time);
+        var repo2 = new EfTelegramIngestionRepository(
+            db2,
+            new QueueIdGenerator("01H00000000000000000000014", "01H00000000000000000000015"),
+            time);
+        var command = new RecordTelegramIngestionCommand(100, 200, 300, 400, "https://example.com/article");
+        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var task1 = Task.Run(async () =>
+        {
+            await start.Task;
+            return await repo1.RecordValidUrlAsync(command, CancellationToken.None);
+        });
+        var task2 = Task.Run(async () =>
+        {
+            await start.Task;
+            return await repo2.RecordValidUrlAsync(command, CancellationToken.None);
+        });
+
+        start.SetResult();
+        var results = await Task.WhenAll(task1, task2);
+
+        var created = Assert.Single(results, x => x.Created);
+        var duplicate = Assert.Single(results, x => !x.Created);
+        Assert.Equal(created.ArticleId, duplicate.ArticleId);
+        Assert.Equal(created.JobId, duplicate.JobId);
+
+        await using var verificationDb = CreateDbContext(dbPath);
+        Assert.Equal(1, await verificationDb.Articles.CountAsync(CancellationToken.None));
+        Assert.Equal(1, await verificationDb.Jobs.CountAsync(CancellationToken.None));
+
+        var job = await verificationDb.Jobs.SingleAsync(CancellationToken.None);
+        Assert.Equal(command.TelegramUpdateId, job.TelegramUpdateId);
+        Assert.Equal(created.ArticleId, job.ArticleId);
+        Assert.Equal(created.JobId, job.Id);
+    }
+
+    [Fact]
     public async Task SchemaConstrainsCanonicalStatesAndOmitsArtifactPathColumns()
     {
         await using var db = await CreateDbAsync();
@@ -111,16 +162,32 @@ public sealed class TelegramIngestionRepositoryTest
         Assert.Equal(Path.Combine("/data", "articles", articleId, "summary.md"), paths.SummaryMarkdown(articleId));
     }
 
-    private static async Task<ArchivistDbContext> CreateDbAsync()
+    private static async Task<ArchivistDbContext> CreateDbAsync(string? dbPath = null)
     {
-        var dbPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.db");
-        var options = new DbContextOptionsBuilder<ArchivistDbContext>()
-            .UseSqlite($"Data Source={dbPath}")
-            .Options;
-        var db = new ArchivistDbContext(options);
+        dbPath ??= Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.db");
+        var db = CreateDbContext(dbPath);
         await db.Database.EnsureCreatedAsync(CancellationToken.None);
 
         return db;
+    }
+
+    private static ArchivistDbContext CreateDbContext(string dbPath, IInterceptor? interceptor = null)
+    {
+        var options = new DbContextOptionsBuilder<ArchivistDbContext>()
+            .UseSqlite($"Data Source={dbPath}");
+
+        if (interceptor is not null)
+        {
+            options.AddInterceptors(interceptor);
+        }
+
+        return new ArchivistDbContext(options.Options);
+    }
+
+    private static async Task EnsureSchemaAsync(string dbPath)
+    {
+        await using var db = CreateDbContext(dbPath);
+        await db.Database.EnsureCreatedAsync(CancellationToken.None);
     }
 
     private static EfTelegramIngestionRepository CreateRepository(ArchivistDbContext db)
@@ -141,5 +208,44 @@ public sealed class TelegramIngestionRepositoryTest
             3 => "01ASB2XFCZJY7WHZ2FNRTMQJC3",
             _ => "01ASB2XFCZJY7WHZ2FNRTMQJC4",
         };
+    }
+
+    private sealed class QueueIdGenerator(params string[] ids) : IUlidGenerator
+    {
+        private readonly Queue<string> _ids = new(ids);
+
+        public string NewId()
+        {
+            return _ids.Count > 0
+                ? _ids.Dequeue()
+                : throw new InvalidOperationException("The test ID generator is exhausted.");
+        }
+    }
+
+    private sealed class TransactionStartBarrier : DbTransactionInterceptor
+    {
+        private const int ExpectedTransactions = 2;
+        private readonly TaskCompletionSource _bothTransactionsReached = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _remainingTransactions = ExpectedTransactions;
+        private int _waitingTransactions;
+
+        public override async ValueTask<InterceptionResult<DbTransaction>> TransactionStartingAsync(
+            DbConnection connection,
+            TransactionStartingEventData eventData,
+            InterceptionResult<DbTransaction> result,
+            CancellationToken cancellationToken = default)
+        {
+            if (Interlocked.Decrement(ref _remainingTransactions) >= 0)
+            {
+                if (Interlocked.Increment(ref _waitingTransactions) == ExpectedTransactions)
+                {
+                    _bothTransactionsReached.SetResult();
+                }
+
+                await _bothTransactionsReached.Task.WaitAsync(TimeSpan.FromSeconds(5), cancellationToken).ConfigureAwait(false);
+            }
+
+            return await base.TransactionStartingAsync(connection, eventData, result, cancellationToken).ConfigureAwait(false);
+        }
     }
 }

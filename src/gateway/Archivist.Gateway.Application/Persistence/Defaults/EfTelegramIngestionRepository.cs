@@ -1,5 +1,6 @@
 using Archivist.Gateway.Application.Persistence.Entities;
 
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
 namespace Archivist.Gateway.Application.Persistence.Defaults;
@@ -12,6 +13,8 @@ public sealed class EfTelegramIngestionRepository(
     IUlidGenerator ids,
     TimeProvider timeProvider) : ITelegramIngestionRepository
 {
+    private const int SqliteConstraintErrorCode = 19;
+
     /// <inheritdoc />
     public async Task<RecordTelegramIngestionResult> RecordValidUrlAsync(
         RecordTelegramIngestionCommand command,
@@ -19,8 +22,6 @@ public sealed class EfTelegramIngestionRepository(
     {
         ArgumentNullException.ThrowIfNull(command);
         ArgumentException.ThrowIfNullOrWhiteSpace(command.OriginalUrl);
-
-        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
 
         var existing = await db.Jobs.AsNoTracking()
             .Where(x => x.TelegramUpdateId == command.TelegramUpdateId)
@@ -30,28 +31,20 @@ public sealed class EfTelegramIngestionRepository(
 
         if (existing is not null)
         {
-            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
-
             return new RecordTelegramIngestionResult(false, existing.ArticleId, existing.Id);
         }
 
-        var user = await db.Users
-            .SingleOrDefaultAsync(x => x.Id == PersistenceConstants.PersonalUserId, cancellationToken)
-            .ConfigureAwait(false);
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
 
-        if (user is null)
-        {
-            user = new UserEntity
-            {
-                Id = PersistenceConstants.PersonalUserId,
-                TelegramUserId = command.TelegramUserId,
-            };
-            db.Users.Add(user);
-        }
-        else
-        {
-            user.TelegramUserId = command.TelegramUserId;
-        }
+        await db.Database.ExecuteSqlInterpolatedAsync(
+                $"""
+                INSERT INTO users (id, telegram_user_id)
+                VALUES ({PersistenceConstants.PersonalUserId}, {command.TelegramUserId})
+                ON CONFLICT(id) DO UPDATE SET telegram_user_id = excluded.telegram_user_id;
+                """,
+                cancellationToken)
+            .ConfigureAwait(false);
+        db.ChangeTracker.Clear();
 
         var now = timeProvider.GetUtcNow();
         var article = new ArticleEntity
@@ -79,9 +72,41 @@ public sealed class EfTelegramIngestionRepository(
         db.Articles.Add(article);
         db.Jobs.Add(job);
 
-        await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (DbUpdateException ex) when (IsTelegramUpdateUniqueConstraintViolation(ex))
+        {
+            await transaction.RollbackAsync(CancellationToken.None).ConfigureAwait(false);
+            db.ChangeTracker.Clear();
+
+            var duplicate = await db.Jobs.AsNoTracking()
+                .Where(x => x.TelegramUpdateId == command.TelegramUpdateId)
+                .Select(x => new { x.ArticleId, x.Id })
+                .SingleOrDefaultAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            if (duplicate is null)
+            {
+                throw;
+            }
+
+            return new RecordTelegramIngestionResult(false, duplicate.ArticleId, duplicate.Id);
+        }
+
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
 
         return new RecordTelegramIngestionResult(true, article.Id, job.Id);
+    }
+
+    private static bool IsTelegramUpdateUniqueConstraintViolation(DbUpdateException exception)
+    {
+        return exception.GetBaseException() is SqliteException
+        {
+            SqliteErrorCode: SqliteConstraintErrorCode,
+            Message: var message,
+        } &&
+            message.Contains("UNIQUE constraint failed: jobs.telegram_update_id", StringComparison.Ordinal);
     }
 }
