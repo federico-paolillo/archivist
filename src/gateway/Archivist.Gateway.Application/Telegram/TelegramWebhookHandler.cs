@@ -45,7 +45,7 @@ public sealed partial class TelegramWebhookHandler(
             return new TelegramWebhookResult(TelegramWebhookOutcome.Unauthorized);
         }
 
-        if (command.ChatId is null || command.MessageId is null || command.MessageText is null)
+        if (command.ChatId is null || command.MessageId is null)
         {
             LogNoMessage(logger, command.UpdateId, command.SenderUserId.Value);
 
@@ -56,7 +56,7 @@ public sealed partial class TelegramWebhookHandler(
         var messageId = command.MessageId.Value;
         var senderUserId = command.SenderUserId.Value;
 
-        if (!TryParseUrl(command.MessageText, out var url))
+        if (command.MessageText is null || !TryParseUrl(command.MessageText, out var url))
         {
             LogInvalidUrl(logger, command.UpdateId, senderUserId);
 
