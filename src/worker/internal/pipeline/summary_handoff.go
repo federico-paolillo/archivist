@@ -92,7 +92,7 @@ func (h *SummaryGenerationHandoff) Summarize(ctx context.Context, job *jobs.Job,
 
 	err = h.repo.CompleteTerminal(ctx, job, jobs.TerminalOutcome{Success: true})
 	if err != nil {
-		return fmt.Errorf("pipeline: persist terminal summary success for job %s: %w", job.ID, err)
+		return h.compensateTerminalSuccessFailure(ctx, job, canonicalURL, output, err)
 	}
 
 	h.logger.Info(
@@ -108,6 +108,57 @@ func (h *SummaryGenerationHandoff) Summarize(ctx context.Context, job *jobs.Job,
 	)
 
 	return nil
+}
+
+func (h *SummaryGenerationHandoff) compensateTerminalSuccessFailure(
+	ctx context.Context,
+	job *jobs.Job,
+	canonicalURL string,
+	output summary.SummarizerOutput,
+	terminalErr error,
+) error {
+	cleanupErr := h.store.RemoveSummary(job.ArticleID)
+
+	artifactResult := "removed"
+	if cleanupErr != nil {
+		artifactResult = "remove_failed"
+	}
+
+	attrs := []slog.Attr{
+		slog.String("article_id", job.ArticleID),
+		slog.String("job_id", job.ID),
+		slog.String("url", canonicalURL),
+		slog.String("provider", string(h.summarizer.Provider())),
+		slog.String("model", h.summarizer.Model()),
+		slog.String("request_id", output.RequestID),
+		slog.String("status", "terminal_persist_failed"),
+		slog.String("artifact_result", artifactResult),
+		slog.Any("terminal_error", terminalErr),
+	}
+	if cleanupErr != nil {
+		attrs = append(attrs, slog.Any("cleanup_error", cleanupErr))
+	}
+
+	h.logger.LogAttrs(
+		ctx,
+		slog.LevelError,
+		"pipeline: summary terminal success persistence failed",
+		attrs...,
+	)
+
+	if cleanupErr != nil {
+		return fmt.Errorf(
+			"pipeline: terminal persistence failure after summary promotion for job %s; cleanup failed removing summary.md: %w",
+			job.ID,
+			errors.Join(terminalErr, cleanupErr),
+		)
+	}
+
+	return fmt.Errorf(
+		"pipeline: terminal persistence failure after summary promotion for job %s; cleanup removed summary.md: %w",
+		job.ID,
+		terminalErr,
+	)
 }
 
 func (h *SummaryGenerationHandoff) readMarkdown(articleID string) (string, error) {
