@@ -173,6 +173,10 @@ func TestArtifactAccessRejectsTraversal(t *testing.T) {
 		require.ErrorIs(t, writeSummaryErr, ErrInvalidArticleID)
 		require.ErrorIs(t, writeSummaryErr, arc.ErrSummaryWrite)
 		requireStoreError(t, writeSummaryErr, "validate article dir id")
+
+		removeSummaryErr := store.RemoveSummary(articleID)
+		require.ErrorIs(t, removeSummaryErr, ErrInvalidArticleID)
+		requireStoreError(t, removeSummaryErr, "validate article dir id")
 	}
 }
 
@@ -488,6 +492,88 @@ func TestWriteSummaryDoesNotCreateSummaryJSON(t *testing.T) {
 	summaryJSONPath := filepath.Join(dataDir, "articles", testArticleID, "summary.json")
 	_, err = os.Stat(summaryJSONPath)
 	require.ErrorIs(t, err, fs.ErrNotExist)
+}
+
+func TestRemoveSummaryRemovesSummaryFile(t *testing.T) {
+	t.Parallel()
+
+	dataDir := t.TempDir()
+	store, err := NewStore(dataDir)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, store.Close())
+	})
+
+	err = store.WriteSummary(testArticleID, strings.NewReader("Summary text"))
+	require.NoError(t, err)
+
+	summaryPath := filepath.Join(dataDir, "articles", testArticleID, "summary.md")
+	require.FileExists(t, summaryPath)
+
+	err = store.RemoveSummary(testArticleID)
+	require.NoError(t, err)
+
+	_, err = os.Stat(summaryPath)
+	require.ErrorIs(t, err, fs.ErrNotExist)
+}
+
+func TestRemoveSummaryIgnoresMissingSummaryFile(t *testing.T) {
+	t.Parallel()
+
+	dataDir := t.TempDir()
+	store, err := NewStore(dataDir)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, store.Close())
+	})
+
+	err = store.RemoveSummary(testArticleID)
+	require.NoError(t, err)
+}
+
+func TestRemoveSummaryDoesNotCreateMissingArticleDirectory(t *testing.T) {
+	t.Parallel()
+
+	dataDir := t.TempDir()
+	store, err := NewStore(dataDir)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, store.Close())
+	})
+
+	articlesDir := filepath.Join(dataDir, ArticlesDirectoryName)
+	articleDir := filepath.Join(articlesDir, testArticleID)
+	require.NoDirExists(t, articlesDir)
+
+	err = store.RemoveSummary(testArticleID)
+	require.NoError(t, err)
+
+	require.NoDirExists(t, articlesDir)
+	require.NoDirExists(t, articleDir)
+}
+
+func TestRemoveSummaryRejectsSymlinkedArticleDirectory(t *testing.T) {
+	t.Parallel()
+
+	dataDir := t.TempDir()
+	outsideDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(outsideDir, SummaryMDFilename), []byte("outside"), 0o600))
+
+	articlesDir := filepath.Join(dataDir, ArticlesDirectoryName)
+	require.NoError(t, os.MkdirAll(articlesDir, 0o700))
+	require.NoError(t, os.Symlink(outsideDir, filepath.Join(articlesDir, testArticleID)))
+
+	store, err := NewStore(dataDir)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, store.Close())
+	})
+
+	err = store.RemoveSummary(testArticleID)
+
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrStore)
+	require.FileExists(t, filepath.Join(outsideDir, SummaryMDFilename))
 }
 
 func requireStoreError(t *testing.T, err error, op string) *StoreError {

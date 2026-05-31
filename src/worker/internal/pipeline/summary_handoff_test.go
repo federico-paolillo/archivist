@@ -247,16 +247,28 @@ func TestSummarySuccessRollsBackWhenTerminalTransactionFails(t *testing.T) {
 			RequestID: "req-terminal-failure",
 		},
 	}
-	p := newPipelineWithSummary(t, database, store, srv.URL, summarizer)
+	var logs bytes.Buffer
+	p := newPipelineWithSummaryLogger(t, database, store, srv.URL, summarizer, &logs)
 
 	processed, processErr := p.ProcessOne(t.Context())
 	require.Error(t, processErr)
 	require.False(t, processed)
+	assert.Contains(t, processErr.Error(), "terminal persistence failure")
+	assert.Contains(t, processErr.Error(), "cleanup removed summary.md")
 
 	assert.Equal(t, "queued", scalarString(t, database, `SELECT status FROM articles WHERE id = ?`, articleID))
 	assert.Equal(t, "running", scalarString(t, database, `SELECT status FROM jobs WHERE id = ?`, jobID))
 
-	assert.FileExists(t, filepath.Join(storeDataDir(t, store), "articles", articleID, "summary.md"))
+	assert.NoFileExists(t, filepath.Join(storeDataDir(t, store), "articles", articleID, "summary.md"))
+
+	logText := logs.String()
+	assert.Contains(t, logText, `"article_id":"`+articleID+`"`)
+	assert.Contains(t, logText, `"job_id":"`+jobID+`"`)
+	assert.Contains(t, logText, `"url":"`+srv.URL+`/article"`)
+	assert.Contains(t, logText, `"status":"terminal_persist_failed"`)
+	assert.Contains(t, logText, `"artifact_result":"removed"`)
+	assert.Contains(t, logText, `"terminal_error":`)
+	assert.NotContains(t, logText, "Summary promoted before terminal transaction.")
 }
 
 func TestSummaryLogsRequiredFieldsWithoutContent(t *testing.T) {

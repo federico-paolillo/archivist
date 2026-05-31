@@ -102,6 +102,53 @@ func (s *Store) WriteSummary(articleID string, summary io.Reader) error {
 	return nil
 }
 
+// RemoveSummary removes summary.md for articleID when present.
+func (s *Store) RemoveSummary(articleID string) error {
+	relDir, articleRoot, err := s.openExistingArticleRoot(articleID)
+	if err != nil {
+		return err
+	}
+
+	if articleRoot == nil {
+		return nil
+	}
+
+	defer func() {
+		_ = articleRoot.Close()
+	}()
+
+	err = articleRoot.Remove(SummaryMDFilename)
+	if err == nil || errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+
+	return storeFailure(
+		"remove artifact",
+		err,
+		withArticleID(articleID),
+		withFilename(SummaryMDFilename),
+		withPath(filepath.Join(relDir, SummaryMDFilename)),
+	)
+}
+
+func (s *Store) openExistingArticleRoot(articleID string) (string, *os.Root, error) {
+	relDir, err := articleRelDir(articleID)
+	if err != nil {
+		return "", nil, err
+	}
+
+	articleRoot, err := s.root.OpenRoot(relDir)
+	if err == nil {
+		return relDir, articleRoot, nil
+	}
+
+	if errors.Is(err, fs.ErrNotExist) {
+		return relDir, nil, nil
+	}
+
+	return "", nil, storeFailure("open article dir root", err, withArticleID(articleID), withPath(relDir))
+}
+
 func (s *Store) openArtifact(articleID, filename string) (io.ReadCloser, error) {
 	err := ValidateArticleID(articleID)
 	if err != nil {
