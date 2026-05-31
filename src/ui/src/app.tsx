@@ -1,8 +1,8 @@
-import { ErrorBoundary, LocationProvider, Route, Router } from "preact-iso";
 import type { Deps } from "@archivist/deps.ts";
 import { ArticlesPage } from "@archivist/pages/articles/articles.tsx";
-import { LoginFailedPage } from "@archivist/pages/login-failed/login-failed.tsx";
 import { LoginPage, LoginRedirect } from "@archivist/pages/login/login.tsx";
+import { LoginFailedPage } from "@archivist/pages/login-failed/login-failed.tsx";
+import { ErrorBoundary, LocationProvider, Route, Router } from "preact-iso";
 
 interface AppProps {
 	deps: Deps;

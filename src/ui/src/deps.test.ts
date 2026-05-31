@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
 import { makeAuthApiClient, normalizeApiBasePath } from "@archivist/deps.ts";
+import { describe, expect, it, vi } from "vitest";
 
 describe("normalizeApiBasePath", () => {
 	it("defaults to /api", () => {
@@ -13,12 +13,13 @@ describe("normalizeApiBasePath", () => {
 		expect(normalizeApiBasePath("//api")).toBe("/api");
 		expect(normalizeApiBasePath("///api///")).toBe("/api");
 		expect(normalizeApiBasePath("/edge/api/")).toBe("/edge/api");
+		expect(normalizeApiBasePath("/edge//api///")).toBe("/edge/api");
 		expect(normalizeApiBasePath("/")).toBe("");
 	});
 });
 
 describe("auth api client", () => {
-	it("uses the normalized API base and includes credentials", async () => {
+	it("uses the normalized internal API path and includes credentials", async () => {
 		const fetcher = vi.fn(
 			async (_input: RequestInfo | URL, init?: RequestInit) => {
 				if (init?.method === "GET" && String(_input).includes("/articles")) {
@@ -31,7 +32,7 @@ describe("auth api client", () => {
 				return new Response(null, { status: 204 });
 			},
 		);
-		const client = makeAuthApiClient("/api///", fetcher);
+		const client = makeAuthApiClient("/edge//api///", fetcher);
 
 		await expect(client.login("secret")).resolves.toBe(true);
 		await expect(client.getSession()).resolves.toBe(true);
@@ -40,7 +41,7 @@ describe("auth api client", () => {
 		await expect(client.getArticle("01H/unsafe")).resolves.toEqual({});
 		await expect(client.deleteArticle("01H/unsafe")).resolves.toBeUndefined();
 
-		expect(fetcher).toHaveBeenNthCalledWith(1, "/api/login", {
+		expect(fetcher).toHaveBeenNthCalledWith(1, "/edge/api/login", {
 			method: "POST",
 			credentials: "include",
 			headers: {
@@ -48,26 +49,34 @@ describe("auth api client", () => {
 			},
 			body: JSON.stringify({ password: "secret" }),
 		});
-		expect(fetcher).toHaveBeenNthCalledWith(2, "/api/auth/session", {
+		expect(fetcher).toHaveBeenNthCalledWith(2, "/edge/api/auth/session", {
 			method: "GET",
 			credentials: "include",
 		});
-		expect(fetcher).toHaveBeenNthCalledWith(3, "/api/logout", {
+		expect(fetcher).toHaveBeenNthCalledWith(3, "/edge/api/logout", {
 			method: "POST",
 			credentials: "include",
 		});
-		expect(fetcher).toHaveBeenNthCalledWith(4, "/api/articles", {
+		expect(fetcher).toHaveBeenNthCalledWith(4, "/edge/api/articles", {
 			method: "GET",
 			credentials: "include",
 		});
-		expect(fetcher).toHaveBeenNthCalledWith(5, "/api/articles/01H%2Funsafe", {
-			method: "GET",
-			credentials: "include",
-		});
-		expect(fetcher).toHaveBeenNthCalledWith(6, "/api/articles/01H%2Funsafe", {
-			method: "DELETE",
-			credentials: "include",
-		});
+		expect(fetcher).toHaveBeenNthCalledWith(
+			5,
+			"/edge/api/articles/01H%2Funsafe",
+			{
+				method: "GET",
+				credentials: "include",
+			},
+		);
+		expect(fetcher).toHaveBeenNthCalledWith(
+			6,
+			"/edge/api/articles/01H%2Funsafe",
+			{
+				method: "DELETE",
+				credentials: "include",
+			},
+		);
 	});
 
 	it("uses public API error messages for failed article requests", async () => {

@@ -1,7 +1,7 @@
-import { useEffect, useState } from "preact/hooks";
-import { useLocation } from "preact-iso";
 import type { Deps } from "@archivist/deps.ts";
 import { LoginForm } from "@archivist/pages/login/components/login-form.tsx";
+import { useEffect, useState } from "preact/hooks";
+import { useLocation } from "preact-iso";
 
 interface LoginPageProps {
 	deps: Deps;

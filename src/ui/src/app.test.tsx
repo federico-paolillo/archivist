@@ -1,8 +1,3 @@
-import { screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { render } from "preact";
-import { act } from "preact/test-utils";
-import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "@archivist/app.tsx";
 import {
 	ApiRequestError,
@@ -11,6 +6,11 @@ import {
 	type ArticleMetadata,
 	type Deps,
 } from "@archivist/deps.ts";
+import { screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { render } from "preact";
+import { act } from "preact/test-utils";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 function makeTestDeps(overrides: Partial<Deps["api"]> = {}): Deps {
 	return {

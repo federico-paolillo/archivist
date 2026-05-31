@@ -1,6 +1,6 @@
-import { render } from "preact";
 import { App } from "@archivist/app.tsx";
 import { makeDeps } from "@archivist/deps.ts";
+import { render } from "preact";
 import "./app.css";
 
 const appRoot = document.createElement("div");

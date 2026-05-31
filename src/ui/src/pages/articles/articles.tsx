@@ -1,7 +1,7 @@
-import { useLocation } from "preact-iso";
 import { ProtectedRoute } from "@archivist/components/protected-route.tsx";
 import type { Deps } from "@archivist/deps.ts";
 import { ArticleShell } from "@archivist/pages/articles/components/article-shell.tsx";
+import { useLocation } from "preact-iso";
 
 interface ArticlesPageProps {
 	articleId?: string;

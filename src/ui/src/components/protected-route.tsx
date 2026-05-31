@@ -1,7 +1,7 @@
+import type { Deps } from "@archivist/deps.ts";
 import type { ComponentChildren } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import { useLocation } from "preact-iso";
-import type { Deps } from "@archivist/deps.ts";
 
 interface ProtectedRouteProps {
 	children: ComponentChildren;
