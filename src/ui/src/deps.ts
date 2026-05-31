@@ -55,12 +55,14 @@ export class ApiRequestError extends Error {
 
 export function normalizeApiBasePath(value: string | undefined): string {
 	const configuredValue = value?.trim();
-	const rawValue = configuredValue || "/api";
-	const withLeadingSlash = rawValue.startsWith("/") ? rawValue : `/${rawValue}`;
-	const sameOriginPath = withLeadingSlash.replace(/^\/+/u, "/");
-	const normalized = sameOriginPath.replace(/\/+$/u, "");
+	if (!configuredValue) {
+		return "/api";
+	}
 
-	return normalized || (configuredValue ? "" : "/api");
+	const withLeadingSlash = configuredValue.startsWith("/")
+		? configuredValue
+		: `/${configuredValue}`;
+	return withLeadingSlash.replace(/\/+/gu, "/").replace(/\/+$/u, "");
 }
 
 export function makeAuthApiClient(

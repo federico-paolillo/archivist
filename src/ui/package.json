@@ -8,8 +8,8 @@
 		"build": "tsc -b && vite build",
 		"preview": "vite preview",
 		"test": "vitest run",
-		"lint": "biome lint",
-		"format": "biome format --write"
+		"lint": "biome check",
+		"format": "biome check --write"
 	},
 	"dependencies": {
 		"@tailwindcss/vite": "^4.2.4",

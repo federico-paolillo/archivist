@@ -1,12 +1,12 @@
-import { useEffect, useRef, useState } from "preact/hooks";
-import { useLocation } from "preact-iso";
 import {
-	ApiUnauthorizedError,
 	type ApiClient,
+	ApiUnauthorizedError,
 	type ArticleDetail,
 	type ArticleMetadata,
 } from "@archivist/deps.ts";
 import { UserMenu } from "@archivist/pages/articles/components/user-menu.tsx";
+import { useEffect, useRef, useState } from "preact/hooks";
+import { useLocation } from "preact-iso";
 import { MarkdownContent } from "./markdown-content.tsx";
 
 interface ArticleShellProps {
