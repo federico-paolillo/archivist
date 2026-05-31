@@ -285,3 +285,28 @@ Canonical Updates:
 - `docs/specs/authn/plans/AUTHN-006-reverse-proxy-forwarded-headers.execplan.md` — status: completed.
 - `docs/specs/authn/tasks/AUTHN-005-security-validation-pass.md` — status: done, validation recorded.
 - `docs/specs/INDEX.md` — authn status: done.
+
+## 2026-05-31 — AUTHN-REVIEW-P2: AppCookieSettings canonical naming correction
+
+Task ID: AUTHN-REVIEW-P2
+Status: done
+
+Summary:
+- Resolved the active P2 review finding where `docs/DESIGN.md` still named the auth cookie settings type `AppCookieOptions`.
+- Updated DSGN-015 to use `AppCookieSettings`, matching the auth spec and Gateway implementation.
+
+Decisions:
+- No runtime auth behavior changed. This was a canonical documentation consistency fix only.
+- Historical diary references to the earlier `AppCookieOptions` name remain historical implementation record and are not canonical rebuild guidance.
+
+Validation:
+- `cd src/gateway && dotnet format` — passed.
+- `cd src/gateway && dotnet build` — passed.
+- `cd src/gateway && dotnet test` — passed: 162 tests.
+- `git diff --check` — passed.
+
+Follow-ups:
+- None.
+
+Canonical Updates:
+- `docs/DESIGN.md` — DSGN-015 now uses `AppCookieSettings`.

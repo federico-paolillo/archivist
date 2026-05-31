@@ -200,7 +200,7 @@ The gateway stores authoritative session state server-side as `sessionId -> { us
 
 Cookie attributes are fixed: `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/`, no `Domain`, and the `__Host-` prefix. Cookie values are never logged and must be redacted from request and response logging middleware.
 
-Authentication integrates with the normal ASP.NET Core authentication pipeline through a custom `IAuthenticationHandler`, or `AuthenticationHandler<AppCookieOptions>`, registered by `AddAppCookie()` on `AuthenticationBuilder`. The default scheme and authentication type are `"app-cookie"`. On success, the handler sets `HttpContext.User` to a minimal `ClaimsPrincipal` containing only `ClaimTypes.NameIdentifier` with the personal user id.
+Authentication integrates with the normal ASP.NET Core authentication pipeline through a custom `IAuthenticationHandler`, or `AuthenticationHandler<AppCookieSettings>`, registered by `AddAppCookie()` on `AuthenticationBuilder`. The default scheme and authentication type are `"app-cookie"`. On success, the handler sets `HttpContext.User` to a minimal `ClaimsPrincipal` containing only `ClaimTypes.NameIdentifier` with the personal user id.
 
 `POST /login` accepts the password in the request body and rejects non-`POST`, non-same-origin, or requests whose effective public scheme is not `https`. The effective public scheme is `HttpRequest.Scheme` after trusted forwarded-header processing. Login throttling is applied per IP and globally before Argon2id verification so throttling cannot become a CPU amplification vector. Failed verification returns `401`, does not disclose whether the user exists or whether a hash exists, and increments throttle counters. Successful verification always rotates the session: if the request carries an existing valid cookie, the old session-store entry is removed; a fresh 32-byte session id is generated; `{ userId, createdAt = now, absoluteExpiresAt = now + 24h }` is inserted; `__Host-app-auth` is set with the fixed cookie attributes; and the endpoint returns `204 No Content`. The endpoint must not log the password, session id, cookie value, or `Set-Cookie` header.
 
@@ -233,10 +233,10 @@ The registration surface is:
 ```csharp
 public static AuthenticationBuilder AddAppCookie(
     this AuthenticationBuilder builder,
-    Action<AppCookieOptions>? configure = null);
+    Action<AppCookieSettings>? configure = null);
 ```
 
-`AppCookieOptions` exposes at minimum `CookieName`, default `"__Host-app-auth"`, and `SessionLifetime`, default `TimeSpan.FromHours(24)`. The session store is resolved from dependency injection.
+`AppCookieSettings` exposes at minimum `CookieName`, default `"__Host-app-auth"`, and `SessionLifetime`, default `TimeSpan.FromHours(24)`. The session store is resolved from dependency injection.
 
 ```csharp
 services.AddSingleton<ISessionStore, InMemorySessionStore>();

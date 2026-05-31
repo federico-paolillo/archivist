@@ -1,34 +1,54 @@
 # Final v0 Review
 
 Date: 2026-05-29
+Last updated: 2026-05-31
 
 ## Executive Summary
 
 Overall quality is solid for a generated v0 codebase: the core module boundaries are recognizable, the validation surface is broad, and the implementation generally follows the repository's canonical-docs-first process. The review did not find a P0 core-flow failure.
 
-The active P1 findings from this review pass have been resolved in the integration branch. Production readiness is still not fully achieved because the P1 deployment-topology item remains explicitly ignored for later work and P2/P3 residual findings remain.
+The active P1 and active P2 findings from this review pass have been resolved in the integration branch. The P2 remediation used the repo-local multi-agent workflow: Gateway and Worker implementation branches were reviewed independently, reviewer findings were routed back to the owning worker, and both branches were integrated after approval.
 
-Vote: **C**. The system is closer, but it is not production-ready until the ignored deployment item and residual lower-priority findings are addressed or explicitly accepted.
+Production readiness is still not fully achieved because the P1 deployment-topology item remains explicitly ignored for later work, the proxy-level smoke P2 remains explicitly ignored, and active P3 residual findings remain.
+
+Vote: **B-**. The system has no active P0/P1/P2 findings after this remediation, but it is not production-ready until the ignored deployment item and residual lower-priority findings are addressed or explicitly accepted.
 
 Finding counts:
 
 - P0: 0
 - Active P1: 0
 - Ignored P1: 1
-- Active P2: 4
+- Active P2: 0
 - Ignored P2: 1
 - Active P3: 7
 
 ## Validation
 
-- `dotnet format --verify-no-changes` from `src/gateway`: passed.
-- `dotnet build` from `src/gateway`: passed.
-- `dotnet test` from `src/gateway`: passed, 157 tests.
-- `go tool lefthook run build` from `src/worker`: initially failed because `src/ui` dependencies were not installed and `tsc` was missing; after `npm ci` in `src/ui`, passed.
-- `go tool lefthook run format` from `src/worker`: passed; no tracked file changes.
-- `go tool lefthook run lint` from `src/worker`: passed.
-- `go tool lefthook run test` from `src/worker`: passed; Worker Go tests passed, Gateway tests passed with 157 tests, and UI Vitest passed with 21 tests.
-- Repo hygiene: passed; no addressed active P1 headings remain, and the ignored deployment-topology P1 remains.
+- Gateway worker branch:
+  - `cd src/gateway && dotnet format`: passed.
+  - `cd src/gateway && dotnet build`: passed.
+  - `cd src/gateway && dotnet test`: passed, 162 tests.
+- Gateway reviewer:
+  - `dotnet build && dotnet test` from `src/gateway`: passed, 162 tests.
+  - Review status: approved, no findings.
+- Worker worker branch:
+  - `go test ./internal/artifacts ./internal/pipeline`: passed.
+  - `go build ./...`: passed.
+  - `go tool golangci-lint run`: passed.
+  - `go test -race -shuffle=on ./...`: passed.
+  - `gofmt -l $(find . -name '*.go' -not -path './vendor/*')`: empty.
+- Worker reviewer:
+  - Initial review requested a `RemoveSummary` cleanup side-effect fix.
+  - Re-review passed targeted checks and approved with no findings.
+- Coordinator final validation:
+  - `cd src/gateway && dotnet format && dotnet build && dotnet test`: passed, 162 tests.
+  - `go tool lefthook run build` from `src/worker`: passed.
+  - `go tool lefthook run format` from `src/worker`: passed.
+  - `go tool lefthook run lint` from `src/worker`: passed.
+  - `go tool lefthook run test` from `src/worker`: passed; Worker Go tests passed, Gateway tests passed with 162 tests, and UI Vitest passed with 21 tests.
+  - `git diff --check`: passed.
+  - `gofmt -l $(find . -name '*.go' -not -path './vendor/*')` from `src/worker`: empty.
+  - Repo hygiene: passed; no addressed active P1/P2 headings remain, and ignored P1/P2 headings remain.
 - Manual browser smoke through the local HTTPS ingress: not run.
 - Production deployment smoke: not run; no production deployment artifact exists.
 
@@ -47,26 +67,6 @@ Finding counts:
 
 ## P2 Findings
 
-### Authorized non-text Telegram messages are ignored instead of getting the invalid-message reply
-
-- Priority: P2
-- Category: Feature Completeness
-- Location: `src/gateway/Archivist.Gateway.Application/Telegram/TelegramWebhookHandler.cs:48`, `src/gateway/Archivist.Gateway.Application/Telegram/TelegramWebhookHandler.cs:63`, `docs/specs/telegram-ingestion/SPEC.md:68`
-- Context: Authorized invalid Telegram messages must receive `Nope, you must send only an URL`.
-- Why this is a problem: Authorized messages with chat/message IDs but no `text` return `NoMessage` before the invalid reply path. Media-only or caption-shaped payloads are ignored rather than rejected with the specified reply.
-- Possible fix: Treat missing text as invalid when sender, chat ID, and message ID are present. Keep truly unreplyable updates ignored. Add regression tests for media-only and caption-shaped payloads.
-- Evidence: The handler returns at line 48 when `MessageText is null`; the invalid reply only happens after `TryParseUrl` fails on non-null text.
-
-### Summary artifact can be promoted while terminal success transaction fails
-
-- Priority: P2
-- Category: Feature Completeness
-- Location: `src/worker/internal/pipeline/summary_handoff.go:88`, `src/worker/internal/pipeline/summary_handoff.go:93`
-- Context: Summary generation writes `summary.md`, then calls `CompleteTerminal(Success: true)`.
-- Why this is a problem: If terminal persistence fails after file promotion, the system can retain a final-looking summary artifact while the job remains non-terminal and no success notification exists.
-- Possible fix: Make terminal completion idempotent for this failure mode, or compensate by removing/quarantining the promoted summary artifact and surfacing deterministic operator-visible failure.
-- Evidence: `summary_handoff_test.go:222-260` intentionally demonstrates `articles.status = queued`, `jobs.status = running`, and `summary.md` present after terminal transaction failure.
-
 ### Proxy-level smoke coverage is not repeatable in the validation surface
 
 - Priority: Ignore
@@ -77,26 +77,6 @@ Finding counts:
 - Possible fix: Add a release smoke target that starts Gateway, built UI, and Caddy, then checks `/api/login`, `/api/auth/session`, `/articles`, and root UI routes through the public origin.
 - Evidence: AUTHN-006 records proxy stripping as manual/deployment validation; `lefthook.yml` and UI scripts do not include an end-to-end proxy smoke command.
 - Skip reason: I don't need this. This is deployment infrastructure.
-
-### Auth cookie extension type name conflicts between design and conventions
-
-- Priority: P2
-- Category: Project Convention
-- Location: `docs/DESIGN.md:203`, `docs/DESIGN.md:236`, `docs/DESIGN.md:239`, `docs/specs/authn/SPEC.md:76`, `docs/specs/authn/SPEC.md:230`, `docs/conventions/GATEWAY.md:56`
-- Context: `docs/DESIGN.md` names the auth options type `AppCookieOptions`; the auth spec and Gateway convention use `AppCookieSettings`.
-- Why this is a problem: This is a rebuild-visible interface name. Canonical docs disagree on the public type shape.
-- Possible fix: Amend `DSGN-015` to use `AppCookieSettings`, or add an explicit supersession note pointing to the auth spec and Gateway convention.
-- Evidence: DESIGN uses `AppCookieOptions`; auth spec uses `AppCookieSettings`; Gateway convention says settings classes must be named `*Settings`, not `*Options`.
-
-### Worker formatting check fails
-
-- Priority: P2
-- Category: Project Convention
-- Location: `src/worker/internal/app/version.go`
-- Context: Worker validation requires formatting to pass.
-- Why this is a problem: A real `go tool lefthook run format` would rewrite code, and the review was constrained to avoid mutating tracked files.
-- Possible fix: Run the Worker format hook or `gofmt -w src/worker/internal/app/version.go`, then rerun non-mutating checks.
-- Evidence: `gofmt -l $(find . -name '*.go' -not -path './vendor/*')` from `src/worker` listed `./internal/app/version.go`.
 
 ## P3 Findings
 
@@ -170,13 +150,14 @@ Finding counts:
 - Possible fix: Run the appropriate Biome safe fix and decide whether import organization belongs in the committed validation command.
 - Evidence: `npx biome check --formatter-enabled=true --linter-enabled=false .` failed with eight `assist/source/organizeImports` diagnostics.
 
-## No Findings
+## Review Outcome
 
-No review scope was completely clean. The Gateway, Worker, UI, ALM, cross-service state, and deployment reviewers all produced at least one supported finding.
+- Gateway P2 remediation review: approved with no findings.
+- Worker P2 remediation review: initial changes requested for `RemoveSummary` no-op side effects; re-review approved with no findings after the fix.
+- Active P2 review state: clean.
 
 ## Residual Risk
 
 - Browser validation through the local HTTPS ingress was not run.
 - Production deployment validation was not run because the repository has no production deployment artifact.
 - External provider behavior against live Telegram, Jina, and Anthropic services was not exercised.
-- The required lefthook format hook passed without tracked changes; the retained Worker formatting P2 is unchanged because the stricter standalone `gofmt -l` check still lists `src/worker/internal/app/version.go`.

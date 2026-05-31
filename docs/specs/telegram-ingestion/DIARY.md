@@ -341,3 +341,34 @@ Follow-ups:
 
 Canonical Updates:
 - `docs/specs/telegram-ingestion/SPEC.md` — added REQ-030 for Telegram runtime configuration startup validation.
+
+## 2026-05-31 — TELING-002-REVIEW-P2: Authorized non-text Telegram invalid reply
+
+Status:
+- completed
+
+Summary:
+- Resolved the active P2 review finding where authorized Telegram updates with chat/message identifiers but missing `text` were treated as `NoMessage`.
+- Gateway now keeps truly unreplyable updates ignored when chat or message identifiers are missing, but sends `Nope, you must send only an URL` for authorized media-only or caption-shaped messages with a reply target.
+
+Changes:
+- `TelegramWebhookHandler` treats missing text as invalid once sender, chat ID, and message ID are present.
+- `TelegramUpdateDto.MessageId` is nullable so missing message identifiers remain unreplyable instead of becoming `0`.
+- Added handler and endpoint regressions for missing text, media-only, caption-shaped, and missing reply-target paths.
+
+Decisions:
+- Captions remain out of scope for URL ingestion and do not count as accepted text.
+- No route, schema, Telegram reply text, or authorization behavior changed beyond the invalid-message path required by TELING-002.
+
+Validation:
+- Gateway worker: `cd src/gateway && dotnet format` — passed.
+- Gateway worker: `cd src/gateway && dotnet build` — passed.
+- Gateway worker: `cd src/gateway && dotnet test` — passed: 162 tests.
+- Gateway reviewer: `dotnet build && dotnet test` — passed, 162 tests; approved with no findings.
+- Coordinator: `cd src/gateway && dotnet format && dotnet build && dotnet test` — passed, 162 tests.
+
+Follow-ups:
+- None.
+
+Canonical Updates:
+- `docs/specs/telegram-ingestion/DIARY.md` — this review-remediation entry.

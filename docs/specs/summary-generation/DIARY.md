@@ -350,3 +350,41 @@ Canonical Updates:
 - `docs/specs/summary-generation/tasks/SUMGEN-005-gateway-summary-notification.md` — status: done, validation recorded.
 - `docs/specs/summary-generation/plans/SUMGEN-005-gateway-summary-notification.execplan.md` — status: completed.
 - `docs/specs/INDEX.md` — summary-generation status: done.
+
+## 2026-05-31 — SUMGEN-004-REVIEW-P2: Summary terminal success compensation
+
+Status:
+- completed
+
+Summary:
+- Resolved the active P2 review finding where `summary.md` could remain promoted after terminal success persistence failed.
+- Resolved the active Worker formatting P2 for `src/worker/internal/app/version.go`.
+
+Changes:
+- Added `RemoveSummary` to the Worker artifact store for internal cleanup of `summary.md` through rooted article access.
+- `SummaryGenerationHandoff` now compensates terminal success persistence failures by removing the promoted `summary.md`, logging deterministic operator-visible context, and returning an error that includes terminal failure and cleanup outcome.
+- Added regressions proving the terminal persistence failure path removes `summary.md`, logs no summary content, and `RemoveSummary` does not create absent article directories.
+- Added the missing trailing newline in `internal/app/version.go`.
+
+Decisions:
+- Compensation removes the promoted summary artifact rather than adding automatic retry or changing terminal persistence semantics, because v0 retries remain out of scope.
+- No schema, configuration key, provider contract, artifact path, ARC code, or Gateway behavior changed.
+
+Validation:
+- Worker worker: `go test ./internal/artifacts ./internal/pipeline` — passed.
+- Worker worker: `go build ./...` — passed.
+- Worker worker: `go tool golangci-lint run` — passed.
+- Worker worker: `go test -race -shuffle=on ./...` — passed.
+- Worker worker: `gofmt -l $(find . -name '*.go' -not -path './vendor/*')` — empty.
+- Worker reviewer: initial review requested a `RemoveSummary` no-side-effect fix; re-review approved with no findings.
+- Coordinator: `cd src/worker && go tool lefthook run build` — passed.
+- Coordinator: `cd src/worker && go tool lefthook run format` — passed.
+- Coordinator: `cd src/worker && go tool lefthook run lint` — passed.
+- Coordinator: `cd src/worker && go tool lefthook run test` — passed.
+- Coordinator: `gofmt -l $(find . -name '*.go' -not -path './vendor/*')` — empty.
+
+Follow-ups:
+- None.
+
+Canonical Updates:
+- `docs/specs/summary-generation/DIARY.md` — this review-remediation entry.
