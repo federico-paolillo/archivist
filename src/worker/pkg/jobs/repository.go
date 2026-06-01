@@ -417,12 +417,17 @@ type jobTimestamps struct {
 	expiresAt   *time.Time
 }
 
-var dotnetTimestamp = "2006-01-02 15:04:05.999999999-07:00"
+const dotnetTimestamp = "2006-01-02 15:04:05.999999999-07:00"
+
+var jobTimestampLayouts = []string{
+	time.RFC3339Nano,
+	dotnetTimestamp,
+}
 
 func parseJobTimestamps(raw *jobRaw) (*jobTimestamps, error) {
-	createdAt, err := time.Parse(dotnetTimestamp, raw.createdAtStr)
+	createdAt, err := parseJobTimestamp(raw.createdAtStr, "created_at")
 	if err != nil {
-		return nil, fmt.Errorf("jobs: failed to parse created_at: %w", err)
+		return nil, err
 	}
 
 	ts := &jobTimestamps{createdAt: createdAt}
@@ -457,7 +462,22 @@ func parseJobTimestamps(raw *jobRaw) (*jobTimestamps, error) {
 	return ts, nil
 }
 
-// parseNullableTime parses an RFC3339Nano string from a nullable column.
+func parseJobTimestamp(value string, field string) (time.Time, error) {
+	var parseErr error
+
+	for _, layout := range jobTimestampLayouts {
+		parsed, err := time.Parse(layout, value)
+		if err == nil {
+			return parsed, nil
+		}
+
+		parseErr = err
+	}
+
+	return time.Time{}, fmt.Errorf("jobs: failed to parse %s: %w", field, parseErr)
+}
+
+// parseNullableTime parses a supported timestamp string from a nullable column.
 // The second return value is false when the column is NULL; the third is non-nil when parsing fails.
 func parseNullableTime(ns sql.NullString, field string) (time.Time, bool, error) {
 	var zero time.Time
@@ -466,9 +486,9 @@ func parseNullableTime(ns sql.NullString, field string) (time.Time, bool, error)
 		return zero, false, nil
 	}
 
-	parsed, parseErr := time.Parse(time.RFC3339Nano, ns.String)
+	parsed, parseErr := parseJobTimestamp(ns.String, field)
 	if parseErr != nil {
-		return zero, false, fmt.Errorf("jobs: failed to parse %s: %w", field, parseErr)
+		return zero, false, parseErr
 	}
 
 	return parsed, true, nil

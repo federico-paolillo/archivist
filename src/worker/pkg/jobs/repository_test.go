@@ -256,6 +256,36 @@ func TestClaimQueuedChangesJobStatusToRunning(t *testing.T) {
 	assert.Equal(t, jobs.StatusRunning, dbStatus)
 }
 
+func TestClaimQueuedParsesGatewayCreatedAtTimestamp(t *testing.T) {
+	database := openTestDB(t)
+	seedUser(t, database)
+	seedArticle(t, database, "ARTICLE001")
+
+	const gatewayCreatedAt = "2026-06-01 20:35:43.1598006+00:00"
+
+	_, err := database.Exec(
+		`INSERT INTO jobs (id, user_id, article_id, type, status, created_at)
+		 VALUES (?, ?, ?, ?, 'queued', ?)`,
+		"JOB001",
+		"01ASB2XFCZJY7WHZ2FNRTMQJCT",
+		"ARTICLE001",
+		jobs.TypeArticleProcessing,
+		gatewayCreatedAt,
+	)
+	require.NoError(t, err)
+
+	repo := jobs.NewSQLiteRepository(database, newTestIDGenerator())
+
+	claimed, err := repo.ClaimQueued(t.Context())
+
+	require.NoError(t, err)
+	require.NotNil(t, claimed)
+
+	expectedCreatedAt, err := time.Parse("2006-01-02 15:04:05.999999999-07:00", gatewayCreatedAt)
+	require.NoError(t, err)
+	assert.True(t, expectedCreatedAt.Equal(claimed.CreatedAt))
+}
+
 func assertArticleCount(t *testing.T, database *sql.DB, expected int) {
 	t.Helper()
 
