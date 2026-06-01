@@ -417,8 +417,10 @@ type jobTimestamps struct {
 	expiresAt   *time.Time
 }
 
+var dotnetTimestamp = "2006-01-02 15:04:05.999999999-07:00"
+
 func parseJobTimestamps(raw *jobRaw) (*jobTimestamps, error) {
-	createdAt, err := time.Parse(time.RFC3339Nano, raw.createdAtStr)
+	createdAt, err := time.Parse(dotnetTimestamp, raw.createdAtStr)
 	if err != nil {
 		return nil, fmt.Errorf("jobs: failed to parse created_at: %w", err)
 	}
