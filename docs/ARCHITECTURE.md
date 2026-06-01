@@ -201,7 +201,7 @@ Deployment requirements:
 
 - one shared `/data` volume for SQLite and article artifacts;
 - gateway, worker, and UI deployed as one application stack;
-- only Caddy publishes host port `443` from the Docker stack;
+- only ingress Caddy publishes a host port from the Docker stack;
 - Gateway is private on the Docker internal network and has no host-published port;
 - filesystem snapshot backup for `/data`;
 - stdout logging collected by the host or deployment environment.
@@ -213,17 +213,19 @@ The v0 topology does not target high scalability, multi-region deployment, or re
 The primary v0 public topology is:
 
 ```text
-Internet -> Cloud/VPS TLS termination :443 -> Docker host port 443 -> Caddy plaintext HTTP -> Gateway on Docker internal network
+Internet -> Scaleway Load Balancer TLS termination -> Docker host port 65000 -> ingress Caddy plaintext HTTP
+  -> /api/* -> Gateway on Docker internal network
+  -> other routes -> UI Caddy on Docker internal network
 ```
 
 DNS binding, public IP binding, certificate provisioning, and public Internet exposure are external to the application stack. The VPS/cloud-provider layer terminates TLS before traffic reaches Caddy. Caddy does not own or present the public certificate in this topology.
 
-Caddy receives plaintext HTTP on host port `443` after upstream TLS termination. It must listen with `http://:443` for the primary topology. A bare `:443` Caddy site is an HTTPS listener and requires a certificate strategy, so it is prohibited for this primary upstream-terminated deployment.
+Caddy receives plaintext HTTP on host port `65000` after upstream TLS termination. It must listen with `http://:65000` for the primary Scaleway load-balancer topology. A bare `:65000` Caddy site is an HTTPS listener and requires a certificate strategy, so it is prohibited for this primary upstream-terminated deployment.
 
 Caddy must overwrite forwarded headers before proxying to Gateway:
 
 ```caddyfile
-http://:443 {
+http://:65000 {
     encode zstd gzip
 
     handle_path /api/* {
@@ -236,9 +238,7 @@ http://:443 {
     }
 
     handle {
-        root * /srv/archivist/ui
-        try_files {path} /index.html
-        file_server
+        reverse_proxy ui:8080
     }
 }
 ```

@@ -1,0 +1,31 @@
+{
+	admin off
+	auto_https off
+	persist_config off
+	log {
+		output stdout
+		format console
+	}
+}
+
+http://:65000 {
+	encode zstd gzip
+
+	log {
+		output stdout
+		format console
+	}
+
+	handle_path /api/* {
+		reverse_proxy gateway:8080 {
+			header_up Host {host}
+			header_up X-Forwarded-Proto https
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Host {host}
+		}
+	}
+
+	handle {
+		reverse_proxy ui:8080
+	}
+}
