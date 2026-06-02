@@ -89,8 +89,9 @@ Not included:
 - REQ-036: Markdown rendering must not execute raw article HTML, scripts, inline event handlers, or `javascript:` links.
 - REQ-037: Frontend tests must cover API base path usage, login success, invalid-login black page navigation, session `401`, logout, route update on article selection, no-id detail state, loading, ready, queued, failed, fetch-error, and delete confirm/cancel behavior.
 - REQ-038: Manual browser validation must capture `/login`, `/login/failed`, `/articles`, and `/articles/<article_id>` and compare them against `docs/design/DESIGN.md` plus the two screenshots.
-- REQ-039: On desktop and tablet article routes, the header and footer must be solid black and the master/detail workspace must be the only page section that scrolls.
+- REQ-039: On desktop and tablet article routes, the header and footer must be solid black, the article shell must remain viewport-framed without document scrolling, and the master and detail panes must scroll independently inside the shell.
 - REQ-040: On mobile article routes targeting a 430x960 CSS-pixel viewport, the master/detail view must stack vertically in normal document flow; the master article list must have a reasonable max height and scroll internally when needed, while the detail article content remains unbounded in page flow.
+- REQ-041: The article footer version label must stay on one line and truncate with an ellipsis when the configured version string is too long for the viewport.
 
 ## Acceptance Criteria
 
@@ -241,7 +242,8 @@ Impacts:
 - `docs/design/DESIGN.md` and the screenshots under `docs/design/` are canonical design inputs for this feature.
 - Implement the visible browser UI as the first screen for its routes. Do not replace it with a landing page.
 - The login password is a pasted 2048-character bearer secret; the browser control may be a visible textarea rather than a masked input, but the value must remain transient.
-- Article routes use a viewport-framed single-scroll workspace on desktop/tablet. Mobile uses stacked document flow with a capped, internally scrollable master list and unbounded detail content.
+- Article routes use a viewport-framed shell on desktop/tablet with independently scrollable master and detail panes. Mobile uses stacked document flow with a capped, internally scrollable master list and unbounded detail content.
+- The article footer may truncate long version labels, including full commit hashes, with CSS-only ellipsis.
 - Do not implement Retry until a future feature defines a backend retry/requeue contract.
 - Markdown rendering must treat article content as untrusted input.
 

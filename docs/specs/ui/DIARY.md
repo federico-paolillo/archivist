@@ -307,3 +307,35 @@ Canonical Updates:
 - `docs/specs/ui/tasks/UI-002-ui-routing-design-system-api-base-auth-shell.md`
 - `docs/specs/ui/tasks/UI-003-article-master-detail-and-delete-workflow.md`
 - `docs/specs/ui/plans/UI-002-ui-routing-design-system-api-base-auth-shell.execplan.md`
+
+## 2026-06-02 - Desktop Scroll Correction And Footer Ellipsis
+
+Status:
+- completed
+
+Summary:
+- Corrected the desktop/tablet article layout so the master and detail panes scroll independently inside the viewport-framed shell.
+- Preserved the mobile stacked layout with a capped, internally scrollable master list and unbounded detail content.
+- Added CSS-only single-line ellipsis behavior for long article footer version labels such as full commit hashes.
+
+Decisions:
+- Desktop/tablet article routes keep document scrolling disabled and use independent scroll containers for `.article-master` and `.article-detail`; `.article-workspace` clips the panes instead of scrolling itself.
+- Mobile article routes keep document scrolling enabled and keep the detail pane unbounded in page flow.
+- Version labels remain full values in markup and are visually truncated only by CSS when the viewport cannot fit them.
+
+Validation:
+- `cd src/ui && npm run format`: passed.
+- `cd src/ui && npm run lint`: passed.
+- `cd src/ui && VITE_VERSION_LABEL=667b7a95fb7aa204d5b812fc8f9b9ea4d0e5d094 npm run build`: passed.
+- `cd src/ui && npm run test`: passed, 2 test files and 28 tests.
+- Browser validation used the built UI with a temporary same-origin mock API and the long commit-style version label.
+- Desktop 1280x720 `/articles/01HREADY000000000000000000`: document scroll height matched the viewport, `.article-workspace` had `overflow: hidden`, `.article-master` and `.article-detail` had `overflow: auto` and scrollable content, and header/footer backgrounds were solid black.
+- Mobile 430x960 `/articles/01HREADY000000000000000000`: document scrolling was enabled, horizontal scroll was absent, the master list max height resolved to 384px and scrolled internally, detail content was unbounded in normal page flow, and the footer used `overflow: hidden`, `white-space: nowrap`, and `text-overflow: ellipsis`.
+- `/login`: password control still rendered as `TEXTAREA`.
+
+Follow-ups:
+- None.
+
+Canonical Updates:
+- `docs/specs/ui/SPEC.md`
+- `docs/specs/ui/tasks/UI-003-article-master-detail-and-delete-workflow.md`
