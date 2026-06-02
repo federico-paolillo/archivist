@@ -214,6 +214,8 @@ GitHub Actions is the canonical repository automation surface. CI runs on pushes
 
 CD is a manually dispatched release workflow. It checks out the requested release ref, validates the same component gates as CI, builds and pushes multi-architecture `linux/amd64` and `linux/arm64` images for Gateway, Worker, and UI to GitHub Container Registry, emits GitHub artifact attestations for each pushed image, tags the resolved release commit, and opens a draft GitHub release. The UI image build receives the resolved release commit SHA through the `VERSION_LABEL` Docker build argument.
 
+`docker-compose.yaml` is the development Compose file and keeps local `build:` entries. Production releases use `docker-compose.prod.yaml`, which has no `build:` entries and receives Gateway, Worker, and UI images through `ARCHIVIST_GATEWAY_IMAGE`, `ARCHIVIST_WORKER_IMAGE`, and `ARCHIVIST_UI_IMAGE`. The CD workflow generates a digest-pinned `docker-compose.images.env` for the images built in that release, validates the production Compose model with Docker Compose, and publishes `docker-compose.prod.yaml`, `docker-compose.images.env`, `docker-compose.prod.env.example`, and `rp.Caddyfile` as a compressed deployment package attached to both the workflow run and the draft GitHub release. Operators deploy with their runtime `.env` first and the release-provided image env file second so release image pins override accidental local image values.
+
 ### Reverse Proxy And TLS Termination
 
 The primary v0 public topology is:

@@ -48,6 +48,8 @@ Attestations:
 - [Worker](${worker_attestation_url})
 - [UI](${ui_attestation_url})
 
+Deployment package: archivist-compose-${version}.tar.gz, attached as a draft release asset.
+
 Note: unknown/unknown OS/Arch entries are [Attestation Manifest Descriptors](https://docs.docker.com/build/metadata/attestations/attestation-storage/#attestation-manifest-descriptor).
 
 Edit these notes before publishing the release.

@@ -1,0 +1,66 @@
+services:
+  ingress:
+    image: caddy:2.11.2
+    depends_on:
+      - gateway
+      - ui
+    ports:
+      - "${ARCHIVIST_PUBLIC_PORT:-65000}:65000"
+    volumes:
+      - ./rp.Caddyfile:/etc/caddy/Caddyfile:ro
+    networks:
+      - archivist
+    restart: always
+
+  gateway:
+    image: ${ARCHIVIST_GATEWAY_IMAGE:?ARCHIVIST_GATEWAY_IMAGE must be set}
+    environment:
+      ASPNETCORE_URLS: http://0.0.0.0:8080
+      DOTNET_URLS: http://0.0.0.0:8080
+      ASPNETCORE_ENVIRONMENT: Production
+      DOTNET_ENVIRONMENT: Production
+      ARCHIVIST_SQLITE_PATH: ${ARCHIVIST_SQLITE_PATH:-/data/archive.db}
+      ARCHIVIST_DATA_DIR: ${ARCHIVIST_DATA_DIR:-/data}
+      ARCHIVIST_GATEWAY_PUBLIC_HOSTS: ${ARCHIVIST_GATEWAY_PUBLIC_HOSTS:?ARCHIVIST_GATEWAY_PUBLIC_HOSTS must be set}
+      ARCHIVIST_Telegram__BotToken: ${ARCHIVIST_Telegram__BotToken:?ARCHIVIST_Telegram__BotToken must be set}
+      ARCHIVIST_Telegram__AllowedUserId: ${ARCHIVIST_Telegram__AllowedUserId:?ARCHIVIST_Telegram__AllowedUserId must be set}
+      ARCHIVIST_Telegram__WebhookSecret: ${ARCHIVIST_Telegram__WebhookSecret:?ARCHIVIST_Telegram__WebhookSecret must be set}
+      ARCHIVIST_AUTH_BOOTSTRAP_PASSWORD: ${ARCHIVIST_AUTH_BOOTSTRAP_PASSWORD:-}
+    expose:
+      - "8080"
+    volumes:
+      - data:/data
+    networks:
+      - archivist
+    restart: always
+
+  worker:
+    image: ${ARCHIVIST_WORKER_IMAGE:?ARCHIVIST_WORKER_IMAGE must be set}
+    depends_on:
+      - gateway
+    environment:
+      ARCHIVIST_SQLITE_PATH: ${ARCHIVIST_SQLITE_PATH:-/data/archive.db}
+      ARCHIVIST_DATA_DIR: ${ARCHIVIST_DATA_DIR:-/data}
+      ARCHIVIST_JINA_API_KEY: ${ARCHIVIST_JINA_API_KEY:?ARCHIVIST_JINA_API_KEY must be set}
+      ARCHIVIST_LLM_PROVIDER: ${ARCHIVIST_LLM_PROVIDER:-anthropic}
+      ARCHIVIST_LLM_API_KEY: ${ARCHIVIST_LLM_API_KEY:?ARCHIVIST_LLM_API_KEY must be set}
+      ARCHIVIST_LLM_MODEL: ${ARCHIVIST_LLM_MODEL:-claude-haiku-4-5-20251001}
+    volumes:
+      - data:/data
+    networks:
+      - archivist
+    restart: always
+
+  ui:
+    image: ${ARCHIVIST_UI_IMAGE:?ARCHIVIST_UI_IMAGE must be set}
+    expose:
+      - "8080"
+    networks:
+      - archivist
+    restart: always
+
+networks:
+  archivist:
+
+volumes:
+  data:

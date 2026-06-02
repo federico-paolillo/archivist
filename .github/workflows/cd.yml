@@ -166,6 +166,37 @@ jobs:
           subject-digest: ${{ steps.build-ui.outputs.digest }}
           push-to-registry: true
 
+      - name: Package production Compose files
+        run: >-
+          scripts/package-compose-release.sh
+          "${{ inputs.version }}"
+          "${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.GATEWAY_IMAGE_NAME }}@${{ steps.build-gateway.outputs.digest }}"
+          "${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.WORKER_IMAGE_NAME }}@${{ steps.build-worker.outputs.digest }}"
+          "${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.UI_IMAGE_NAME }}@${{ steps.build-ui.outputs.digest }}"
+
+      - name: Validate production Compose config
+        run: >-
+          docker compose
+          --env-file release/compose/docker-compose.prod.env.example
+          --env-file release/compose/docker-compose.images.env
+          -f release/compose/docker-compose.prod.yaml
+          config --quiet
+
+      - name: Show production Compose images
+        run: >-
+          docker compose
+          --env-file release/compose/docker-compose.prod.env.example
+          --env-file release/compose/docker-compose.images.env
+          -f release/compose/docker-compose.prod.yaml
+          config --images
+
+      - name: Upload production Compose workflow artifact
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: archivist-compose-${{ inputs.version }}
+          path: release/archivist-compose-${{ inputs.version }}.tar.gz
+          if-no-files-found: error
+
       - name: Create git tag and draft release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -183,3 +214,12 @@ jobs:
           "${{ steps.attest-gateway.outputs.attestation-url }}"
           "${{ steps.attest-worker.outputs.attestation-url }}"
           "${{ steps.attest-ui.outputs.attestation-url }}"
+
+      - name: Upload production Compose release asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          gh release upload
+          "${{ inputs.version }}"
+          "release/archivist-compose-${{ inputs.version }}.tar.gz"
+          --clobber
