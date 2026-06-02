@@ -115,7 +115,9 @@ export function ArticleShell({
 					onForceDelete={openForceDeleteModal}
 				/>
 			</section>
-			<footer className="article-footer">VERSION: 7F8A2C1_STABLE</footer>
+			<footer className="article-footer">
+				VERSION: {import.meta.env.VITE_VERSION_LABEL}
+			</footer>
 			{isDeleteModalOpen ? (
 				<DeleteModal
 					isDeleting={isDeleting}

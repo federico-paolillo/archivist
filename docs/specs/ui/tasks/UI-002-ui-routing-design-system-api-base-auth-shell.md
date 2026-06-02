@@ -29,7 +29,7 @@ This task includes:
 - API client dependency construction through `deps.ts` and `makeDeps()`.
 - `VITE_API_BASE_PATH` defaulting and normalization.
 - `GET /auth/session` startup/protected-route checks.
-- Login form with large masked password control and `IDENTIFY` submit.
+- Login form with large visible password textarea/control and `IDENTIFY` submit.
 - Login success navigation to `/articles`.
 - Invalid login navigation to `/login/failed`.
 - Blank black `/login/failed` page.
@@ -162,7 +162,7 @@ Manual validation:
 Result on 2026-05-20:
 
 ```text
-/login: black page with ARCHIVIST title, masked password control, and IDENTIFY submit.
+/login: black page with ARCHIVIST title, visible password textarea/control, and IDENTIFY submit.
 /login/failed: blank black page, no visible text, no interactive controls.
 /articles unauthenticated: redirected to /login after session check failure.
 ```

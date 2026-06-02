@@ -58,8 +58,8 @@ Not included:
 - REQ-005: The API base path must be normalized so calls do not produce double slashes, and all UI API calls must use same-origin `fetch` with credentials included.
 - REQ-006: Public deployment must reverse-proxy `${VITE_API_BASE_PATH}/*` to the Gateway's unprefixed route contracts.
 - REQ-007: The login page must be available at `/login`.
-- REQ-008: The login page must show only the product title, a large masked password control, and an `IDENTIFY` submit control, plus design footer chrome when implemented.
-- REQ-009: The password control must support pasting the 2048-character secret and must not store the password in local storage, session storage, IndexedDB, cookies, or URL state.
+- REQ-008: The login page must show only the product title, a large visible password textarea/control, and an `IDENTIFY` submit control, plus design footer chrome when implemented.
+- REQ-009: The password control must support pasting the 2048-character secret and must not store the password in local storage, session storage, IndexedDB, cookies, or URL state. The control may display the pasted password text.
 - REQ-010: Login submit must call `POST ${apiBasePath}/login` with JSON `{ "password": string }`.
 - REQ-011: Successful login must navigate to `/articles`.
 - REQ-012: Failed login must navigate to `/login/failed`.
@@ -89,6 +89,8 @@ Not included:
 - REQ-036: Markdown rendering must not execute raw article HTML, scripts, inline event handlers, or `javascript:` links.
 - REQ-037: Frontend tests must cover API base path usage, login success, invalid-login black page navigation, session `401`, logout, route update on article selection, no-id detail state, loading, ready, queued, failed, fetch-error, and delete confirm/cancel behavior.
 - REQ-038: Manual browser validation must capture `/login`, `/login/failed`, `/articles`, and `/articles/<article_id>` and compare them against `docs/design/DESIGN.md` plus the two screenshots.
+- REQ-039: On desktop and tablet article routes, the header and footer must be solid black and the master/detail workspace must be the only page section that scrolls.
+- REQ-040: On mobile article routes targeting a 430x960 CSS-pixel viewport, the master/detail view must stack vertically in normal document flow; the master article list must have a reasonable max height and scroll internally when needed, while the detail article content remains unbounded in page flow.
 
 ## Acceptance Criteria
 
@@ -238,6 +240,8 @@ Impacts:
 - Do not add `/api` prefixes to Gateway route contracts. The reverse proxy owns mapping public `/api/*` requests to Gateway unprefixed routes.
 - `docs/design/DESIGN.md` and the screenshots under `docs/design/` are canonical design inputs for this feature.
 - Implement the visible browser UI as the first screen for its routes. Do not replace it with a landing page.
+- The login password is a pasted 2048-character bearer secret; the browser control may be a visible textarea rather than a masked input, but the value must remain transient.
+- Article routes use a viewport-framed single-scroll workspace on desktop/tablet. Mobile uses stacked document flow with a capped, internally scrollable master list and unbounded detail content.
 - Do not implement Retry until a future feature defines a backend retry/requeue contract.
 - Markdown rendering must treat article content as untrusted input.
 

@@ -273,3 +273,37 @@ Follow-ups:
 
 Canonical Updates:
 - `docs/specs/ui/SPEC.md`
+
+## 2026-06-02 - UI Layout Refinement
+
+Status:
+- completed
+
+Summary:
+- Refined the article shell layout so desktop and tablet routes keep solid black header/footer chrome while the master/detail workspace owns scrolling.
+- Updated the mobile stacked layout for a 430x960 CSS-pixel viewport with a capped, internally scrollable master list and unbounded detail content in normal document flow.
+- Preserved the visible password textarea behavior for the pasted 2048-character bearer secret.
+
+Decisions:
+- Desktop/tablet article routes keep the document fixed to the viewport and make `.article-workspace` the single scroll container.
+- Mobile article routes use document scrolling. The master list is capped to a reasonable viewport-relative height and scrolls internally; detail content grows without an internal scroll container.
+- The login password control may be a visible textarea. The password value remains transient and must not be persisted or logged.
+
+Validation:
+- `cd src/ui && npm run format`: passed.
+- `cd src/ui && npm run lint`: passed.
+- `cd src/ui && npm run build`: passed.
+- `cd src/ui && npm run test`: passed, 2 test files and 28 tests.
+- Browser validation used the built UI with a temporary same-origin mock API.
+- Desktop 1280x720 `/articles/01HREADY000000000000000000`: document scroll height matched the viewport, header/footer backgrounds were solid black, `.article-workspace` was the only scroll container, and master/detail panes used visible overflow.
+- Mobile 430x960 `/articles/01HREADY000000000000000000`: document scrolling was enabled, horizontal scroll was absent, the master list max height resolved to 384px and scrolled internally, and detail content was unbounded in normal page flow.
+- `/login`: password control rendered as `TEXTAREA`.
+
+Follow-ups:
+- None.
+
+Canonical Updates:
+- `docs/specs/ui/SPEC.md`
+- `docs/specs/ui/tasks/UI-002-ui-routing-design-system-api-base-auth-shell.md`
+- `docs/specs/ui/tasks/UI-003-article-master-detail-and-delete-workflow.md`
+- `docs/specs/ui/plans/UI-002-ui-routing-design-system-api-base-auth-shell.execplan.md`

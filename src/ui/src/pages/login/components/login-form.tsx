@@ -16,8 +16,7 @@ export function LoginForm({
 			<h1 className="login-title">ARCHIVIST</h1>
 			<label className="field">
 				<span className="field-label">PASSWORD</span>
-				<input
-					type="password"
+				<textarea
 					aria-label="Password"
 					className="password-input"
 					placeholder="BEGIN KEY BLOCK..."

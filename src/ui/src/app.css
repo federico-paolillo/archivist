@@ -24,10 +24,13 @@
 
 	body {
 		min-height: 100vh;
+		min-height: 100svh;
+		min-height: 100dvh;
 	}
 
 	button,
-	input {
+	input,
+	textarea {
 		font: inherit;
 	}
 
@@ -213,7 +216,11 @@
 	.article-shell {
 		display: grid;
 		height: 100vh;
+		height: 100svh;
+		height: 100dvh;
 		min-height: 100vh;
+		min-height: 100svh;
+		min-height: 100dvh;
 		grid-template-rows: 80px minmax(0, 1fr) 40px;
 		overflow: hidden;
 		background: #000000;
@@ -225,7 +232,7 @@
 		align-items: stretch;
 		justify-content: space-between;
 		border-bottom: 2px solid #ffffff;
-		background: #0e0e0e;
+		background: #000000;
 	}
 
 	.brand-link {
@@ -310,14 +317,14 @@
 		display: grid;
 		min-height: 0;
 		grid-template-columns: minmax(440px, 532px) minmax(0, 1fr);
-		overflow: hidden;
+		overflow: auto;
 		background: #000000;
 		border-bottom: 2px solid #ffffff;
 	}
 
 	.article-master {
 		min-height: 0;
-		overflow: auto;
+		overflow: visible;
 		border-right: 2px solid #ffffff;
 		background: #131313;
 		padding: 20px;
@@ -415,7 +422,7 @@
 		position: relative;
 		min-width: 0;
 		min-height: 0;
-		overflow: auto;
+		overflow: visible;
 		background: #000000;
 	}
 
@@ -641,24 +648,79 @@
 			padding: 24px;
 		}
 
+		.article-shell {
+			display: block;
+			height: auto;
+			min-height: 100vh;
+			min-height: 100svh;
+			min-height: 100dvh;
+			overflow: visible;
+		}
+
+		.top-bar {
+			min-height: 72px;
+		}
+
+		.brand-link {
+			padding: 0 18px;
+			font-size: 22px;
+		}
+
 		.article-workspace {
+			display: block;
+			min-height: 0;
 			grid-template-columns: 1fr;
-			grid-template-rows: 260px minmax(0, 1fr);
+			overflow: visible;
 		}
 
 		.article-master {
+			max-height: max(240px, 40svh);
+			overflow: auto;
 			border-right: 0;
 			border-bottom: 4px solid #ffffff;
+			padding: 16px;
 		}
 
 		.article-row {
-			min-height: 180px;
+			min-height: 156px;
+			gap: 12px;
+			margin-bottom: 16px;
+			padding: 16px;
+		}
+
+		.article-row-title {
+			font-size: 28px;
+			line-height: 1.12;
+			overflow-wrap: anywhere;
+		}
+
+		.article-row-url {
+			font-size: 14px;
 		}
 
 		.article-actions {
 			position: static;
+			flex-wrap: wrap;
 			justify-content: flex-start;
 			padding: 18px 18px 0;
+		}
+
+		.button-outline {
+			min-width: 0;
+			max-width: 100%;
+			padding: 0 14px;
+			overflow-wrap: anywhere;
+		}
+
+		.article-detail,
+		.article-detail-blank {
+			min-height: 420px;
+		}
+
+		.detail-message {
+			position: static;
+			min-height: 420px;
+			padding: 24px 18px;
 		}
 
 		.detail-hero {
@@ -666,9 +728,36 @@
 			padding: 18px;
 		}
 
+		.detail-hero h1 {
+			font-size: 42px;
+			line-height: 1;
+			overflow-wrap: anywhere;
+		}
+
 		.summary-panel,
 		.content-panel {
 			padding: 22px 18px;
+		}
+
+		.markdown-content {
+			font-size: 16px;
+			overflow-wrap: anywhere;
+		}
+
+		.markdown-content h1 {
+			font-size: 34px;
+		}
+
+		.markdown-content h2 {
+			font-size: 28px;
+		}
+
+		.markdown-content h3 {
+			font-size: 22px;
+		}
+
+		.article-footer {
+			min-height: 40px;
 		}
 	}
 }

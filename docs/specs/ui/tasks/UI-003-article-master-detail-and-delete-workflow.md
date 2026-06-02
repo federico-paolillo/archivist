@@ -26,6 +26,8 @@ This task includes:
 
 - Article list loading from `GET ${apiBasePath}/articles`.
 - Master-detail layout matching `docs/design/view.png`.
+- Desktop/tablet article layout where the master/detail workspace is the only scrolling page section.
+- Mobile stacked layout for a 430x960 CSS-pixel viewport with a capped, internally scrollable master list and unbounded detail content.
 - Article row selection and URL update to `/articles/<article_id>`.
 - Detail loading spinner.
 - Blank black detail pane for `/articles` with no selected id.

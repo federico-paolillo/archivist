@@ -51,7 +51,7 @@ Add only ExecPlan-specific context:
 5. Introduce route handling through `preact-iso` for `/login`, `/login/failed`, `/articles`, and `/articles/:articleId`.
 6. Add a protected-route/session gate for article routes that calls `GET /auth/session` and sends `401` results to `/login`.
 7. Build global CSS design primitives in `app.css`: black surfaces, white text, 0px radius, 2px/4px borders, no shadows, no gradients, Space Grotesk/Public Sans font stacks with safe fallbacks, and fixed-grid spacing.
-8. Implement `/login` with the centered ARCHIVIST title, large masked password control, and `IDENTIFY` submit control matching `docs/design/login.png`.
+8. Implement `/login` with the centered ARCHIVIST title, large visible password textarea/control, and `IDENTIFY` submit control matching `docs/design/login.png`.
 9. Keep the login password only in transient component state; clear it after submit completion.
 10. On login success, navigate to `/articles`.
 11. On login failure or non-204 response, navigate to `/login/failed`.
