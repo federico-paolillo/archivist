@@ -364,6 +364,36 @@ describe("article routes", () => {
 		expect(await screen.findByText("Sensor Data Acquisition")).not.toBeNull();
 	});
 
+	it("keeps the detail pane blank when a pending detail resolves after returning to /articles", async () => {
+		const detail = deferred<ArticleDetail>();
+		const deps = makeTestDeps({
+			getArticle: vi.fn(async () => detail.promise),
+		});
+		const user = userEvent.setup();
+
+		mountAt(`/articles/${readyArticle.id}`, deps);
+
+		expect(
+			await screen.findByLabelText("Loading article detail"),
+		).not.toBeNull();
+		await user.click(screen.getByRole("link", { name: "Archivist" }));
+
+		await waitFor(() => {
+			expect(window.location.pathname).toBe("/articles");
+		});
+		await waitFor(() => {
+			expect(document.querySelector(".article-detail-blank")).not.toBeNull();
+		});
+
+		await act(async () => {
+			detail.resolve(readyArticle);
+			await detail.promise;
+		});
+
+		expect(document.querySelector(".article-detail-blank")).not.toBeNull();
+		expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
+	});
+
 	it("renders ready detail with safe markdown, Original, and Delete", async () => {
 		const deps = makeTestDeps();
 
