@@ -22,6 +22,10 @@ internal static class Endpoints
             .RequireAuthorization()
             .AddEndpointFilter<SameOriginFilter>();
 
+        app.MapDelete("/articles/{id}/force", Handlers.ForceDeleteArticle)
+            .RequireAuthorization()
+            .AddEndpointFilter<SameOriginFilter>();
+
         return app;
     }
 }

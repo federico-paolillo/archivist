@@ -40,6 +40,9 @@ describe("auth api client", () => {
 		await expect(client.listArticles()).resolves.toEqual({});
 		await expect(client.getArticle("01H/unsafe")).resolves.toEqual({});
 		await expect(client.deleteArticle("01H/unsafe")).resolves.toBeUndefined();
+		await expect(
+			client.forceDeleteArticle("01H/unsafe"),
+		).resolves.toBeUndefined();
 
 		expect(fetcher).toHaveBeenNthCalledWith(1, "/edge/api/login", {
 			method: "POST",
@@ -72,6 +75,14 @@ describe("auth api client", () => {
 		expect(fetcher).toHaveBeenNthCalledWith(
 			6,
 			"/edge/api/articles/01H%2Funsafe",
+			{
+				method: "DELETE",
+				credentials: "include",
+			},
+		);
+		expect(fetcher).toHaveBeenNthCalledWith(
+			7,
+			"/edge/api/articles/01H%2Funsafe/force",
 			{
 				method: "DELETE",
 				credentials: "include",

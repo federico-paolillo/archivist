@@ -263,3 +263,14 @@ Do not add sliding expiry, refresh tokens, multiple concurrent sessions per user
 **Decision:** Worker ARC classification is implemented by `src/worker/internal/arc`, which owns ARC code constants, public messages, and typed sentinel errors. Worker functions return `error` for failures. Provider adapters return `(output, error)`, wrap ARC sentinels with `%w` or typed diagnostic errors when needed, and do not put ARC codes in result DTO fields. Package diagnostic errors preserve operation metadata and unwrap to ARC sentinels or lower-level causes where callers need `errors.Is` or `errors.As`; packages must not add low-value ARC alias surfaces. Pipeline orchestration uses `errors.Is`, `errors.As`, and `arc.CodeOf` for classification, logs diagnostic errors separately, and persists public article/job errors by rendering the ARC code through `arc.PublicMessage`.
 
 **Consequences:** Wrapped provider, HTTP, SDK, and filesystem details remain available to logs without leaking into `articles.error_message` or `jobs.error_message`. Terminal public text is rendered only when the pipeline persists terminal article/job failure state; diagnostic `err.Error()` strings must not be persisted as public ARC text. Rebuilds must not reintroduce adapter result fields such as `ErrorCode` or `ResultStatus` for failure classification. `docs/ERRORS.md` remains the canonical human ARC catalog; `internal/arc` is the Go implementation of that catalog.
+
+### DSGN-017: Stale Running Jobs Are Operator-Recoverable By Force Delete
+
+**Date:** 2026-06-02
+**Status:** accepted
+
+**Context:** The Worker claims queued jobs by updating SQLite state to `running` before article processing. If infrastructure fails after claim but before terminal persistence, the job can remain `running` indefinitely. Normal article deletion rejects running jobs to avoid racing an active worker, which leaves abandoned running jobs undeletable.
+
+**Decision:** Archivist treats running jobs as force-delete eligible only after they are stale. A running job is stale when `started_at <= now - 2 hours`; `started_at IS NULL` is stale for recovery because a claimed job without a start timestamp cannot represent a healthy active claim. Force delete is an explicit authenticated same-origin Gateway action for user-owned articles. It deletes the article, associated jobs, associated notifications, and deterministic artifact directory. Normal delete continues to reject running jobs. This decision does not add automatic retry, requeue, rollback-to-queued behavior, lock owners, heartbeats, new job states, or schema changes.
+
+**Consequences:** The UI can expose a deliberate cleanup path for zombie jobs without weakening normal delete safety for active work. The stale threshold is conservative for v0 single-worker operation. Future automatic retry, heartbeat, or multi-worker locking behavior requires a new canonical feature and design update.

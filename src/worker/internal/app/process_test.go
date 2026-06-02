@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"io"
@@ -171,10 +172,33 @@ func TestProcessLoopExitsWhenContextIsCanceledWhileIdle(t *testing.T) {
 	}
 }
 
+func TestProcessLoopLogsIterationStartAndIdlePollResult(t *testing.T) {
+	var logs bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	application, _ := newProcessTestAppWithLogger(t, logger)
+
+	exit, err := runProcessLoopIteration(t.Context(), application, true, time.Second)
+	require.NoError(t, err)
+	require.True(t, exit)
+
+	logText := logs.String()
+	assert.Contains(t, logText, `"stage":"process_loop"`)
+	assert.Contains(t, logText, `"status":"start"`)
+	assert.Contains(t, logText, `"status":"idle"`)
+	assert.Contains(t, logText, `"processed":false`)
+}
+
 func newProcessTestApp(t *testing.T) (*pkgapp.App, *config.Root) {
 	t.Helper()
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	return newProcessTestAppWithLogger(t, logger)
+}
+
+func newProcessTestAppWithLogger(t *testing.T, logger *slog.Logger) (*pkgapp.App, *config.Root) {
+	t.Helper()
+
 	logLevel := new(slog.LevelVar)
 
 	cfg := config.Default()

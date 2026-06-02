@@ -114,6 +114,38 @@ internal static class Handlers
         };
     }
 
+    /// <summary>
+    /// DELETE /articles/{id}/force hard-deletes a user-owned article when running jobs are stale.
+    /// </summary>
+    public static async Task<Results<NoContent, BadRequest<ErrorResponse>, NotFound<ErrorResponse>, Conflict<ErrorResponse>, InternalServerError<ErrorResponse>>> ForceDeleteArticle(
+        string id,
+        HttpContext context,
+        IArticleDeleteService deleteService,
+        CancellationToken ct)
+    {
+        if (!TryNormalizeUlid(id, out var articleId))
+        {
+            return TypedResults.BadRequest(new ErrorResponse("Malformed article id."));
+        }
+
+        var userId = context.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return TypedResults.NotFound(new ErrorResponse("Article not found."));
+        }
+
+        var result = await deleteService.ForceDeleteAsync(articleId, userId, ct).ConfigureAwait(false);
+
+        return result switch
+        {
+            ArticleDeleteResult.Deleted => TypedResults.NoContent(),
+            ArticleDeleteResult.NotFound => TypedResults.NotFound(new ErrorResponse("Article not found.")),
+            ArticleDeleteResult.RunningJobConflict => TypedResults.Conflict(new ErrorResponse("Article has an active running job.")),
+            ArticleDeleteResult.ArtifactCleanupFailed => TypedResults.InternalServerError(new ErrorResponse("Artifact cleanup failed.")),
+            _ => TypedResults.InternalServerError(new ErrorResponse("Article force delete failed.")),
+        };
+    }
+
     private static ArticleListItemResponse ToResponse(ArticleListItem item) =>
         new(
             item.Id,
@@ -134,7 +166,8 @@ internal static class Handlers
             detail.ErrorMessage,
             detail.CreatedAt,
             detail.SummaryMarkdown,
-            detail.ContentMarkdown);
+            detail.ContentMarkdown,
+            detail.CanForceDelete);
 
     private static bool TryNormalizeOptionalUlid(string? id, out string? normalized)
     {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	pkgapp "codeberg.org/federico-paolillo/archivist/pkg/app"
@@ -38,6 +39,13 @@ func runProcessLoopIteration(
 		return true, nil
 	}
 
+	a.Logger.Info(
+		"worker: process loop iteration started",
+		slog.String("stage", "process_loop"),
+		slog.String("status", "start"),
+		slog.Bool("once", once),
+	)
+
 	processed, err := a.SnapshotPipeline.ProcessOne(ctx)
 	if err != nil {
 		if contextCancelled(ctx) {
@@ -48,12 +56,29 @@ func runProcessLoopIteration(
 	}
 
 	if once {
+		if !processed {
+			a.Logger.Info(
+				"worker: process poll result",
+				slog.String("stage", "process_loop"),
+				slog.String("status", "idle"),
+				slog.Bool("processed", false),
+			)
+		}
+
 		return true, nil
 	}
 
 	if processed {
 		return false, nil
 	}
+
+	a.Logger.Info(
+		"worker: process poll result",
+		slog.String("stage", "process_loop"),
+		slog.String("status", "idle"),
+		slog.Bool("processed", false),
+		slog.Duration("idle_sleep", idleSleep),
+	)
 
 	return waitForNextProcessPoll(ctx, idleSleep), nil
 }

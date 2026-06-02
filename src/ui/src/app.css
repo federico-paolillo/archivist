@@ -199,6 +199,17 @@
 		text-transform: uppercase;
 	}
 
+	.button-danger {
+		border-color: #ff4b4b;
+		color: #ff4b4b;
+	}
+
+	.button-danger:hover,
+	.button-danger:focus-visible {
+		background: #ff4b4b;
+		color: #000000;
+	}
+
 	.article-shell {
 		display: grid;
 		height: 100vh;

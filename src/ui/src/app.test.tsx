@@ -6,7 +6,7 @@ import {
 	type ArticleMetadata,
 	type Deps,
 } from "@archivist/deps.ts";
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { render } from "preact";
 import { act } from "preact/test-utils";
@@ -27,6 +27,7 @@ function makeTestDeps(overrides: Partial<Deps["api"]> = {}): Deps {
 				async (id: string) => articleDetails[id] ?? readyArticle,
 			),
 			deleteArticle: vi.fn(async () => undefined),
+			forceDeleteArticle: vi.fn(async () => undefined),
 			...overrides,
 		},
 	};
@@ -40,6 +41,7 @@ const readyArticle: ArticleDetail = {
 	status: "ready",
 	errorMessage: null,
 	createdAt: "2026-05-06T12:00:00Z",
+	canForceDelete: false,
 	summaryMarkdown:
 		"Recent seismic sensors registered **anomalous** vibrations. <img src=x onerror=alert(1)> [bad](javascript:alert(1)) [good](https://example.com/good)",
 	contentMarkdown:
@@ -54,6 +56,7 @@ const queuedArticle: ArticleDetail = {
 	status: "queued",
 	errorMessage: null,
 	createdAt: "2026-05-06T13:00:00Z",
+	canForceDelete: false,
 	summaryMarkdown: null,
 	contentMarkdown: null,
 };
@@ -66,6 +69,20 @@ const failedArticle: ArticleDetail = {
 	status: "failed",
 	errorMessage: "ARC-100: extraction failed.",
 	createdAt: "2026-05-06T14:00:00Z",
+	canForceDelete: false,
+	summaryMarkdown: null,
+	contentMarkdown: null,
+};
+
+const forceDeletableArticle: ArticleDetail = {
+	id: "01HFORCE00000000000000000",
+	title: "Stale running article",
+	originalUrl: "https://example.com/stale",
+	canonicalUrl: null,
+	status: "queued",
+	errorMessage: null,
+	createdAt: "2026-05-06T15:00:00Z",
+	canForceDelete: true,
 	summaryMarkdown: null,
 	contentMarkdown: null,
 };
@@ -74,12 +91,14 @@ const articles: ArticleMetadata[] = [
 	readyArticle,
 	queuedArticle,
 	failedArticle,
+	forceDeletableArticle,
 ];
 
 const articleDetails: Record<string, ArticleDetail> = {
 	[readyArticle.id]: readyArticle,
 	[queuedArticle.id]: queuedArticle,
 	[failedArticle.id]: failedArticle,
+	[forceDeletableArticle.id]: forceDeletableArticle,
 };
 
 function deferred<T>() {
@@ -100,6 +119,14 @@ function mountAt(path: string, deps: Deps) {
 
 	act(() => {
 		render(<App deps={deps} />, root);
+	});
+}
+
+async function waitForMasterListArticle(title: string | null) {
+	await waitFor(() => {
+		expect(document.querySelector(".article-master")?.textContent).toContain(
+			title ?? "",
+		);
 	});
 }
 
@@ -387,6 +414,28 @@ describe("article routes", () => {
 		).toBe(failedArticle.canonicalUrl);
 	});
 
+	it("shows Force Delete only when article detail allows it", async () => {
+		const deps = makeTestDeps();
+
+		mountAt(`/articles/${forceDeletableArticle.id}`, deps);
+
+		expect(
+			await screen.findByRole("button", { name: "Force Delete" }),
+		).not.toBeNull();
+		expect(deps.api.getArticle).toHaveBeenCalledWith(forceDeletableArticle.id);
+	});
+
+	it("hides Force Delete when article detail does not allow it", async () => {
+		const deps = makeTestDeps();
+
+		mountAt(`/articles/${readyArticle.id}`, deps);
+
+		expect(
+			await screen.findByRole("button", { name: "Delete" }),
+		).not.toBeNull();
+		expect(screen.queryByRole("button", { name: "Force Delete" })).toBeNull();
+	});
+
 	it("renders detail fetch failures centered in the detail pane", async () => {
 		const deps = makeTestDeps({
 			getArticle: vi.fn(async () => {
@@ -424,23 +473,56 @@ describe("article routes", () => {
 
 		mountAt(`/articles/${readyArticle.id}`, deps);
 
-		await user.click(await screen.findByRole("button", { name: "Delete" }));
+		await waitForMasterListArticle(readyArticle.title);
+		const deleteButton = await screen.findByRole("button", { name: "Delete" });
+		await user.click(deleteButton);
 		expect(screen.getByText("Are you sure?")).not.toBeNull();
+		await waitFor(() => {
+			expect(document.activeElement).toBe(
+				screen.getByRole("button", { name: "Yes" }),
+			);
+		});
+		await user.tab();
+		expect(document.activeElement).toBe(
+			screen.getByRole("button", { name: "Nevermind" }),
+		);
+		await user.tab();
+		expect(document.activeElement).toBe(
+			screen.getByRole("button", { name: "Yes" }),
+		);
+		await user.tab({ shift: true });
+		expect(document.activeElement).toBe(
+			screen.getByRole("button", { name: "Nevermind" }),
+		);
 		await user.click(screen.getByRole("button", { name: "Nevermind" }));
 
 		expect(deps.api.deleteArticle).not.toHaveBeenCalled();
 		expect(window.location.pathname).toBe(`/articles/${readyArticle.id}`);
 		expect(screen.queryByText("Are you sure?")).toBeNull();
+		await waitFor(() => {
+			expect(document.activeElement).toBe(deleteButton);
+		});
 	});
 
 	it("deletes on confirmation, removes the item, and clears detail", async () => {
+		let isDeleted = false;
 		const deps = makeTestDeps({
-			deleteArticle: vi.fn(async () => undefined),
+			listArticles: vi.fn(async () => ({
+				items: isDeleted
+					? articles.filter((article) => article.id !== readyArticle.id)
+					: articles,
+				nextCursor: null,
+				previousCursor: null,
+			})),
+			deleteArticle: vi.fn(async () => {
+				isDeleted = true;
+			}),
 		});
 		const user = userEvent.setup();
 
 		mountAt(`/articles/${readyArticle.id}`, deps);
 
+		await waitForMasterListArticle(readyArticle.title);
 		await user.click(await screen.findByRole("button", { name: "Delete" }));
 		await user.click(screen.getByRole("button", { name: "Yes" }));
 
@@ -448,8 +530,15 @@ describe("article routes", () => {
 			expect(window.location.pathname).toBe("/articles");
 		});
 		expect(deps.api.deleteArticle).toHaveBeenCalledWith(readyArticle.id);
-		expect(screen.queryByText(readyArticle.title ?? "")).toBeNull();
-		expect(document.querySelector(".article-detail-blank")).not.toBeNull();
+		await waitFor(() => {
+			expect(screen.queryByText(readyArticle.title ?? "")).toBeNull();
+			expect(document.querySelector(".article-detail-blank")).not.toBeNull();
+		});
+		await waitFor(() => {
+			expect(document.activeElement).toBe(
+				document.querySelector(".article-shell"),
+			);
+		});
 	});
 
 	it("leaves the article selected and renders delete failures", async () => {
@@ -468,5 +557,150 @@ describe("article routes", () => {
 		expect(await screen.findByText("Delete rejected.")).not.toBeNull();
 		expect(window.location.pathname).toBe(`/articles/${readyArticle.id}`);
 		expect(screen.getByText(readyArticle.title ?? "")).not.toBeNull();
+	});
+
+	it("does not force delete when the force-delete modal is cancelled", async () => {
+		const deps = makeTestDeps({
+			forceDeleteArticle: vi.fn(async () => undefined),
+		});
+		const user = userEvent.setup();
+
+		mountAt(`/articles/${forceDeletableArticle.id}`, deps);
+
+		await waitForMasterListArticle(forceDeletableArticle.title);
+		const forceDeleteButton = await screen.findByRole("button", {
+			name: "Force Delete",
+		});
+		await user.click(forceDeleteButton);
+		expect(screen.getByText("Force delete this article?")).not.toBeNull();
+		const dialog = screen.getByRole("dialog", {
+			name: "Force delete this article?",
+		});
+		await waitFor(() => {
+			expect(document.activeElement).toBe(
+				within(dialog).getByRole("button", { name: "Force Delete" }),
+			);
+		});
+		await user.tab();
+		expect(document.activeElement).toBe(
+			within(dialog).getByRole("button", { name: "Nevermind" }),
+		);
+		await user.tab();
+		expect(document.activeElement).toBe(
+			within(dialog).getByRole("button", { name: "Force Delete" }),
+		);
+		await user.click(screen.getByRole("button", { name: "Nevermind" }));
+
+		expect(deps.api.forceDeleteArticle).not.toHaveBeenCalled();
+		expect(window.location.pathname).toBe(
+			`/articles/${forceDeletableArticle.id}`,
+		);
+		expect(screen.queryByText("Force delete this article?")).toBeNull();
+		await waitFor(() => {
+			expect(document.activeElement).toBe(forceDeleteButton);
+		});
+	});
+
+	it("force deletes on confirmation, removes the item, and clears detail", async () => {
+		let isDeleted = false;
+		const deps = makeTestDeps({
+			listArticles: vi.fn(async () => ({
+				items: isDeleted
+					? articles.filter(
+							(article) => article.id !== forceDeletableArticle.id,
+						)
+					: articles,
+				nextCursor: null,
+				previousCursor: null,
+			})),
+			forceDeleteArticle: vi.fn(async () => {
+				isDeleted = true;
+			}),
+		});
+		const user = userEvent.setup();
+
+		mountAt(`/articles/${forceDeletableArticle.id}`, deps);
+
+		await waitForMasterListArticle(forceDeletableArticle.title);
+		await user.click(
+			await screen.findByRole("button", { name: "Force Delete" }),
+		);
+		const dialog = screen.getByRole("dialog", {
+			name: "Force delete this article?",
+		});
+		await user.click(
+			within(dialog).getByRole("button", { name: "Force Delete" }),
+		);
+
+		await waitFor(() => {
+			expect(window.location.pathname).toBe("/articles");
+		});
+		expect(deps.api.forceDeleteArticle).toHaveBeenCalledWith(
+			forceDeletableArticle.id,
+		);
+		expect(screen.queryByText(forceDeletableArticle.title ?? "")).toBeNull();
+		expect(document.querySelector(".article-detail-blank")).not.toBeNull();
+		await waitFor(() => {
+			expect(document.activeElement).toBe(
+				document.querySelector(".article-shell"),
+			);
+		});
+	});
+
+	it("leaves the article selected and renders force-delete failures", async () => {
+		const deps = makeTestDeps({
+			forceDeleteArticle: vi.fn(async () => {
+				throw new ApiRequestError("Force delete rejected by Gateway.");
+			}),
+		});
+		const user = userEvent.setup();
+
+		mountAt(`/articles/${forceDeletableArticle.id}`, deps);
+
+		await user.click(
+			await screen.findByRole("button", { name: "Force Delete" }),
+		);
+		const dialog = screen.getByRole("dialog", {
+			name: "Force delete this article?",
+		});
+		await user.click(
+			within(dialog).getByRole("button", { name: "Force Delete" }),
+		);
+
+		expect(
+			await screen.findByText("Force delete rejected by Gateway."),
+		).not.toBeNull();
+		expect(window.location.pathname).toBe(
+			`/articles/${forceDeletableArticle.id}`,
+		);
+		expect(screen.getByText(forceDeletableArticle.title ?? "")).not.toBeNull();
+	});
+
+	it("redirects to /login when force delete returns 401", async () => {
+		const deps = makeTestDeps({
+			forceDeleteArticle: vi.fn(async () => {
+				throw new ApiUnauthorizedError();
+			}),
+		});
+		const user = userEvent.setup();
+
+		mountAt(`/articles/${forceDeletableArticle.id}`, deps);
+
+		await user.click(
+			await screen.findByRole("button", { name: "Force Delete" }),
+		);
+		const dialog = screen.getByRole("dialog", {
+			name: "Force delete this article?",
+		});
+		await user.click(
+			within(dialog).getByRole("button", { name: "Force Delete" }),
+		);
+
+		await waitFor(() => {
+			expect(window.location.pathname).toBe("/login");
+		});
+		expect(deps.api.forceDeleteArticle).toHaveBeenCalledWith(
+			forceDeletableArticle.id,
+		);
 	});
 });

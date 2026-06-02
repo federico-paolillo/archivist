@@ -87,6 +87,14 @@ func (p *SnapshotPipeline) ProcessOne(ctx context.Context) (bool, error) {
 
 	start := time.Now()
 
+	p.logger.Info(
+		"pipeline: job claimed",
+		slog.String("article_id", job.ArticleID),
+		slog.String("job_id", job.ID),
+		slog.String("stage", "claim"),
+		slog.String("status", "claimed"),
+	)
+
 	articleURL, urlErr := p.repo.ArticleURL(ctx, job.ArticleID)
 	if urlErr != nil {
 		return false, fmt.Errorf("pipeline: load article URL for %s: %w", job.ArticleID, urlErr)
@@ -97,6 +105,8 @@ func (p *SnapshotPipeline) ProcessOne(ctx context.Context) (bool, error) {
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
 		slog.String("url", articleURL),
+		slog.String("stage", "process"),
+		slog.String("status", "start"),
 	)
 
 	processingErr := p.runStages(ctx, job, articleURL)
@@ -121,6 +131,7 @@ func (p *SnapshotPipeline) ProcessOne(ctx context.Context) (bool, error) {
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
 		slog.Duration("duration", duration),
+		slog.String("stage", "process"),
 		slog.String("status", "pipeline_done"),
 	)
 
@@ -140,6 +151,7 @@ func (p *SnapshotPipeline) persistFailure(
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
 		slog.String("url", articleURL),
+		slog.String("stage", "terminal_failure"),
 		slog.String("status", "failed"),
 		slog.Duration("duration", duration),
 		slog.String("arc_code", arc.CodeString(processingErr)),
@@ -151,13 +163,44 @@ func (p *SnapshotPipeline) persistFailure(
 		errorMessage = arc.Format(arc.CodeUnknownProcessingFailure)
 	}
 
+	p.logger.Info(
+		"pipeline: terminal failure persistence started",
+		slog.String("article_id", job.ArticleID),
+		slog.String("job_id", job.ID),
+		slog.String("url", articleURL),
+		slog.String("stage", "terminal_failure"),
+		slog.String("status", "start"),
+		slog.String("arc_code", arc.CodeString(processingErr)),
+	)
+
 	terminalErr := p.repo.CompleteTerminal(ctx, job, jobs.TerminalOutcome{
 		Success:      false,
 		ErrorMessage: errorMessage,
 	})
 	if terminalErr != nil {
+		p.logger.Error(
+			"pipeline: terminal failure persistence failed",
+			slog.String("article_id", job.ArticleID),
+			slog.String("job_id", job.ID),
+			slog.String("url", articleURL),
+			slog.String("stage", "terminal_failure"),
+			slog.String("status", "terminal_persist_failed"),
+			slog.String("arc_code", arc.CodeString(processingErr)),
+			slog.Any("error", terminalErr),
+		)
+
 		return fmt.Errorf("pipeline: persist terminal failure for job %s: %w", job.ID, terminalErr)
 	}
+
+	p.logger.Info(
+		"pipeline: terminal failure persisted",
+		slog.String("article_id", job.ArticleID),
+		slog.String("job_id", job.ID),
+		slog.String("url", articleURL),
+		slog.String("stage", "terminal_failure"),
+		slog.String("status", "persisted"),
+		slog.String("arc_code", arc.CodeString(processingErr)),
+	)
 
 	return nil
 }
@@ -185,12 +228,46 @@ func (p *SnapshotPipeline) runStages(ctx context.Context, job *jobs.Job, article
 
 // fetchHTML calls the fetcher and maps unexpected errors to ErrUnknown.
 func (p *SnapshotPipeline) fetchHTML(ctx context.Context, job *jobs.Job, articleURL string) (*fetcher.Result, error) {
+	start := time.Now()
+
+	p.logger.Info(
+		"pipeline: fetch started",
+		slog.String("article_id", job.ArticleID),
+		slog.String("job_id", job.ID),
+		slog.String("url", articleURL),
+		slog.String("stage", "fetch"),
+		slog.String("status", "start"),
+	)
+
 	result, fetchErr := p.fetch.Fetch(ctx, articleURL)
 	if fetchErr == nil {
+		p.logger.Info(
+			"pipeline: fetch completed",
+			slog.String("article_id", job.ArticleID),
+			slog.String("job_id", job.ID),
+			slog.String("url", articleURL),
+			slog.String("final_url", result.FinalURL),
+			slog.String("stage", "fetch"),
+			slog.String("status", "success"),
+			slog.Duration("duration", time.Since(start)),
+		)
+
 		return result, nil
 	}
 
 	if _, ok := arc.CodeOf(fetchErr); ok {
+		p.logger.Info(
+			"pipeline: fetch completed",
+			slog.String("article_id", job.ArticleID),
+			slog.String("job_id", job.ID),
+			slog.String("url", articleURL),
+			slog.String("stage", "fetch"),
+			slog.String("status", "failure"),
+			slog.Duration("duration", time.Since(start)),
+			slog.String("arc_code", arc.CodeString(fetchErr)),
+			slog.Any("error", fetchErr),
+		)
+
 		return nil, pipelineFailure(
 			"fetch",
 			"fetch html",
@@ -205,6 +282,9 @@ func (p *SnapshotPipeline) fetchHTML(ctx context.Context, job *jobs.Job, article
 		"pipeline: unexpected fetch error",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
+		slog.String("stage", "fetch"),
+		slog.String("status", "failure"),
+		slog.Duration("duration", time.Since(start)),
 		slog.String("arc_code", arc.CodeString(arc.ErrUnknown)),
 		slog.Any("error", fetchErr),
 	)
@@ -221,12 +301,25 @@ func (p *SnapshotPipeline) fetchHTML(ctx context.Context, job *jobs.Job, article
 
 // writeSnapshot atomically writes snapshot.html and maps failures to ARC-007.
 func (p *SnapshotPipeline) writeSnapshot(_ context.Context, job *jobs.Job, result *fetcher.Result) error {
+	start := time.Now()
+
+	p.logger.Info(
+		"pipeline: snapshot write started",
+		slog.String("article_id", job.ArticleID),
+		slog.String("job_id", job.ID),
+		slog.String("stage", "snapshot_write"),
+		slog.String("status", "start"),
+	)
+
 	snapshotErr := p.store.WriteSnapshot(job.ArticleID, bytes.NewReader(result.Body))
 	if snapshotErr != nil {
 		p.logger.Error(
 			"pipeline: snapshot write failed",
 			slog.String("article_id", job.ArticleID),
 			slog.String("job_id", job.ID),
+			slog.String("stage", "snapshot_write"),
+			slog.String("status", "failure"),
+			slog.Duration("duration", time.Since(start)),
 			slog.String("artifact_result", "failure"),
 			slog.String("arc_code", arc.CodeString(arc.ErrSnapshotWrite)),
 			slog.Any("error", snapshotErr),
@@ -245,6 +338,9 @@ func (p *SnapshotPipeline) writeSnapshot(_ context.Context, job *jobs.Job, resul
 		"pipeline: snapshot written",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
+		slog.String("stage", "snapshot_write"),
+		slog.String("status", "success"),
+		slog.Duration("duration", time.Since(start)),
 		slog.String("artifact_result", "success"),
 	)
 
@@ -258,6 +354,18 @@ func (p *SnapshotPipeline) updateCanonicalURL(
 	articleURL string,
 	finalURL string,
 ) error {
+	start := time.Now()
+
+	p.logger.Info(
+		"pipeline: canonical URL update started",
+		slog.String("article_id", job.ArticleID),
+		slog.String("job_id", job.ID),
+		slog.String("url", articleURL),
+		slog.String("final_url", finalURL),
+		slog.String("stage", "canonical_url_update"),
+		slog.String("status", "start"),
+	)
+
 	canonicalErr := p.repo.UpdateCanonicalURL(ctx, job.ArticleID, finalURL)
 	if canonicalErr != nil {
 		p.logger.Error(
@@ -265,6 +373,9 @@ func (p *SnapshotPipeline) updateCanonicalURL(
 			slog.String("article_id", job.ArticleID),
 			slog.String("job_id", job.ID),
 			slog.String("final_url", finalURL),
+			slog.String("stage", "canonical_url_update"),
+			slog.String("status", "failure"),
+			slog.Duration("duration", time.Since(start)),
 			slog.String("arc_code", arc.CodeString(arc.ErrUnknown)),
 			slog.Any("error", canonicalErr),
 		)
@@ -285,6 +396,9 @@ func (p *SnapshotPipeline) updateCanonicalURL(
 		slog.String("job_id", job.ID),
 		slog.String("url", articleURL),
 		slog.String("final_url", finalURL),
+		slog.String("stage", "canonical_url_update"),
+		slog.String("status", "success"),
+		slog.Duration("duration", time.Since(start)),
 	)
 
 	return nil

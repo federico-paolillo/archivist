@@ -59,16 +59,13 @@ func NewSummaryGenerationHandoff(
 }
 
 func (h *SummaryGenerationHandoff) Summarize(ctx context.Context, job *jobs.Job, canonicalURL string) error {
+	stageStart := time.Now()
+
+	h.logSummaryStageStart(ctx, job, canonicalURL)
+
 	markdownSource, err := h.readMarkdown(job.ArticleID)
 	if err != nil {
-		h.logger.Error(
-			"pipeline: summary markdown read failed",
-			slog.String("article_id", job.ArticleID),
-			slog.String("job_id", job.ID),
-			slog.String("url", canonicalURL),
-			slog.String("arc_code", arc.CodeString(arc.ErrUnknown)),
-			slog.Any("error", err),
-		)
+		h.logSummaryReadFailure(ctx, job, canonicalURL, stageStart, err)
 
 		return pipelineFailure(
 			"summary",
@@ -90,24 +87,112 @@ func (h *SummaryGenerationHandoff) Summarize(ctx context.Context, job *jobs.Job,
 		return err
 	}
 
+	h.logSummaryStageSuccess(ctx, job, canonicalURL, output, stageStart)
+	h.logTerminalSuccessStart(ctx, job, canonicalURL, output)
+
 	err = h.repo.CompleteTerminal(ctx, job, jobs.TerminalOutcome{Success: true})
 	if err != nil {
 		return h.compensateTerminalSuccessFailure(ctx, job, canonicalURL, output, err)
 	}
 
-	h.logger.Info(
-		"pipeline: summary completed",
+	h.logTerminalSuccessCompleted(ctx, job, canonicalURL, output, stageStart)
+
+	return nil
+}
+
+func (h *SummaryGenerationHandoff) logSummaryStageStart(ctx context.Context, job *jobs.Job, canonicalURL string) {
+	h.logger.LogAttrs(
+		ctx,
+		slog.LevelInfo,
+		"pipeline: summary stage started",
+		slog.String("article_id", job.ArticleID),
+		slog.String("job_id", job.ID),
+		slog.String("url", canonicalURL),
+		slog.String("stage", "summary"),
+		slog.String("status", "start"),
+		slog.String("provider", string(h.summarizer.Provider())),
+		slog.String("model", h.summarizer.Model()),
+	)
+}
+
+func (h *SummaryGenerationHandoff) logSummaryReadFailure(
+	ctx context.Context,
+	job *jobs.Job,
+	canonicalURL string,
+	stageStart time.Time,
+	err error,
+) {
+	h.logger.LogAttrs(
+		ctx,
+		slog.LevelError,
+		"pipeline: summary markdown read failed",
+		slog.String("article_id", job.ArticleID),
+		slog.String("job_id", job.ID),
+		slog.String("url", canonicalURL),
+		slog.String("stage", "summary"),
+		slog.String("status", "failure"),
+		slog.Duration("duration", time.Since(stageStart)),
+		slog.String("arc_code", arc.CodeString(arc.ErrUnknown)),
+		slog.Any("error", err),
+	)
+}
+
+func (h *SummaryGenerationHandoff) logSummaryStageSuccess(
+	ctx context.Context,
+	job *jobs.Job,
+	canonicalURL string,
+	output summary.SummarizerOutput,
+	stageStart time.Time,
+) {
+	h.logger.LogAttrs(ctx, slog.LevelInfo, "pipeline: summary stage completed", h.summaryAttrs(job, canonicalURL, output,
+		slog.String("stage", "summary"),
+		slog.String("status", "success"),
+		slog.Duration("duration", time.Since(stageStart)))...)
+}
+
+func (h *SummaryGenerationHandoff) logTerminalSuccessStart(
+	ctx context.Context,
+	job *jobs.Job,
+	canonicalURL string,
+	output summary.SummarizerOutput,
+) {
+	h.logger.LogAttrs(ctx, slog.LevelInfo, "pipeline: terminal success persistence started", h.summaryAttrs(job, canonicalURL, output,
+		slog.String("stage", "terminal_success"),
+		slog.String("status", "start"))...)
+}
+
+func (h *SummaryGenerationHandoff) logTerminalSuccessCompleted(
+	ctx context.Context,
+	job *jobs.Job,
+	canonicalURL string,
+	output summary.SummarizerOutput,
+	stageStart time.Time,
+) {
+	h.logger.LogAttrs(ctx, slog.LevelInfo, "pipeline: summary completed", h.summaryAttrs(job, canonicalURL, output,
+		slog.String("stage", "terminal_success"),
+		slog.String("status", "summary_done"),
+		slog.Duration("duration", time.Since(stageStart)))...)
+}
+
+func (h *SummaryGenerationHandoff) summaryAttrs(
+	job *jobs.Job,
+	canonicalURL string,
+	output summary.SummarizerOutput,
+	extra ...slog.Attr,
+) []slog.Attr {
+	attrs := make([]slog.Attr, 0, 7+len(extra))
+	attrs = append(
+		attrs,
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
 		slog.String("url", canonicalURL),
 		slog.String("provider", string(h.summarizer.Provider())),
 		slog.String("model", h.summarizer.Model()),
 		slog.String("request_id", output.RequestID),
-		slog.String("status", "summary_done"),
 		slog.String("artifact_result", "success"),
 	)
 
-	return nil
+	return append(attrs, extra...)
 }
 
 func (h *SummaryGenerationHandoff) compensateTerminalSuccessFailure(
@@ -131,8 +216,10 @@ func (h *SummaryGenerationHandoff) compensateTerminalSuccessFailure(
 		slog.String("provider", string(h.summarizer.Provider())),
 		slog.String("model", h.summarizer.Model()),
 		slog.String("request_id", output.RequestID),
+		slog.String("stage", "terminal_success"),
 		slog.String("status", "terminal_persist_failed"),
 		slog.String("artifact_result", artifactResult),
+		slog.Any("error", terminalErr),
 		slog.Any("terminal_error", terminalErr),
 	}
 	if cleanupErr != nil {
@@ -208,6 +295,7 @@ func (h *SummaryGenerationHandoff) summarize(
 		slog.String("provider", string(h.summarizer.Provider())),
 		slog.String("model", h.summarizer.Model()),
 		slog.String("request_id", requestID),
+		slog.String("stage", "summary"),
 		slog.Duration("duration", duration),
 	}
 
@@ -262,6 +350,8 @@ func (h *SummaryGenerationHandoff) writeSummary(
 			slog.String("provider", string(h.summarizer.Provider())),
 			slog.String("model", h.summarizer.Model()),
 			slog.String("request_id", output.RequestID),
+			slog.String("stage", "summary_write"),
+			slog.String("status", "failure"),
 			slog.String("artifact_result", "failure"),
 			slog.String("arc_code", arc.CodeString(arc.ErrSummaryWrite)),
 			slog.Any("error", err),
@@ -285,6 +375,8 @@ func (h *SummaryGenerationHandoff) writeSummary(
 		slog.String("provider", string(h.summarizer.Provider())),
 		slog.String("model", h.summarizer.Model()),
 		slog.String("request_id", output.RequestID),
+		slog.String("stage", "summary_write"),
+		slog.String("status", "success"),
 		slog.String("artifact_result", "success"),
 	)
 

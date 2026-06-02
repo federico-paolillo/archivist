@@ -366,6 +366,35 @@ func TestSnapshotWriteFailureLogsCanonicalErrorFieldAndARCCode(t *testing.T) {
 	assert.NotContains(t, logText, `"err":`)
 }
 
+func TestSnapshotLogsClaimBeforeArticleURLLoad(t *testing.T) {
+	var logs bytes.Buffer
+	logger := newBufferLogger(t, &logs)
+	repo := &claimBeforeURLLoadRepo{
+		job: &jobs.Job{
+			ID:        jobID,
+			ArticleID: articleID,
+			UserID:    personalUserID,
+			Type:      jobs.TypeArticleProcessing,
+			Status:    jobs.StatusRunning,
+			CreatedAt: time.Now().UTC(),
+			StartedAt: new(time.Time),
+		},
+	}
+
+	p := pipeline.NewSnapshotPipeline(logger, repo, nil, nil, pipeline.NoOpMarkdownHandoff)
+
+	processed, err := p.ProcessOne(t.Context())
+	require.Error(t, err)
+	require.False(t, processed)
+	require.True(t, repo.articleURLCalled)
+
+	logText := logs.String()
+	assert.Contains(t, logText, `"article_id":"`+articleID+`"`)
+	assert.Contains(t, logText, `"job_id":"`+jobID+`"`)
+	assert.Contains(t, logText, `"stage":"claim"`)
+	assert.Contains(t, logText, `"status":"claimed"`)
+}
+
 // TestSnapshotTransactionRollbackOnNotificationFailure demonstrates that a failed
 // notification insert causes the entire terminal transaction to roll back.
 // We simulate this by seeding a duplicate notification row that will cause the
@@ -398,7 +427,10 @@ func TestSnapshotTransactionRollbackOnNotificationFailure(t *testing.T) {
 
 	fetch := newTestFetcher(srv.URL)
 
-	p := newTestPipeline(t, database, store, fetch, nil)
+	var logs bytes.Buffer
+	logger := newBufferLogger(t, &logs)
+	repo := jobs.NewSQLiteRepository(database, jobs.NewULIDGenerator())
+	p := pipeline.NewSnapshotPipeline(logger, repo, store, fetch, nil)
 
 	// The pipeline will attempt to insert a second notification, violating UNIQUE.
 	// The transaction should roll back, so articles.status remains in its pre-terminal state.
@@ -412,6 +444,13 @@ func TestSnapshotTransactionRollbackOnNotificationFailure(t *testing.T) {
 	// The job was claimed (status=running) but the terminal transition failed.
 	articleStatus := scalarString(t, database, `SELECT status FROM articles WHERE id = ?`, articleID)
 	assert.NotEqual(t, "failed", articleStatus)
+
+	logText := logs.String()
+	assert.Contains(t, logText, `"article_id":"`+articleID+`"`)
+	assert.Contains(t, logText, `"job_id":"`+jobID+`"`)
+	assert.Contains(t, logText, `"stage":"terminal_failure"`)
+	assert.Contains(t, logText, `"status":"terminal_persist_failed"`)
+	assert.Contains(t, logText, `"error":`)
 }
 
 // TestSnapshotNoQueuedJobReturnsFalse verifies that ProcessOne returns false when there are no jobs.
@@ -547,4 +586,31 @@ func TestWrappedARCFailurePersistsCleanPublicMessage(t *testing.T) {
 	const publicMessage = "[ARC-010] Archivist could not extract this page with the fallback reader."
 	assert.Equal(t, publicMessage, scalarNullableString(t, database, `SELECT error_message FROM articles WHERE id = ?`, articleID))
 	assert.Equal(t, publicMessage, scalarNullableString(t, database, `SELECT error_message FROM jobs WHERE id = ?`, jobID))
+}
+
+type claimBeforeURLLoadRepo struct {
+	job              *jobs.Job
+	articleURLCalled bool
+}
+
+func (r *claimBeforeURLLoadRepo) ClaimQueued(context.Context) (*jobs.Job, error) {
+	return r.job, nil
+}
+
+func (r *claimBeforeURLLoadRepo) CompleteTerminal(context.Context, *jobs.Job, jobs.TerminalOutcome) error {
+	return nil
+}
+
+func (r *claimBeforeURLLoadRepo) ArticleURL(context.Context, string) (string, error) {
+	r.articleURLCalled = true
+
+	return "", fmt.Errorf("article URL load failed")
+}
+
+func (r *claimBeforeURLLoadRepo) UpdateCanonicalURL(context.Context, string, string) error {
+	return nil
+}
+
+func (r *claimBeforeURLLoadRepo) UpdateArticleTitle(context.Context, string, string) error {
+	return nil
 }

@@ -23,6 +23,7 @@ public sealed class ArticleReadEndpointTest(ITestOutputHelper testOutputHelper) 
     private const string PersonalUserId = PersistenceConstants.PersonalUserId;
     private const string OtherUserId = "01ASB2XFCZJY7WHZ2FNRTMQJCV";
     private const string UlidAlphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+    private static readonly DateTimeOffset FixedNow = new(2026, 5, 7, 12, 0, 0, TimeSpan.Zero);
 
     [Fact]
     public async Task ListArticles_Unauthenticated_Returns401()
@@ -167,6 +168,7 @@ public sealed class ArticleReadEndpointTest(ITestOutputHelper testOutputHelper) 
         Assert.Equal(articleId, root.GetProperty("id").GetString());
         Assert.Equal("Summary text", root.GetProperty("summaryMarkdown").GetString());
         Assert.Equal("Content text", root.GetProperty("contentMarkdown").GetString());
+        Assert.False(root.GetProperty("canForceDelete").GetBoolean());
     }
 
     [Fact]
@@ -203,13 +205,60 @@ public sealed class ArticleReadEndpointTest(ITestOutputHelper testOutputHelper) 
         var root = body.RootElement;
         Assert.Equal(JsonValueKind.Null, root.GetProperty("summaryMarkdown").ValueKind);
         Assert.Equal(JsonValueKind.Null, root.GetProperty("contentMarkdown").ValueKind);
+        Assert.False(root.GetProperty("canForceDelete").GetBoolean());
+    }
+
+    [Fact]
+    public async Task GetArticle_StaleRunningJob_ReturnsCanForceDeleteTrue()
+    {
+        var env = PrepareArticleEnvironment();
+        var articleId = "01H00000000000000000000005";
+        await SeedArticlesAsync(env.SqlitePath, new List<string> { articleId }, PersonalUserId, PersistenceConstants.ArticleQueued);
+        await SeedJobAsync(
+            env.SqlitePath,
+            articleId,
+            "01H00000000000000000000006",
+            PersonalUserId,
+            PersistenceConstants.JobRunning,
+            env.Now.AddHours(-3));
+
+        using var http = CreateAuthenticatedHttpClient();
+        var response = await http.GetAsync($"/articles/{articleId}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var body = await ParseJsonAsync(response);
+        Assert.True(body.RootElement.GetProperty("canForceDelete").GetBoolean());
+    }
+
+    [Fact]
+    public async Task GetArticle_ActiveRunningJob_ReturnsCanForceDeleteFalse()
+    {
+        var env = PrepareArticleEnvironment();
+        var articleId = "01H00000000000000000000007";
+        await SeedArticlesAsync(env.SqlitePath, new List<string> { articleId }, PersonalUserId, PersistenceConstants.ArticleQueued);
+        await SeedJobAsync(
+            env.SqlitePath,
+            articleId,
+            "01H00000000000000000000008",
+            PersonalUserId,
+            PersistenceConstants.JobRunning,
+            env.Now.AddHours(-1));
+
+        using var http = CreateAuthenticatedHttpClient();
+        var response = await http.GetAsync($"/articles/{articleId}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var body = await ParseJsonAsync(response);
+        Assert.False(body.RootElement.GetProperty("canForceDelete").GetBoolean());
     }
 
     private TestEnvironment PrepareArticleEnvironment(bool authenticated = true)
     {
         var sqlitePath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.db");
         var dataDirectory = Path.Combine(Path.GetTempPath(), $"archivist-data-{Guid.NewGuid():N}");
-        var fakeTime = new FakeTimeProvider(DateTimeOffset.UtcNow);
+        var fakeTime = new FakeTimeProvider(FixedNow);
         var sessionStore = new InMemorySessionStore(fakeTime);
 
         if (authenticated)
@@ -242,7 +291,7 @@ public sealed class ArticleReadEndpointTest(ITestOutputHelper testOutputHelper) 
                     ["GATEWAY_PUBLIC_HOSTS"] = PublicHost,
                 }));
 
-        return new TestEnvironment(sqlitePath, dataDirectory);
+        return new TestEnvironment(sqlitePath, dataDirectory, fakeTime.GetUtcNow());
     }
 
     private HttpClient CreateAuthenticatedHttpClient()
@@ -335,6 +384,29 @@ public sealed class ArticleReadEndpointTest(ITestOutputHelper testOutputHelper) 
         await db.SaveChangesAsync();
     }
 
+    private static async Task SeedJobAsync(
+        string sqlitePath,
+        string articleId,
+        string jobId,
+        string userId,
+        string status,
+        DateTimeOffset? startedAt)
+    {
+        await using var db = CreateDb(sqlitePath);
+        db.Jobs.Add(new JobEntity
+        {
+            Id = jobId,
+            UserId = userId,
+            ArticleId = articleId,
+            Type = PersistenceConstants.ArticleProcessingJobType,
+            Status = status,
+            CreatedAt = FixedNow,
+            StartedAt = startedAt,
+        });
+
+        await db.SaveChangesAsync();
+    }
+
     private static ArchivistDbContext CreateDb(string sqlitePath)
     {
         var options = new DbContextOptionsBuilder<ArchivistDbContext>()
@@ -344,5 +416,5 @@ public sealed class ArticleReadEndpointTest(ITestOutputHelper testOutputHelper) 
         return new ArchivistDbContext(options);
     }
 
-    private sealed record TestEnvironment(string SqlitePath, string DataDirectory);
+    private sealed record TestEnvironment(string SqlitePath, string DataDirectory, DateTimeOffset Now);
 }

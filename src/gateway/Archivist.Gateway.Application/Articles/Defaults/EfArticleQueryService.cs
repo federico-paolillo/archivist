@@ -11,9 +11,11 @@ namespace Archivist.Gateway.Application.Articles.Defaults;
 /// </summary>
 public sealed class EfArticleQueryService(
     ArchivistDbContext db,
-    IArticleArtifactReader artifactReader) : IArticleQueryService
+    IArticleArtifactReader artifactReader,
+    TimeProvider timeProvider) : IArticleQueryService
 {
     private const int PageSize = 25;
+    private static readonly TimeSpan ForceDeleteStaleThreshold = TimeSpan.FromHours(2);
 
     /// <inheritdoc />
     public async Task<ArticleListPage> ListAsync(
@@ -96,6 +98,18 @@ public sealed class EfArticleQueryService(
             return ArticleDetailResult.RequiredArtifactUnavailable;
         }
 
+        var runningJobStartTimes = await db.Jobs
+            .AsNoTracking()
+            .Where(x =>
+                x.ArticleId == articleId &&
+                x.UserId == userId &&
+                x.Status == PersistenceConstants.JobRunning)
+            .Select(x => x.StartedAt)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+        var canForceDelete = runningJobStartTimes.Count > 0 &&
+            runningJobStartTimes.All(IsStaleRunningJob);
+
         return ArticleDetailResult.Found(new ArticleDetail(
             article.Id,
             article.Title,
@@ -105,7 +119,18 @@ public sealed class EfArticleQueryService(
             article.ErrorMessage,
             article.CreatedAt,
             summaryMarkdown,
-            contentMarkdown));
+            contentMarkdown,
+            canForceDelete));
+    }
+
+    private bool IsStaleRunningJob(DateTimeOffset? startedAt)
+    {
+        if (startedAt is null)
+        {
+            return true;
+        }
+
+        return startedAt <= timeProvider.GetUtcNow().Subtract(ForceDeleteStaleThreshold);
     }
 
     private async Task<string?> ReadArtifactAsync(

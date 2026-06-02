@@ -219,6 +219,29 @@ func TestMarkdownExtractionHandoffLeavesTitleNullWhenNoTitleIsDiscovered(t *test
 	assert.Empty(t, title)
 }
 
+func TestMarkdownExtractionHandoffSnapshotReadFailureLogsMappedARCCode(t *testing.T) {
+	store, err := artifacts.NewStore(t.TempDir())
+	require.NoError(t, err)
+	defer store.Close()
+
+	local := &fakeMarkdownExtractor{provider: markdown.ProviderGoReadability}
+	jina := &fakeMarkdownExtractor{provider: markdown.ProviderJina}
+	repo := &fakeJobsRepository{}
+
+	var logs bytes.Buffer
+	handoff := pipeline.NewMarkdownExtractionHandoff(newBufferLogger(t, &logs), repo, store, local, jina, pipeline.NoOpSummaryHandoff)
+
+	err = handoff.Handoff(t.Context(), testJob(), "https://example.com/article")
+	require.ErrorIs(t, err, arc.ErrLocalExtractionFailed)
+
+	logText := logs.String()
+	assert.Contains(t, logText, "pipeline: markdown snapshot read failed")
+	assert.Contains(t, logText, `"stage":"markdown"`)
+	assert.Contains(t, logText, `"status":"failure"`)
+	assert.Contains(t, logText, `"arc_code":"ARC-009"`)
+	assert.NotContains(t, logText, `"arc_code":"ARC-999"`)
+}
+
 func TestMarkdownExtractionHandoffTitleUpdateFailureDoesNotBlockSummaryHandoff(t *testing.T) {
 	store, err := artifacts.NewStore(t.TempDir())
 	require.NoError(t, err)

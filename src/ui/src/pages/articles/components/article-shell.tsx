@@ -19,7 +19,11 @@ interface ArticleShellProps {
 type DetailState =
 	| { kind: "idle" }
 	| { kind: "loading" }
-	| { article?: ArticleMetadata; kind: "error"; message: string }
+	| {
+			article?: ArticleMetadata | ArticleDetail;
+			kind: "error";
+			message: string;
+	  }
 	| { article: ArticleDetail; kind: "loaded" };
 
 export function ArticleShell({
@@ -29,6 +33,7 @@ export function ArticleShell({
 	selectedArticleId,
 }: ArticleShellProps) {
 	const location = useLocation();
+	const shellRef = useRef<HTMLElement>(null);
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
 	const [articles, setArticles] = useState<ArticleMetadata[]>([]);
 	const articlesRef = useRef<ArticleMetadata[]>([]);
@@ -37,6 +42,8 @@ export function ArticleShell({
 	const [detailState, setDetailState] = useState<DetailState>({ kind: "idle" });
 	const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 	const [isDeleting, setIsDeleting] = useState(false);
+	const [isForceDeleteModalOpen, setIsForceDeleteModalOpen] = useState(false);
+	const [isForceDeleting, setIsForceDeleting] = useState(false);
 	const detailRequestRef = useRef(0);
 	const loadedArticleIdRef = useRef<string | null>(null);
 
@@ -115,6 +122,7 @@ export function ArticleShell({
 			loadedArticleIdRef.current = null;
 			setDetailState({ kind: "idle" });
 			setIsDeleteModalOpen(false);
+			setIsForceDeleteModalOpen(false);
 			return;
 		}
 
@@ -143,19 +151,22 @@ export function ArticleShell({
 			return;
 		}
 
+		const articleId = selectedArticleId;
 		setIsDeleting(true);
 
 		try {
-			await api.deleteArticle(selectedArticleId);
+			await api.deleteArticle(articleId);
 			articlesRef.current = articlesRef.current.filter(
-				(article) => article.id !== selectedArticleId,
+				(article) => article.id !== articleId,
 			);
 			setArticles((currentArticles) =>
-				currentArticles.filter((article) => article.id !== selectedArticleId),
+				currentArticles.filter((article) => article.id !== articleId),
 			);
 			setIsDeleteModalOpen(false);
+			loadedArticleIdRef.current = null;
 			setDetailState({ kind: "idle" });
 			location.route("/articles", true);
+			focusArticleShell(shellRef);
 		} catch (error) {
 			if (error instanceof ApiUnauthorizedError) {
 				onAuthExpired();
@@ -173,8 +184,46 @@ export function ArticleShell({
 		}
 	}
 
+	async function confirmForceDelete() {
+		if (!selectedArticleId) {
+			return;
+		}
+
+		const articleId = selectedArticleId;
+		setIsForceDeleting(true);
+
+		try {
+			await api.forceDeleteArticle(articleId);
+			articlesRef.current = articlesRef.current.filter(
+				(article) => article.id !== articleId,
+			);
+			setArticles((currentArticles) =>
+				currentArticles.filter((article) => article.id !== articleId),
+			);
+			setIsForceDeleteModalOpen(false);
+			loadedArticleIdRef.current = null;
+			setDetailState({ kind: "idle" });
+			location.route("/articles", true);
+			focusArticleShell(shellRef);
+		} catch (error) {
+			if (error instanceof ApiUnauthorizedError) {
+				onAuthExpired();
+				return;
+			}
+
+			setIsForceDeleteModalOpen(false);
+			setDetailState({
+				kind: "error",
+				article: actionArticle,
+				message: errorMessage(error, "Force delete failed."),
+			});
+		} finally {
+			setIsForceDeleting(false);
+		}
+	}
+
 	return (
-		<main className="article-shell">
+		<main className="article-shell" ref={shellRef} tabIndex={-1}>
 			<header className="top-bar">
 				<a className="brand-link" href="/articles">
 					Archivist
@@ -201,6 +250,9 @@ export function ArticleShell({
 					onDelete={() => {
 						setIsDeleteModalOpen(true);
 					}}
+					onForceDelete={() => {
+						setIsForceDeleteModalOpen(true);
+					}}
 				/>
 			</section>
 			<footer className="article-footer">VERSION: 7F8A2C1_STABLE</footer>
@@ -211,6 +263,15 @@ export function ArticleShell({
 						setIsDeleteModalOpen(false);
 					}}
 					onConfirm={confirmDelete}
+				/>
+			) : null}
+			{isForceDeleteModalOpen ? (
+				<ForceDeleteModal
+					isDeleting={isForceDeleting}
+					onCancel={() => {
+						setIsForceDeleteModalOpen(false);
+					}}
+					onConfirm={confirmForceDelete}
 				/>
 			) : null}
 		</main>
@@ -269,15 +330,17 @@ function ArticleMasterList({
 }
 
 interface ArticleDetailPaneProps {
-	article?: ArticleMetadata;
+	article?: ArticleMetadata | ArticleDetail;
 	detailState: DetailState;
 	onDelete: () => void;
+	onForceDelete: () => void;
 }
 
 function ArticleDetailPane({
 	article,
 	detailState,
 	onDelete,
+	onForceDelete,
 }: ArticleDetailPaneProps) {
 	if (detailState.kind === "idle") {
 		return <section className="article-detail article-detail-blank" />;
@@ -302,7 +365,11 @@ function ArticleDetailPane({
 	return (
 		<section className="article-detail">
 			{displayArticle ? (
-				<ArticleActions article={displayArticle} onDelete={onDelete} />
+				<ArticleActions
+					article={displayArticle}
+					onDelete={onDelete}
+					onForceDelete={onForceDelete}
+				/>
 			) : null}
 			{detailState.kind === "error" ? (
 				<div className="detail-message detail-message-error">
@@ -315,18 +382,33 @@ function ArticleDetailPane({
 }
 
 interface ArticleActionsProps {
-	article: ArticleMetadata;
+	article: ArticleMetadata | ArticleDetail;
 	onDelete: () => void;
+	onForceDelete: () => void;
 }
 
-function ArticleActions({ article, onDelete }: ArticleActionsProps) {
+function ArticleActions({
+	article,
+	onDelete,
+	onForceDelete,
+}: ArticleActionsProps) {
 	const originalUrl = article.canonicalUrl || article.originalUrl;
+	const canForceDelete = isArticleDetail(article) && article.canForceDelete;
 
 	return (
 		<div className="article-actions">
 			<button className="button-outline" type="button" onClick={onDelete}>
 				Delete
 			</button>
+			{canForceDelete ? (
+				<button
+					className="button-outline button-danger"
+					type="button"
+					onClick={onForceDelete}
+				>
+					Force Delete
+				</button>
+			) : null}
 			{originalUrl ? (
 				<a
 					className="button-outline"
@@ -339,6 +421,12 @@ function ArticleActions({ article, onDelete }: ArticleActionsProps) {
 			) : null}
 		</div>
 	);
+}
+
+function isArticleDetail(
+	article: ArticleMetadata | ArticleDetail,
+): article is ArticleDetail {
+	return "canForceDelete" in article;
 }
 
 interface LoadedArticleDetailProps {
@@ -382,22 +470,133 @@ interface DeleteModalProps {
 
 function DeleteModal({ isDeleting, onCancel, onConfirm }: DeleteModalProps) {
 	return (
+		<ConfirmationModal
+			confirmClassName="button-outline"
+			confirmText="Yes"
+			isDeleting={isDeleting}
+			title="Are you sure?"
+			titleId="delete-modal-title"
+			onCancel={onCancel}
+			onConfirm={onConfirm}
+		/>
+	);
+}
+
+function ForceDeleteModal({
+	isDeleting,
+	onCancel,
+	onConfirm,
+}: DeleteModalProps) {
+	return (
+		<ConfirmationModal
+			confirmClassName="button-outline button-danger"
+			confirmText="Force Delete"
+			isDeleting={isDeleting}
+			title="Force delete this article?"
+			titleId="force-delete-modal-title"
+			onCancel={onCancel}
+			onConfirm={onConfirm}
+		/>
+	);
+}
+
+interface ConfirmationModalProps extends DeleteModalProps {
+	confirmClassName: string;
+	confirmText: string;
+	title: string;
+	titleId: string;
+}
+
+function ConfirmationModal({
+	confirmClassName,
+	confirmText,
+	isDeleting,
+	onCancel,
+	onConfirm,
+	title,
+	titleId,
+}: ConfirmationModalProps) {
+	const modalRef = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		const previouslyFocused =
+			document.activeElement instanceof HTMLElement
+				? document.activeElement
+				: null;
+		const modal = modalRef.current;
+
+		if (!modal) {
+			return;
+		}
+
+		const initialFocus = getModalFocusableElements(modal)[0] ?? modal;
+		initialFocus.focus();
+
+		function handleKeyDown(event: KeyboardEvent) {
+			if (event.key !== "Tab" || !modal) {
+				return;
+			}
+
+			const focusableElements = getModalFocusableElements(modal);
+
+			if (focusableElements.length === 0) {
+				event.preventDefault();
+				modal.focus();
+				return;
+			}
+
+			const firstElement = focusableElements[0];
+			const lastElement = focusableElements[focusableElements.length - 1];
+			const activeElement = document.activeElement;
+
+			if (!modal.contains(activeElement)) {
+				event.preventDefault();
+				firstElement.focus();
+				return;
+			}
+
+			if (event.shiftKey && activeElement === firstElement) {
+				event.preventDefault();
+				lastElement.focus();
+				return;
+			}
+
+			if (!event.shiftKey && activeElement === lastElement) {
+				event.preventDefault();
+				firstElement.focus();
+			}
+		}
+
+		document.addEventListener("keydown", handleKeyDown);
+
+		return () => {
+			document.removeEventListener("keydown", handleKeyDown);
+
+			if (previouslyFocused?.isConnected) {
+				previouslyFocused.focus();
+			}
+		};
+	}, []);
+
+	return (
 		<div className="modal-backdrop" role="presentation">
 			<div
-				aria-labelledby="delete-modal-title"
+				aria-labelledby={titleId}
 				aria-modal="true"
 				className="delete-modal"
+				ref={modalRef}
 				role="dialog"
+				tabIndex={-1}
 			>
-				<p id="delete-modal-title">Are you sure?</p>
+				<p id={titleId}>{title}</p>
 				<div className="delete-modal-actions">
 					<button
-						className="button-outline"
+						className={confirmClassName}
 						type="button"
 						disabled={isDeleting}
 						onClick={onConfirm}
 					>
-						Yes
+						{confirmText}
 					</button>
 					<button
 						className="button-outline"
@@ -411,6 +610,20 @@ function DeleteModal({ isDeleting, onCancel, onConfirm }: DeleteModalProps) {
 			</div>
 		</div>
 	);
+}
+
+function getModalFocusableElements(modal: HTMLElement): HTMLElement[] {
+	return Array.from(
+		modal.querySelectorAll<HTMLElement>(
+			'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+		),
+	).filter((element) => element.tabIndex >= 0);
+}
+
+function focusArticleShell(shellRef: { current: HTMLElement | null }) {
+	window.requestAnimationFrame(() => {
+		shellRef.current?.focus();
+	});
 }
 
 function errorMessage(error: unknown, fallbackMessage: string): string {

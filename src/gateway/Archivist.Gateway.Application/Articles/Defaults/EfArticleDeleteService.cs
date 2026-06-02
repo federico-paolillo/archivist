@@ -1,3 +1,5 @@
+using System.Data;
+
 using Archivist.Gateway.Application.ArticleArtifacts;
 using Archivist.Gateway.Application.Persistence;
 
@@ -10,19 +12,51 @@ namespace Archivist.Gateway.Application.Articles.Defaults;
 /// </summary>
 public sealed class EfArticleDeleteService(
     ArchivistDbContext db,
-    IArticleArtifactDeletion artifactDeletion) : IArticleDeleteService
+    IArticleArtifactDeletion artifactDeletion,
+    TimeProvider timeProvider) : IArticleDeleteService
 {
+    private static readonly TimeSpan ForceDeleteStaleThreshold = TimeSpan.FromHours(2);
+
     /// <inheritdoc />
     public async Task<ArticleDeleteResult> DeleteAsync(
         string articleId,
         string userId,
         CancellationToken cancellationToken)
     {
+        return await DeleteCoreAsync(
+                articleId,
+                userId,
+                allowStaleRunningJobs: false,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<ArticleDeleteResult> ForceDeleteAsync(
+        string articleId,
+        string userId,
+        CancellationToken cancellationToken)
+    {
+        return await DeleteCoreAsync(
+                articleId,
+                userId,
+                allowStaleRunningJobs: true,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<ArticleDeleteResult> DeleteCoreAsync(
+        string articleId,
+        string userId,
+        bool allowStaleRunningJobs,
+        CancellationToken cancellationToken)
+    {
         ArgumentException.ThrowIfNullOrWhiteSpace(articleId);
         ArgumentException.ThrowIfNullOrWhiteSpace(userId);
 
-        await db.Database.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await db.Database.ExecuteSqlRawAsync("BEGIN IMMEDIATE;", cancellationToken).ConfigureAwait(false);
+        await using var transaction = await db.Database
+            .BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken)
+            .ConfigureAwait(false);
 
         try
         {
@@ -33,22 +67,24 @@ public sealed class EfArticleDeleteService(
 
             if (!articleExists)
             {
-                await db.Database.ExecuteSqlRawAsync("COMMIT;", cancellationToken).ConfigureAwait(false);
+                await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
                 return ArticleDeleteResult.NotFound;
             }
 
-            var hasRunningJob = await db.Jobs
+            var runningJobStartTimes = await db.Jobs
                 .AsNoTracking()
-                .AnyAsync(x =>
+                .Where(x =>
                     x.ArticleId == articleId &&
                     x.UserId == userId &&
-                    x.Status == PersistenceConstants.JobRunning,
-                    cancellationToken)
+                    x.Status == PersistenceConstants.JobRunning)
+                .Select(x => x.StartedAt)
+                .ToListAsync(cancellationToken)
                 .ConfigureAwait(false);
 
-            if (hasRunningJob)
+            if (runningJobStartTimes.Count > 0 &&
+                (!allowStaleRunningJobs || runningJobStartTimes.Any(IsActiveRunningJob)))
             {
-                await db.Database.ExecuteSqlRawAsync("COMMIT;", cancellationToken).ConfigureAwait(false);
+                await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
                 return ArticleDeleteResult.RunningJobConflict;
             }
 
@@ -79,17 +115,27 @@ public sealed class EfArticleDeleteService(
 
             if (!artifactDeleted)
             {
-                await db.Database.ExecuteSqlRawAsync("ROLLBACK;", cancellationToken).ConfigureAwait(false);
+                await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
                 return ArticleDeleteResult.ArtifactCleanupFailed;
             }
 
-            await db.Database.ExecuteSqlRawAsync("COMMIT;", cancellationToken).ConfigureAwait(false);
+            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
             return ArticleDeleteResult.Deleted;
         }
         catch
         {
-            await db.Database.ExecuteSqlRawAsync("ROLLBACK;", CancellationToken.None).ConfigureAwait(false);
+            await transaction.RollbackAsync(CancellationToken.None).ConfigureAwait(false);
             throw;
         }
+    }
+
+    private bool IsActiveRunningJob(DateTimeOffset? startedAt)
+    {
+        if (startedAt is null)
+        {
+            return false;
+        }
+
+        return startedAt > timeProvider.GetUtcNow().Subtract(ForceDeleteStaleThreshold);
     }
 }

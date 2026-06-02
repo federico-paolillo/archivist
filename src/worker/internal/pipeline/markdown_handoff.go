@@ -49,18 +49,13 @@ func NewMarkdownExtractionHandoff(
 // Handoff extracts Markdown, atomically writes content.md, and leaves terminal
 // success for the downstream summary stage.
 func (h *MarkdownExtractionHandoff) Handoff(ctx context.Context, job *jobs.Job, canonicalURL string) error {
+	stageStart := time.Now()
+
+	h.logMarkdownStageStart(ctx, job, canonicalURL)
+
 	snapshot, err := h.readSnapshot(job.ArticleID)
 	if err != nil {
-		h.logger.Error(
-			"pipeline: markdown snapshot read failed",
-			slog.String("article_id", job.ArticleID),
-			slog.String("job_id", job.ID),
-			slog.String("url", canonicalURL),
-			slog.String("arc_code", arc.CodeString(arc.ErrLocalExtractionFailed)),
-			slog.Any("error", err),
-		)
-
-		return pipelineFailure(
+		failure := pipelineFailure(
 			"markdown",
 			"read snapshot",
 			arc.ErrLocalExtractionFailed,
@@ -68,6 +63,9 @@ func (h *MarkdownExtractionHandoff) Handoff(ctx context.Context, job *jobs.Job, 
 			withJobContext(job.ArticleID, job.ID),
 			withPipelineURL(canonicalURL),
 		)
+		h.logMarkdownStageFailure(ctx, "pipeline: markdown snapshot read failed", job, canonicalURL, "", stageStart, failure)
+
+		return failure
 	}
 
 	input := markdown.ExtractInput{
@@ -77,15 +75,20 @@ func (h *MarkdownExtractionHandoff) Handoff(ctx context.Context, job *jobs.Job, 
 
 	selected, provider, err := h.extract(ctx, job, canonicalURL, input)
 	if err != nil {
+		h.logMarkdownStageFailure(ctx, "pipeline: markdown stage completed", job, canonicalURL, "", stageStart, err)
+
 		return err
 	}
 
 	err = h.writeMarkdown(job, canonicalURL, provider, selected.Markdown)
 	if err != nil {
+		h.logMarkdownStageFailure(ctx, "pipeline: markdown stage completed", job, canonicalURL, provider, stageStart, err)
+
 		return err
 	}
 
 	h.persistTitle(ctx, job, canonicalURL, selected)
+	h.logMarkdownStageSuccess(ctx, job, canonicalURL, provider, stageStart)
 
 	err = h.summaryHandoff.Summarize(ctx, job, canonicalURL)
 	if err != nil {
@@ -93,6 +96,68 @@ func (h *MarkdownExtractionHandoff) Handoff(ctx context.Context, job *jobs.Job, 
 	}
 
 	return nil
+}
+
+func (h *MarkdownExtractionHandoff) logMarkdownStageStart(ctx context.Context, job *jobs.Job, canonicalURL string) {
+	h.logger.LogAttrs(
+		ctx,
+		slog.LevelInfo,
+		"pipeline: markdown stage started",
+		slog.String("article_id", job.ArticleID),
+		slog.String("job_id", job.ID),
+		slog.String("url", canonicalURL),
+		slog.String("stage", "markdown"),
+		slog.String("status", "start"),
+	)
+}
+
+func (h *MarkdownExtractionHandoff) logMarkdownStageFailure(
+	ctx context.Context,
+	message string,
+	job *jobs.Job,
+	canonicalURL string,
+	provider markdown.Provider,
+	stageStart time.Time,
+	err error,
+) {
+	attrs := []slog.Attr{
+		slog.String("article_id", job.ArticleID),
+		slog.String("job_id", job.ID),
+		slog.String("url", canonicalURL),
+		slog.String("stage", "markdown"),
+		slog.String("status", "failure"),
+		slog.Duration("duration", time.Since(stageStart)),
+		slog.String("arc_code", arc.CodeString(err)),
+		slog.Any("error", err),
+	}
+	if provider != "" {
+		attrs = append(attrs, slog.String("provider", string(provider)), slog.String("selected_provider", string(provider)))
+	}
+
+	h.logger.LogAttrs(ctx, slog.LevelInfo, message, attrs...)
+}
+
+func (h *MarkdownExtractionHandoff) logMarkdownStageSuccess(
+	ctx context.Context,
+	job *jobs.Job,
+	canonicalURL string,
+	provider markdown.Provider,
+	stageStart time.Time,
+) {
+	h.logger.LogAttrs(
+		ctx,
+		slog.LevelInfo,
+		"pipeline: markdown stage completed",
+		slog.String("article_id", job.ArticleID),
+		slog.String("job_id", job.ID),
+		slog.String("url", canonicalURL),
+		slog.String("provider", string(provider)),
+		slog.String("selected_provider", string(provider)),
+		slog.String("stage", "markdown"),
+		slog.String("status", "success"),
+		slog.Duration("duration", time.Since(stageStart)),
+		slog.String("artifact_result", "success"),
+	)
 }
 
 func (h *MarkdownExtractionHandoff) persistTitle(
@@ -113,6 +178,8 @@ func (h *MarkdownExtractionHandoff) persistTitle(
 			slog.String("article_id", job.ArticleID),
 			slog.String("job_id", job.ID),
 			slog.String("url", canonicalURL),
+			slog.String("stage", "title_update"),
+			slog.String("status", "failure"),
 			slog.Any("error", err),
 		)
 
@@ -124,6 +191,8 @@ func (h *MarkdownExtractionHandoff) persistTitle(
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
 		slog.String("url", canonicalURL),
+		slog.String("stage", "title_update"),
+		slog.String("status", "success"),
 	)
 }
 
@@ -166,6 +235,8 @@ func (h *MarkdownExtractionHandoff) writeMarkdown(
 			slog.String("url", canonicalURL),
 			slog.String("provider", string(provider)),
 			slog.String("selected_provider", string(provider)),
+			slog.String("stage", "markdown_write"),
+			slog.String("status", "failure"),
 			slog.String("artifact_result", "failure"),
 			slog.String("arc_code", arc.CodeString(arc.ErrMarkdownWrite)),
 			slog.Any("error", writeErr),
@@ -189,6 +260,7 @@ func (h *MarkdownExtractionHandoff) writeMarkdown(
 		slog.String("provider", string(provider)),
 		slog.String("selected_provider", string(provider)),
 		slog.String("artifact_result", "success"),
+		slog.String("stage", "markdown_write"),
 		slog.String("status", "markdown_done"),
 	)
 
@@ -264,6 +336,7 @@ func (h *MarkdownExtractionHandoff) attempt(
 		slog.String("job_id", job.ID),
 		slog.String("url", canonicalURL),
 		slog.String("provider", string(extractor.Provider())),
+		slog.String("stage", "markdown_provider"),
 		slog.String("status", status),
 		slog.Duration("duration", duration),
 	}
@@ -307,6 +380,8 @@ func (h *MarkdownExtractionHandoff) logSelectedProvider(
 		slog.String("url", canonicalURL),
 		slog.String("provider", string(provider)),
 		slog.String("selected_provider", string(provider)),
+		slog.String("stage", "markdown_provider"),
+		slog.String("status", "selected"),
 	)
 }
 

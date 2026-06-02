@@ -11,6 +11,7 @@ export interface ArticleMetadata {
 }
 
 export interface ArticleDetail extends ArticleMetadata {
+	canForceDelete: boolean;
 	summaryMarkdown: string | null;
 	contentMarkdown: string | null;
 }
@@ -31,6 +32,7 @@ export interface ArticleApiClient {
 	listArticles: () => Promise<ArticleListResponse>;
 	getArticle: (id: string) => Promise<ArticleDetail>;
 	deleteArticle: (id: string) => Promise<void>;
+	forceDeleteArticle: (id: string) => Promise<void>;
 }
 
 export type ApiClient = AuthApiClient & ArticleApiClient;
@@ -159,6 +161,19 @@ export function makeAuthApiClient(
 			}
 
 			throw await apiError(response, "Delete failed.");
+		},
+
+		async forceDeleteArticle(id: string) {
+			const response = await fetcher(`${articleUrl(id)}/force`, {
+				method: "DELETE",
+				credentials: "include",
+			});
+
+			if (response.status === 204) {
+				return;
+			}
+
+			throw await apiError(response, "Force delete failed.");
 		},
 	};
 }

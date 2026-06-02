@@ -12,4 +12,5 @@ internal sealed record ArticleDetailResponse(
     string? ErrorMessage,
     DateTimeOffset CreatedAt,
     string? SummaryMarkdown,
-    string? ContentMarkdown);
+    string? ContentMarkdown,
+    bool CanForceDelete);
