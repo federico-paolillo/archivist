@@ -10,7 +10,7 @@ import (
 	pkgapp "codeberg.org/federico-paolillo/archivist/pkg/app"
 )
 
-const defaultProcessIdleSleep = time.Second
+const defaultProcessIdleSleep = 300 * time.Second
 
 func process(ctx context.Context, a *pkgapp.App, once bool, idleSleep time.Duration) error {
 	if idleSleep <= 0 {
