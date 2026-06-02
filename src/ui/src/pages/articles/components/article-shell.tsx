@@ -1,9 +1,8 @@
 import {
 	type ApiClient,
 	ApiUnauthorizedError,
-	type ArticleDetail,
-	type ArticleMetadata,
-} from "@archivist/deps.ts";
+} from "@archivist/deps/api-client.ts";
+import type { ArticleDetail, ArticleMetadata } from "@archivist/deps/models.ts";
 import { UserMenu } from "@archivist/pages/articles/components/user-menu.tsx";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { useLocation } from "preact-iso";

@@ -2,10 +2,9 @@ import { App } from "@archivist/app.tsx";
 import {
 	ApiRequestError,
 	ApiUnauthorizedError,
-	type ArticleDetail,
-	type ArticleMetadata,
-	type Deps,
-} from "@archivist/deps.ts";
+} from "@archivist/deps/api-client.ts";
+import type { ArticleDetail, ArticleMetadata } from "@archivist/deps/models.ts";
+import type { Deps } from "@archivist/deps.ts";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { render } from "preact";

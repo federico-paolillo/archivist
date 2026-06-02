@@ -1,4 +1,7 @@
-import { makeAuthApiClient, normalizeApiBasePath } from "@archivist/deps.ts";
+import {
+	makeApiClient,
+	normalizeApiBasePath,
+} from "@archivist/deps/api-client.ts";
 import { describe, expect, it, vi } from "vitest";
 
 describe("normalizeApiBasePath", () => {
@@ -18,7 +21,7 @@ describe("normalizeApiBasePath", () => {
 	});
 });
 
-describe("auth api client", () => {
+describe("api client", () => {
 	it("uses the normalized internal API path and includes credentials", async () => {
 		const fetcher = vi.fn(
 			async (_input: RequestInfo | URL, init?: RequestInit) => {
@@ -32,7 +35,7 @@ describe("auth api client", () => {
 				return new Response(null, { status: 204 });
 			},
 		);
-		const client = makeAuthApiClient("/edge//api///", fetcher);
+		const client = makeApiClient("/edge//api///", fetcher);
 
 		await expect(client.login("secret")).resolves.toBe(true);
 		await expect(client.getSession()).resolves.toBe(true);
@@ -98,7 +101,7 @@ describe("auth api client", () => {
 					headers: { "Content-Type": "application/json" },
 				}),
 		);
-		const client = makeAuthApiClient("/api", fetcher);
+		const client = makeApiClient("/api", fetcher);
 
 		await expect(client.getArticle("01H")).rejects.toThrow(
 			"Public article error.",
