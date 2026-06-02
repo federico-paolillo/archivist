@@ -11,6 +11,9 @@ RUN --mount=type=cache,target=/root/.npm \
 
 COPY src/ui/ ./
 
+ARG VERSION_LABEL=abc123
+ENV VITE_VERSION_LABEL=${VERSION_LABEL}
+
 ARG VITE_API_BASE_PATH=/api
 ENV VITE_API_BASE_PATH=${VITE_API_BASE_PATH}
 

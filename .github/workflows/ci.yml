@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate build, lint, and tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6.0.3
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5.3.0
+        with:
+          global-json-file: src/gateway/global.json
+
+      - name: Set up Go
+        uses: actions/setup-go@v6.4.0
+        with:
+          go-version-file: src/worker/go.mod
+          cache-dependency-path: src/worker/go.sum
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/ui/package-lock.json
+
+      - name: Restore UI dependencies
+        working-directory: src/ui
+        run: npm ci
+
+      - name: Format Gateway
+        working-directory: src/gateway
+        run: dotnet format --verify-no-changes
+
+      - name: Build Gateway
+        working-directory: src/gateway
+        run: dotnet build
+
+      - name: Test Gateway
+        working-directory: src/gateway
+        run: dotnet test
+
+      - name: Lint Worker
+        working-directory: src/worker
+        run: go tool golangci-lint run
+
+      - name: Build Worker
+        working-directory: src/worker
+        run: go build -v ./...
+
+      - name: Test Worker
+        working-directory: src/worker
+        run: go test -race -shuffle=on ./...
+
+      - name: Lint UI
+        working-directory: src/ui
+        run: npm run lint
+
+      - name: Build UI
+        working-directory: src/ui
+        run: npm run build
+
+      - name: Test UI
+        working-directory: src/ui
+        run: npm run test
+
+      # TODO: enable Codecov after Gateway, Worker, and UI test commands emit coverage reports.
+      # - name: Upload coverage to Codecov
+      #   uses: codecov/codecov-action@v5
+      #   with:
+      #     token: ${{ secrets.CODECOV_TOKEN }}

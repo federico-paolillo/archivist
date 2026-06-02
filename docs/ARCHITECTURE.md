@@ -208,6 +208,12 @@ Deployment requirements:
 
 The v0 topology does not target high scalability, multi-region deployment, or real-time processing guarantees.
 
+### Repository Automation
+
+GitHub Actions is the canonical repository automation surface. CI runs on pushes to `main` and must fail when Gateway, Worker, or UI build, lint, formatting, or test validation fails. Coverage upload is deferred until the component test commands emit coverage reports.
+
+CD is a manually dispatched release workflow. It checks out the requested release ref, validates the same component gates as CI, builds and pushes multi-architecture `linux/amd64` and `linux/arm64` images for Gateway, Worker, and UI to GitHub Container Registry, emits GitHub artifact attestations for each pushed image, tags the resolved release commit, and opens a draft GitHub release. The UI image build receives the resolved release commit SHA through the `VERSION_LABEL` Docker build argument.
+
 ### Reverse Proxy And TLS Termination
 
 The primary v0 public topology is:

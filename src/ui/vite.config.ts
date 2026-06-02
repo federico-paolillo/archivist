@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 const preactCompat = fileURLToPath(
 	new URL("./node_modules/preact/compat", import.meta.url),
 );
+
 const preactCompatClient = fileURLToPath(
 	new URL("./node_modules/preact/compat/client.js", import.meta.url),
 );
