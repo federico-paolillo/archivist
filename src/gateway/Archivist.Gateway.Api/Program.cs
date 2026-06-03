@@ -1,6 +1,7 @@
 using Archivist.Gateway.Api;
 using Archivist.Gateway.Api.Articles;
 using Archivist.Gateway.Api.Auth;
+using Archivist.Gateway.Api.Observability;
 using Archivist.Gateway.Api.Ping;
 using Archivist.Gateway.Api.Telegram;
 using Archivist.Gateway.Application.Articles.Extensions;
@@ -29,6 +30,7 @@ builder.Logging.AddSimpleConsole(options =>
 builder.Services.AddAuth(builder.Configuration);
 builder.Services.AddForwardedHeaders(builder.Configuration, builder.Environment);
 builder.Services.AddArchivistPersistence(builder.Configuration);
+builder.Services.AddArchivistOpenTelemetry();
 
 builder.Services.AddPing();
 builder.Services.AddArticles(builder.Configuration);

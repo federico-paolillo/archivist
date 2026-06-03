@@ -1,6 +1,7 @@
 using System.Data;
 
 using Archivist.Gateway.Application.ArticleArtifacts;
+using Archivist.Gateway.Application.Observability;
 using Archivist.Gateway.Application.Persistence;
 
 using Microsoft.EntityFrameworkCore;
@@ -54,6 +55,10 @@ public sealed class EfArticleDeleteService(
         ArgumentException.ThrowIfNullOrWhiteSpace(articleId);
         ArgumentException.ThrowIfNullOrWhiteSpace(userId);
 
+        using var activity = ArchivistTelemetry.ActivitySource.StartActivity("gateway.articles.delete");
+        activity?.SetTag(ArchivistTelemetry.ArticleId, articleId);
+        activity?.SetTag(ArchivistTelemetry.Stage, allowStaleRunningJobs ? "articles_force_delete" : "articles_delete");
+
         await using var transaction = await db.Database
             .BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken)
             .ConfigureAwait(false);
@@ -68,6 +73,8 @@ public sealed class EfArticleDeleteService(
             if (!articleExists)
             {
                 await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
+                activity?.SetTag(ArchivistTelemetry.Outcome, "not_found");
+
                 return ArticleDeleteResult.NotFound;
             }
 
@@ -85,6 +92,8 @@ public sealed class EfArticleDeleteService(
                 (!allowStaleRunningJobs || runningJobStartTimes.Any(IsActiveRunningJob)))
             {
                 await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
+                activity?.SetTag(ArchivistTelemetry.Outcome, "running_job_conflict");
+
                 return ArticleDeleteResult.RunningJobConflict;
             }
 
@@ -116,15 +125,20 @@ public sealed class EfArticleDeleteService(
             if (!artifactDeleted)
             {
                 await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
+                activity?.SetTag(ArchivistTelemetry.Outcome, "artifact_cleanup_failed");
+
                 return ArticleDeleteResult.ArtifactCleanupFailed;
             }
 
             await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+            activity?.SetTag(ArchivistTelemetry.Outcome, "deleted");
+
             return ArticleDeleteResult.Deleted;
         }
         catch
         {
             await transaction.RollbackAsync(CancellationToken.None).ConfigureAwait(false);
+            activity?.SetStatus(System.Diagnostics.ActivityStatusCode.Error);
             throw;
         }
     }

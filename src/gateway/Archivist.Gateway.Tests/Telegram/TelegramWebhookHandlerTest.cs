@@ -1,5 +1,7 @@
 namespace Archivist.Gateway.Tests.Telegram;
 
+using System.Diagnostics;
+
 using Archivist.Gateway.Application.Persistence;
 using Archivist.Gateway.Application.Telegram;
 
@@ -60,6 +62,33 @@ public sealed class TelegramWebhookHandlerTest
         Assert.Empty(client.SentReplies);
     }
 
+    [Fact]
+    public async Task HandleAsync_ValidUrlInjectsCurrentTraceContextIntoIngestionCommand()
+    {
+        var repo = new FakeTelegramIngestionRepository();
+        var client = new FakeTelegramClient();
+        var handler = CreateHandler(repo, client);
+
+        using var root = new Activity("test-root");
+        root.SetIdFormat(ActivityIdFormat.W3C);
+        root.Start();
+
+        await handler.HandleAsync(
+            new TelegramWebhookCommand(
+                WebhookSecret,
+                UpdateId: 3,
+                SenderUserId: AllowedUserId,
+                ChatId: ChatId,
+                MessageId: MessageId,
+                MessageText: "https://example.com/article"),
+            CancellationToken.None);
+
+        var command = Assert.Single(repo.RecordedCommands);
+
+        Assert.NotNull(command.TraceParent);
+        Assert.Contains(root.TraceId.ToHexString(), command.TraceParent, StringComparison.Ordinal);
+    }
+
     private static TelegramWebhookHandler CreateHandler(
         FakeTelegramIngestionRepository repo,
         FakeTelegramClient client)
@@ -96,11 +125,14 @@ public sealed class TelegramWebhookHandlerTest
     {
         public bool WasCalled { get; private set; }
 
+        public List<RecordTelegramIngestionCommand> RecordedCommands { get; } = [];
+
         public Task<RecordTelegramIngestionResult> RecordValidUrlAsync(
             RecordTelegramIngestionCommand command,
             CancellationToken cancellationToken)
         {
             WasCalled = true;
+            RecordedCommands.Add(command);
 
             return Task.FromResult(new RecordTelegramIngestionResult(
                 Created: true,

@@ -5,6 +5,7 @@ using Archivist.Gateway.Application.Persistence;
 using Archivist.Gateway.Application.Persistence.Defaults;
 using Archivist.Gateway.Application.Persistence.Entities;
 
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Time.Testing;
@@ -54,6 +55,52 @@ public sealed class TelegramIngestionRepositoryTest
         Assert.Equal(300, job.TelegramMessageId);
         Assert.Equal(400, job.TelegramUserId);
         Assert.Equal(job.Id, result.JobId);
+    }
+
+    [Fact]
+    public async Task RecordValidUrlPersistsTraceCarrier()
+    {
+        await using var db = await CreateDbAsync();
+        var repo = CreateRepository(db);
+
+        await repo.RecordValidUrlAsync(
+            new RecordTelegramIngestionCommand(
+                100,
+                200,
+                300,
+                400,
+                "https://example.com/article",
+                "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+                "vendor=value"),
+            CancellationToken.None);
+
+        var job = await db.Jobs.SingleAsync(CancellationToken.None);
+
+        Assert.Equal("00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01", job.TraceParent);
+        Assert.Equal("vendor=value", job.TraceState);
+    }
+
+    [Fact]
+    public async Task GatewaySchemaUpgraderAddsTraceCarrierColumnsIdempotently()
+    {
+        var dbPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.db");
+        await using (var connection = new SqliteConnection($"Data Source={dbPath}"))
+        {
+            await connection.OpenAsync(CancellationToken.None);
+            await using var command = connection.CreateCommand();
+            command.CommandText = "CREATE TABLE jobs (id TEXT PRIMARY KEY);";
+            await command.ExecuteNonQueryAsync(CancellationToken.None);
+        }
+
+        await using var db = CreateDbContext(dbPath);
+
+        await GatewaySchemaUpgrader.EnsureJobTraceCarrierColumnsAsync(db, CancellationToken.None);
+        await GatewaySchemaUpgrader.EnsureJobTraceCarrierColumnsAsync(db, CancellationToken.None);
+
+        var columns = await ReadJobsTableColumnsAsync(db);
+
+        Assert.Contains("traceparent", columns);
+        Assert.Contains("tracestate", columns);
     }
 
     [Fact]
@@ -188,6 +235,23 @@ public sealed class TelegramIngestionRepositoryTest
     {
         await using var db = CreateDbContext(dbPath);
         await db.Database.EnsureCreatedAsync(CancellationToken.None);
+    }
+
+    private static async Task<List<string>> ReadJobsTableColumnsAsync(ArchivistDbContext db)
+    {
+        var columns = new List<string>();
+        var connection = db.Database.GetDbConnection();
+        await connection.OpenAsync(CancellationToken.None);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "PRAGMA table_info(jobs);";
+        await using var reader = await command.ExecuteReaderAsync(CancellationToken.None);
+
+        while (await reader.ReadAsync(CancellationToken.None))
+        {
+            columns.Add(reader.GetString(1));
+        }
+
+        return columns;
     }
 
     private static EfTelegramIngestionRepository CreateRepository(ArchivistDbContext db)

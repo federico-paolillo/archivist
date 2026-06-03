@@ -74,4 +74,14 @@ public sealed class JobEntity
     /// Gets or sets the terminal cleanup eligibility timestamp.
     /// </summary>
     public DateTimeOffset? ExpiresAt { get; set; }
+
+    /// <summary>
+    /// Gets or sets the W3C traceparent carrier persisted for asynchronous Worker processing.
+    /// </summary>
+    public string? TraceParent { get; set; }
+
+    /// <summary>
+    /// Gets or sets the W3C tracestate carrier persisted for asynchronous Worker processing.
+    /// </summary>
+    public string? TraceState { get; set; }
 }

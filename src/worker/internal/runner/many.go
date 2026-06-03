@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"codeberg.org/federico-paolillo/archivist/internal/observability"
 	"codeberg.org/federico-paolillo/archivist/pkg/app"
 	"codeberg.org/federico-paolillo/archivist/pkg/app/config"
 )
@@ -19,15 +20,38 @@ import (
  * As soon as one program terminates all programs will terminate. They share the same lifespan
  */
 
+//nolint:funlen // Composition-root setup remains linear to keep startup ordering explicit.
 func RunMany(
 	ctx context.Context,
 	programs ...ProgramE,
 ) StatusCode {
 	logLevel := new(slog.LevelVar)
 
-	logger := slog.New(
+	otelProviders, err := observability.Setup(
+		ctx,
 		slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: logLevel}),
 	)
+	if err != nil {
+		logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: logLevel}))
+		logger.Error(
+			"runner: failed to setup observability",
+			slog.Any("error", err),
+		)
+
+		return NotOk
+	}
+
+	defer func(ctx context.Context) {
+		err := otelProviders.Shutdown(context.WithoutCancel(ctx))
+		if err != nil {
+			otelProviders.Logger.Error(
+				"runner: failed to shutdown observability",
+				slog.Any("error", err),
+			)
+		}
+	}(ctx)
+
+	logger := otelProviders.Logger
 
 	cfg, err := config.Load()
 	if err != nil {

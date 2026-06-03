@@ -14,6 +14,7 @@ public static class WebApplicationExtensions
         var db = scope.ServiceProvider.GetRequiredService<ArchivistDbContext>();
 
         await db.Database.EnsureCreatedAsync();
+        await GatewaySchemaUpgrader.EnsureJobTraceCarrierColumnsAsync(db);
 
         var authBootstrap = app.Services.GetRequiredService<IAuthBootstrapService>();
 

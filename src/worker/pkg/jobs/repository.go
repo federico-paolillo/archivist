@@ -6,6 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"codeberg.org/federico-paolillo/archivist/internal/observability"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // TerminalOutcome carries the result of a completed job to be persisted.
@@ -74,7 +79,18 @@ func NewSQLiteRepository(database *sql.DB, ids IDGenerator) *SQLiteRepository {
 }
 
 // EnqueueURL inserts a queued article and queued non-Telegram job for the fixed personal user.
-func (r *SQLiteRepository) EnqueueURL(ctx context.Context, rawURL string) (*EnqueueResult, error) {
+//
+//nolint:funlen,nonamedreturns,spancheck // Deferred span completion records the returned error.
+func (r *SQLiteRepository) EnqueueURL(ctx context.Context, rawURL string) (result *EnqueueResult, err error) {
+	ctx, span := observability.Tracer().Start(
+		ctx,
+		"worker.jobs.enqueue_url",
+		trace.WithAttributes(attribute.String("url", rawURL)),
+	)
+	defer func() {
+		observability.EndSpan(span, err)
+	}()
+
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("jobs: failed to begin enqueue transaction: %w", err)
@@ -115,6 +131,8 @@ func (r *SQLiteRepository) EnqueueURL(ctx context.Context, rawURL string) (*Enqu
 	if err != nil {
 		return nil, fmt.Errorf("jobs: failed to generate job id: %w", err)
 	}
+
+	span.SetAttributes(observability.JobAttributes(articleID, jobID)...)
 
 	_, err = tx.ExecContext(
 		ctx,
@@ -158,7 +176,14 @@ func ensureDefaultUserExists(ctx context.Context, tx *sql.Tx) error {
 }
 
 // ClaimQueued atomically claims one queued job using UPDATE...RETURNING.
-func (r *SQLiteRepository) ClaimQueued(ctx context.Context) (*Job, error) {
+//
+//nolint:nonamedreturns // Deferred span completion records the returned error.
+func (r *SQLiteRepository) ClaimQueued(ctx context.Context) (job *Job, err error) {
+	ctx, span := observability.Tracer().Start(ctx, "worker.jobs.claim", trace.WithSpanKind(trace.SpanKindConsumer))
+	defer func() {
+		observability.EndSpan(span, err)
+	}()
+
 	now := time.Now().UTC()
 
 	query := `
@@ -188,6 +213,8 @@ func (r *SQLiteRepository) ClaimQueued(ctx context.Context) (*Job, error) {
 		    telegram_message_id,
 		    telegram_user_id,
 		    error_message,
+		    traceparent,
+		    tracestate,
 		    created_at,
 		    started_at,
 		    completed_at,
@@ -196,11 +223,33 @@ func (r *SQLiteRepository) ClaimQueued(ctx context.Context) (*Job, error) {
 
 	row := r.db.QueryRowContext(ctx, query, now.Format(time.RFC3339Nano))
 
-	return scanJob(row)
+	job, err = scanJob(row)
+	if err == nil {
+		span.SetAttributes(observability.JobAttributes(job.ArticleID, job.ID)...)
+	}
+
+	return job, err
 }
 
 // CompleteTerminal persists the terminal state of a job in one transaction.
-func (r *SQLiteRepository) CompleteTerminal(ctx context.Context, job *Job, outcome TerminalOutcome) error {
+//
+//nolint:nonamedreturns // Deferred span completion records the returned error.
+func (r *SQLiteRepository) CompleteTerminal(ctx context.Context, job *Job, outcome TerminalOutcome) (err error) {
+	ctx, span := observability.Tracer().Start(
+		ctx,
+		"worker.jobs.complete_terminal",
+		trace.WithAttributes(observability.JobAttributes(job.ArticleID, job.ID)...),
+	)
+	defer func() {
+		observability.EndSpan(span, err)
+	}()
+
+	span.SetAttributes(attribute.Bool("success", outcome.Success))
+
+	if !outcome.Success {
+		span.SetStatus(codes.Error, outcome.ErrorMessage)
+	}
+
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("jobs: failed to begin terminal transaction: %w", err)
@@ -328,6 +377,8 @@ type jobRaw struct {
 	telegramMessageID sql.NullInt64
 	telegramUserID    sql.NullInt64
 	errorMessage      sql.NullString
+	traceParent       sql.NullString
+	traceState        sql.NullString
 
 	createdAtStr   string
 	startedAtStr   sql.NullString
@@ -349,6 +400,8 @@ func scanJobRaw(row *sql.Row) (*jobRaw, error) {
 		&raw.telegramMessageID,
 		&raw.telegramUserID,
 		&raw.errorMessage,
+		&raw.traceParent,
+		&raw.traceState,
 		&raw.createdAtStr,
 		&raw.startedAtStr,
 		&raw.completedAtStr,
@@ -372,6 +425,7 @@ func parseJobRaw(raw *jobRaw) (*Job, error) {
 
 	applyTelegramFields(j, raw)
 	applyErrorMessage(j, raw)
+	applyTraceFields(j, raw)
 
 	timestamps, err := parseJobTimestamps(raw)
 	if err != nil {
@@ -407,6 +461,16 @@ func applyTelegramFields(j *Job, raw *jobRaw) {
 func applyErrorMessage(j *Job, raw *jobRaw) {
 	if raw.errorMessage.Valid {
 		j.ErrorMessage = &raw.errorMessage.String
+	}
+}
+
+func applyTraceFields(j *Job, raw *jobRaw) {
+	if raw.traceParent.Valid {
+		j.TraceParent = &raw.traceParent.String
+	}
+
+	if raw.traceState.Valid {
+		j.TraceState = &raw.traceState.String
 	}
 }
 
@@ -495,10 +559,15 @@ func parseNullableTime(ns sql.NullString, field string) (time.Time, bool, error)
 }
 
 // ArticleURL returns the original_url for the article with the given ID.
-func (r *SQLiteRepository) ArticleURL(ctx context.Context, articleID string) (string, error) {
-	var originalURL string
+//
+//nolint:nonamedreturns,spancheck // Deferred span completion records the returned error.
+func (r *SQLiteRepository) ArticleURL(ctx context.Context, articleID string) (originalURL string, err error) {
+	ctx, span := observability.Tracer().Start(ctx, "worker.jobs.article_url", trace.WithAttributes(attribute.String("article_id", articleID)))
+	defer func() {
+		observability.EndSpan(span, err)
+	}()
 
-	err := r.db.QueryRowContext(
+	err = r.db.QueryRowContext(
 		ctx,
 		`SELECT original_url FROM articles WHERE id = ?`,
 		articleID,
@@ -511,8 +580,18 @@ func (r *SQLiteRepository) ArticleURL(ctx context.Context, articleID string) (st
 }
 
 // UpdateCanonicalURL sets articles.canonical_url for the given articleID.
-func (r *SQLiteRepository) UpdateCanonicalURL(ctx context.Context, articleID string, canonicalURL string) error {
-	_, err := r.db.ExecContext(
+//
+//nolint:nonamedreturns,spancheck // Deferred span completion records the returned error.
+func (r *SQLiteRepository) UpdateCanonicalURL(ctx context.Context, articleID string, canonicalURL string) (err error) {
+	ctx, span := observability.Tracer().Start(ctx, "worker.jobs.update_canonical_url", trace.WithAttributes(
+		attribute.String("article_id", articleID),
+		attribute.String("url", canonicalURL),
+	))
+	defer func() {
+		observability.EndSpan(span, err)
+	}()
+
+	_, err = r.db.ExecContext(
 		ctx,
 		`UPDATE articles SET canonical_url = ? WHERE id = ?`,
 		canonicalURL,
@@ -526,8 +605,15 @@ func (r *SQLiteRepository) UpdateCanonicalURL(ctx context.Context, articleID str
 }
 
 // UpdateArticleTitle sets articles.title for the given articleID.
-func (r *SQLiteRepository) UpdateArticleTitle(ctx context.Context, articleID string, title string) error {
-	_, err := r.db.ExecContext(
+//
+//nolint:nonamedreturns,spancheck // Deferred span completion records the returned error.
+func (r *SQLiteRepository) UpdateArticleTitle(ctx context.Context, articleID string, title string) (err error) {
+	ctx, span := observability.Tracer().Start(ctx, "worker.jobs.update_article_title", trace.WithAttributes(attribute.String("article_id", articleID)))
+	defer func() {
+		observability.EndSpan(span, err)
+	}()
+
+	_, err = r.db.ExecContext(
 		ctx,
 		`UPDATE articles SET title = ? WHERE id = ?`,
 		title,

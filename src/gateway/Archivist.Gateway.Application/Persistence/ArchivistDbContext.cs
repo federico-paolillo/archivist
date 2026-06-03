@@ -83,6 +83,8 @@ public sealed class ArchivistDbContext(DbContextOptions<ArchivistDbContext> opti
             entity.Property(x => x.StartedAt).HasColumnName("started_at");
             entity.Property(x => x.CompletedAt).HasColumnName("completed_at");
             entity.Property(x => x.ExpiresAt).HasColumnName("expires_at");
+            entity.Property(x => x.TraceParent).HasColumnName("traceparent");
+            entity.Property(x => x.TraceState).HasColumnName("tracestate");
             entity.HasOne<UserEntity>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne<ArticleEntity>().WithMany().HasForeignKey(x => x.ArticleId).OnDelete(DeleteBehavior.Cascade);
         });

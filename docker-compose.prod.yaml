@@ -26,6 +26,10 @@ services:
       ARCHIVIST_Telegram__AllowedUserId: ${ARCHIVIST_Telegram__AllowedUserId:?ARCHIVIST_Telegram__AllowedUserId must be set}
       ARCHIVIST_Telegram__WebhookSecret: ${ARCHIVIST_Telegram__WebhookSecret:?ARCHIVIST_Telegram__WebhookSecret must be set}
       ARCHIVIST_AUTH_BOOTSTRAP_PASSWORD: ${ARCHIVIST_AUTH_BOOTSTRAP_PASSWORD:-}
+      OTEL_SERVICE_NAME: archivist-gateway
+      OTEL_RESOURCE_ATTRIBUTES: service.namespace=archivist
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otelcol:4318}
+      OTEL_TRACES_SAMPLER: always_on
     expose:
       - "8080"
     volumes:
@@ -45,6 +49,10 @@ services:
       ARCHIVIST_LLM_PROVIDER: ${ARCHIVIST_LLM_PROVIDER:-anthropic}
       ARCHIVIST_LLM_API_KEY: ${ARCHIVIST_LLM_API_KEY:?ARCHIVIST_LLM_API_KEY must be set}
       ARCHIVIST_LLM_MODEL: ${ARCHIVIST_LLM_MODEL:-claude-haiku-4-5-20251001}
+      OTEL_SERVICE_NAME: archivist-worker
+      OTEL_RESOURCE_ATTRIBUTES: service.namespace=archivist
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otelcol:4318}
+      OTEL_TRACES_SAMPLER: always_on
     volumes:
       - data:/data
     networks:
@@ -67,6 +75,10 @@ services:
       ARCHIVIST_SNAPSHOTTER_S3_ACCESS_KEY_ID: ${ARCHIVIST_SNAPSHOTTER_S3_ACCESS_KEY_ID:?ARCHIVIST_SNAPSHOTTER_S3_ACCESS_KEY_ID must be set}
       ARCHIVIST_SNAPSHOTTER_S3_SECRET_ACCESS_KEY: ${ARCHIVIST_SNAPSHOTTER_S3_SECRET_ACCESS_KEY:?ARCHIVIST_SNAPSHOTTER_S3_SECRET_ACCESS_KEY must be set}
       ARCHIVIST_SNAPSHOTTER_OBJECT_PREFIX: ${ARCHIVIST_SNAPSHOTTER_OBJECT_PREFIX:-}
+      OTEL_SERVICE_NAME: archivist-snapshotter
+      OTEL_RESOURCE_ATTRIBUTES: service.namespace=archivist
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otelcol:4318}
+      OTEL_TRACES_SAMPLER: always_on
     read_only: true
     tmpfs:
       - /tmp
@@ -81,6 +93,23 @@ services:
     image: ${ARCHIVIST_UI_IMAGE:?ARCHIVIST_UI_IMAGE must be set}
     expose:
       - "8080"
+    networks:
+      - archivist
+    restart: always
+
+  otelcol:
+    image: ${ARCHIVIST_OTEL_COLLECTOR_IMAGE:-otel/opentelemetry-collector-contrib:0.150.0}
+    command:
+      - --config=/etc/otelcol-config.yaml
+    environment:
+      ARCHIVIST_OTEL_EXPORTER_OTLP_ENDPOINT: ${ARCHIVIST_OTEL_EXPORTER_OTLP_ENDPOINT:?ARCHIVIST_OTEL_EXPORTER_OTLP_ENDPOINT must be set}
+      ARCHIVIST_OTEL_EXPORTER_OTLP_AUTHORIZATION: ${ARCHIVIST_OTEL_EXPORTER_OTLP_AUTHORIZATION:-}
+      ARCHIVIST_OTEL_TAIL_SAMPLING_PERCENTAGE: ${ARCHIVIST_OTEL_TAIL_SAMPLING_PERCENTAGE:-10}
+      ARCHIVIST_OTEL_TAIL_SAMPLING_DECISION_WAIT: ${ARCHIVIST_OTEL_TAIL_SAMPLING_DECISION_WAIT:-10s}
+    expose:
+      - "4318"
+    volumes:
+      - ./otelcol-config.yaml:/etc/otelcol-config.yaml:ro
     networks:
       - archivist
     restart: always

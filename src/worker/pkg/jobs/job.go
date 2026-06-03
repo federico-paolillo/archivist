@@ -31,6 +31,8 @@ type Job struct {
 	TelegramUserID    *int64
 
 	ErrorMessage *string
+	TraceParent  *string
+	TraceState   *string
 
 	CreatedAt   time.Time
 	StartedAt   *time.Time

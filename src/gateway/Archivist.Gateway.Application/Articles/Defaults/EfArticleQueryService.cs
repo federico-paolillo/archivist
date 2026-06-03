@@ -1,4 +1,5 @@
 using Archivist.Gateway.Application.ArticleArtifacts;
+using Archivist.Gateway.Application.Observability;
 using Archivist.Gateway.Application.Persistence;
 using Archivist.Gateway.Application.Persistence.Entities;
 
@@ -25,6 +26,9 @@ public sealed class EfArticleQueryService(
         CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(userId);
+
+        using var activity = ArchivistTelemetry.ActivitySource.StartActivity("gateway.articles.list");
+        activity?.SetTag(ArchivistTelemetry.Stage, "articles_list");
 
         var query = db.Articles
             .AsNoTracking()
@@ -57,6 +61,8 @@ public sealed class EfArticleQueryService(
         var nextCursor = await GetNextCursorAsync(userId, items, cancellationToken).ConfigureAwait(false);
         var previousCursor = await GetPreviousCursorAsync(userId, items, cancellationToken).ConfigureAwait(false);
 
+        activity?.SetTag(ArchivistTelemetry.Outcome, "found");
+
         return new ArticleListPage(items, nextCursor, previousCursor);
     }
 
@@ -69,6 +75,10 @@ public sealed class EfArticleQueryService(
         ArgumentException.ThrowIfNullOrWhiteSpace(articleId);
         ArgumentException.ThrowIfNullOrWhiteSpace(userId);
 
+        using var activity = ArchivistTelemetry.ActivitySource.StartActivity("gateway.articles.detail");
+        activity?.SetTag(ArchivistTelemetry.ArticleId, articleId);
+        activity?.SetTag(ArchivistTelemetry.Stage, "articles_detail");
+
         var article = await db.Articles
             .AsNoTracking()
             .Where(x => x.Id == articleId && x.UserId == userId)
@@ -77,6 +87,8 @@ public sealed class EfArticleQueryService(
 
         if (article is null)
         {
+            activity?.SetTag(ArchivistTelemetry.Outcome, "not_found");
+
             return ArticleDetailResult.NotFound;
         }
 
@@ -95,6 +107,8 @@ public sealed class EfArticleQueryService(
         if (article.Status == PersistenceConstants.ArticleReady &&
             (summaryMarkdown is null || contentMarkdown is null))
         {
+            activity?.SetTag(ArchivistTelemetry.Outcome, "artifact_unavailable");
+
             return ArticleDetailResult.RequiredArtifactUnavailable;
         }
 
@@ -109,6 +123,8 @@ public sealed class EfArticleQueryService(
             .ConfigureAwait(false);
         var canForceDelete = runningJobStartTimes.Count > 0 &&
             runningJobStartTimes.All(IsStaleRunningJob);
+
+        activity?.SetTag(ArchivistTelemetry.Outcome, "found");
 
         return ArticleDetailResult.Found(new ArticleDetail(
             article.Id,

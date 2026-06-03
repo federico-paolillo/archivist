@@ -89,6 +89,18 @@ The system favors a small, rebuildable deployment over horizontal scale. SQLite 
 
 Snapshotter does not own restore, remote retention, pruning, encryption, Gateway/UI status, or writer coordination in v0. Failed snapshot attempts are logged, temporary files are cleaned up, and the service continues to the next interval.
 
+### OpenTelemetry Collector
+
+- Runtime: official OpenTelemetry Collector Contrib container.
+- Deployment: one private service on the Docker internal network.
+- Responsibilities:
+  - receive OTLP HTTP traces and logs from Gateway, Worker, and Snapshotter;
+  - tail-sample traces, keeping all error traces and 10% of non-error traces;
+  - export telemetry to the configured Grafana-compatible OTLP backend;
+  - keep OTLP receiver ports private to the Docker network.
+
+The development Compose stack also includes a minimal Grafana LGTM container for manual local validation. Grafana LGTM is development-only and is not part of the production runtime contract.
+
 ### Public Browser/API Routing
 
 The browser UI owns page routes such as `/login` and `/articles`. To avoid collisions with Gateway's intentionally unprefixed API routes, the UI calls Gateway through a configured same-origin API base path.
@@ -155,6 +167,8 @@ Core job state includes:
 - `started_at`
 - `completed_at`
 - `expires_at`
+- `traceparent`
+- `tracestate`
 
 Telegram update idempotency is keyed by `jobs.telegram_update_id`.
 
@@ -169,6 +183,8 @@ Notification state includes:
 - `expires_at`
 
 Jobs do not retry automatically in v0. Notifications do not retry automatically in v0. Failed jobs and failed notifications persist error text so the user can manually re-send the URL or the operator can diagnose the issue.
+
+`jobs.traceparent` and `jobs.tracestate` are nullable W3C Trace Context carrier fields. Gateway writes them when creating a queued job inside a traced request. Worker extracts them when claiming the job to continue Gateway-originated traces. Worker-created CLI enqueue jobs may leave them null; processing those jobs starts a valid root trace.
 
 In final v0 processing, `articles.status = ready`, `jobs.status = succeeded`, and the success notification row are committed only after `summary.md` has been atomically written. HTML snapshotting and Markdown extraction are intermediate stages once summary generation exists. Any terminal failure in fetch, snapshot, Markdown extraction, summarization, or artifact writing marks the article and job failed with an ARC-coded public error.
 
@@ -222,6 +238,8 @@ Deployment requirements:
 - only ingress Caddy publishes a host port from the Docker stack;
 - Gateway is private on the Docker internal network and has no host-published port;
 - Snapshotter backs up `/data` to S3-compatible Object Storage;
+- Gateway, Worker, and Snapshotter send OTLP traces and logs to the private Collector;
+- the Collector exports telemetry to the configured Grafana-compatible backend and must not publish OTLP ports to the host;
 - stdout logging collected by the host or deployment environment.
 
 The v0 topology does not target high scalability, multi-region deployment, or real-time processing guarantees.
@@ -232,7 +250,7 @@ GitHub Actions is the canonical repository automation surface. CI runs on pushes
 
 CD is a manually dispatched release workflow. It checks out the requested release ref, validates the same component gates as CI, builds and pushes multi-architecture `linux/amd64` and `linux/arm64` images for Gateway, Worker, UI, and Snapshotter to GitHub Container Registry, emits GitHub artifact attestations for each pushed image, tags the resolved release commit, and opens a draft GitHub release. The UI image build receives the resolved release commit SHA through the `VERSION_LABEL` Docker build argument.
 
-`docker-compose.yaml` is the development Compose file and keeps local `build:` entries. Production releases are generated from the repository source file `docker-compose.prod.yaml`, which has no `build:` entries and receives Gateway, Worker, UI, and Snapshotter images through `ARCHIVIST_GATEWAY_IMAGE`, `ARCHIVIST_WORKER_IMAGE`, `ARCHIVIST_UI_IMAGE`, and `ARCHIVIST_SNAPSHOTTER_IMAGE`. The CD workflow generates a release package under `release/compose/` containing `docker-compose.yml`, `.env`, and digest-pinned `.env.images`, validates the packaged production Compose model with Docker Compose, and publishes that package with `rp.Caddyfile` as a compressed deployment artifact attached to both the workflow run and the draft GitHub release. Operators deploy with the packaged runtime `.env` first and the release-provided `.env.images` file second so release image pins override accidental local image values.
+`docker-compose.yaml` is the development Compose file and keeps local `build:` entries. Production releases are generated from the repository source file `docker-compose.prod.yaml`, which has no `build:` entries and receives Gateway, Worker, UI, and Snapshotter images through `ARCHIVIST_GATEWAY_IMAGE`, `ARCHIVIST_WORKER_IMAGE`, `ARCHIVIST_UI_IMAGE`, and `ARCHIVIST_SNAPSHOTTER_IMAGE`. The CD workflow generates a release package under `release/compose/`, validates the packaged production Compose model with Docker Compose, and publishes it as a compressed deployment artifact attached to both the workflow run and the draft GitHub release. The package contents are `docker-compose.yml`, `.env`, digest-pinned `.env.images`, `rp.Caddyfile`, and `otelcol-config.yaml`. Operators deploy with the packaged runtime `.env` first and the release-provided `.env.images` file second so release image pins override accidental local image values.
 
 ### Reverse Proxy And TLS Termination
 
@@ -319,6 +337,14 @@ SNAPSHOTTER_S3_BUCKET
 SNAPSHOTTER_S3_ACCESS_KEY_ID
 SNAPSHOTTER_S3_SECRET_ACCESS_KEY
 SNAPSHOTTER_OBJECT_PREFIX
+OTEL_SERVICE_NAME
+OTEL_RESOURCE_ATTRIBUTES
+OTEL_EXPORTER_OTLP_ENDPOINT
+OTEL_TRACES_SAMPLER
+ARCHIVIST_OTEL_EXPORTER_OTLP_ENDPOINT
+ARCHIVIST_OTEL_EXPORTER_OTLP_AUTHORIZATION
+ARCHIVIST_OTEL_TAIL_SAMPLING_PERCENTAGE
+ARCHIVIST_OTEL_TAIL_SAMPLING_DECISION_WAIT
 ```
 
 Gateway uses the default ASP.NET Core application configuration sources, appends `ARCHIVIST_`-prefixed environment variables, and creates the builder without command-line arguments. Standalone Gateway keys remain flat, for example `ARCHIVIST_SQLITE_PATH`. Option-bound groups use hierarchy with double underscores in environment variables, for example `ARCHIVIST_Telegram__BotToken`, `ARCHIVIST_Telegram__AllowedUserId`, and `ARCHIVIST_Telegram__WebhookSecret`.
@@ -333,7 +359,9 @@ Worker uses configuro from `src/worker/pkg/app/config`, loads `ARCHIVIST_`-prefi
 
 The UI build uses `VITE_API_BASE_PATH` to choose the same-origin public API base. It defaults to `/api` and is not secret material.
 
-Snapshotter reads only `ARCHIVIST_`-prefixed environment variables. Canonical Snapshotter environment variables are `ARCHIVIST_DATA_DIR`, `ARCHIVIST_SQLITE_PATH`, `ARCHIVIST_SNAPSHOTTER_INTERVAL_SECONDS`, `ARCHIVIST_SNAPSHOTTER_WORK_DIR`, `ARCHIVIST_SNAPSHOTTER_S3_ENDPOINT_URL`, `ARCHIVIST_SNAPSHOTTER_S3_REGION`, `ARCHIVIST_SNAPSHOTTER_S3_BUCKET`, `ARCHIVIST_SNAPSHOTTER_S3_ACCESS_KEY_ID`, `ARCHIVIST_SNAPSHOTTER_S3_SECRET_ACCESS_KEY`, and `ARCHIVIST_SNAPSHOTTER_OBJECT_PREFIX`. `ARCHIVIST_SNAPSHOTTER_INTERVAL_SECONDS` defaults to `86400`. The Snapshotter executable defaults `ARCHIVIST_SNAPSHOTTER_WORK_DIR` to `/tmp/archivist-snapshotter`; Compose deployments set it to `/work/archivist-snapshotter` on a disk-backed `snapshotter-work` volume so snapshot staging is not constrained by tmpfs memory. `ARCHIVIST_SNAPSHOTTER_OBJECT_PREFIX` defaults to empty. The S3 endpoint URL, region, bucket, access key id, and secret access key are required at startup. The access key id and secret access key are secret material.
+Snapshotter reads `ARCHIVIST_`-prefixed application variables and standard `OTEL_*` SDK variables set by Compose. Canonical Snapshotter application variables are `ARCHIVIST_DATA_DIR`, `ARCHIVIST_SQLITE_PATH`, `ARCHIVIST_SNAPSHOTTER_INTERVAL_SECONDS`, `ARCHIVIST_SNAPSHOTTER_WORK_DIR`, `ARCHIVIST_SNAPSHOTTER_S3_ENDPOINT_URL`, `ARCHIVIST_SNAPSHOTTER_S3_REGION`, `ARCHIVIST_SNAPSHOTTER_S3_BUCKET`, `ARCHIVIST_SNAPSHOTTER_S3_ACCESS_KEY_ID`, `ARCHIVIST_SNAPSHOTTER_S3_SECRET_ACCESS_KEY`, and `ARCHIVIST_SNAPSHOTTER_OBJECT_PREFIX`. `ARCHIVIST_SNAPSHOTTER_INTERVAL_SECONDS` defaults to `86400`. The Snapshotter executable defaults `ARCHIVIST_SNAPSHOTTER_WORK_DIR` to `/tmp/archivist-snapshotter`; Compose deployments set it to `/work/archivist-snapshotter` on a disk-backed `snapshotter-work` volume so snapshot staging is not constrained by tmpfs memory. `ARCHIVIST_SNAPSHOTTER_OBJECT_PREFIX` defaults to empty. The S3 endpoint URL, region, bucket, access key id, and secret access key are required at startup. The access key id and secret access key are secret material.
+
+Compose configures application SDKs with `OTEL_SERVICE_NAME`, `OTEL_RESOURCE_ATTRIBUTES`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and always-on trace sampling. Application-side trace/log exporter disable switches are not part of the deployment contract. Collector-specific deployment variables use `ARCHIVIST_OTEL_*`. Applications must keep core behavior working during Collector runtime outages. Invalid telemetry configuration may fail startup. Telemetry must not expose secrets, cookies, Telegram bot tokens, authentication headers, full article HTML, full Markdown, full summaries, provider payloads, or S3 credentials. High-cardinality values such as `article_id`, `job_id`, URLs, and provider request IDs remain trace/log attributes and must not be promoted to Loki labels or metric labels.
 
 ## Key Constraints
 
@@ -346,4 +374,4 @@ Snapshotter reads only `ARCHIVIST_`-prefixed environment variables. Canonical Sn
 - No automatic worker retries or Telegram notification retries in v0.
 - No external queue system in v0.
 - No Playwright or headless browser rendering in v0.
-- No full-text search, filtering, advanced tagging, browser extension, PWA/offline mode, or observability stack in v0.
+- No full-text search, filtering, advanced tagging, browser extension, or PWA/offline mode in v0.

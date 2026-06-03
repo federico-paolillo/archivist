@@ -1,11 +1,16 @@
 namespace Archivist.Gateway.Application.Telegram;
 
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 
+using Archivist.Gateway.Application.Observability;
 using Archivist.Gateway.Application.Persistence;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+
+using OpenTelemetry;
+using OpenTelemetry.Context.Propagation;
 
 /// <summary>
 /// Processes incoming Telegram webhook updates: validates the secret, authorizes the sender,
@@ -19,6 +24,7 @@ public sealed partial class TelegramWebhookHandler(
 {
     private const string AcknowledgementReply = "Ok, I will have a look";
     private const string InvalidUrlReply = "Nope, you must send only an URL";
+    private static readonly TraceContextPropagator TraceContextPropagator = new();
 
     /// <summary>
     /// Processes a single Telegram webhook update.
@@ -29,10 +35,15 @@ public sealed partial class TelegramWebhookHandler(
     {
         ArgumentNullException.ThrowIfNull(command);
 
+        using var activity = ArchivistTelemetry.ActivitySource.StartActivity("gateway.telegram.webhook");
+        activity?.SetTag(ArchivistTelemetry.TelegramUpdateId, command.UpdateId);
+        activity?.SetTag(ArchivistTelemetry.Stage, "telegram_webhook");
+
         var telegramSettings = settings.Value;
 
         if (!IsSecretValid(command.WebhookSecret, telegramSettings.WebhookSecret))
         {
+            activity?.SetTag(ArchivistTelemetry.Outcome, "bad_secret");
             LogBadSecret(logger, command.UpdateId);
 
             return new TelegramWebhookResult(TelegramWebhookOutcome.BadSecret);
@@ -40,6 +51,7 @@ public sealed partial class TelegramWebhookHandler(
 
         if (command.SenderUserId is null || command.SenderUserId != telegramSettings.AllowedUserId)
         {
+            activity?.SetTag(ArchivistTelemetry.Outcome, "unauthorized");
             LogUnauthorized(logger, command.UpdateId, command.SenderUserId);
 
             return new TelegramWebhookResult(TelegramWebhookOutcome.Unauthorized);
@@ -47,6 +59,7 @@ public sealed partial class TelegramWebhookHandler(
 
         if (command.ChatId is null || command.MessageId is null)
         {
+            activity?.SetTag(ArchivistTelemetry.Outcome, "no_message");
             LogNoMessage(logger, command.UpdateId, command.SenderUserId.Value);
 
             return new TelegramWebhookResult(TelegramWebhookOutcome.NoMessage);
@@ -58,6 +71,7 @@ public sealed partial class TelegramWebhookHandler(
 
         if (command.MessageText is null || !TryParseUrl(command.MessageText, out var url))
         {
+            activity?.SetTag(ArchivistTelemetry.Outcome, "invalid_url");
             LogInvalidUrl(logger, command.UpdateId, senderUserId);
 
             await SendReplyFireAndForgetAsync(chatId, messageId, InvalidUrlReply, cancellationToken).ConfigureAwait(false);
@@ -66,23 +80,30 @@ public sealed partial class TelegramWebhookHandler(
         }
 
         LogValidUrl(logger, command.UpdateId, senderUserId, chatId, messageId, url);
+        var traceCarrier = CaptureTraceCarrier();
 
         var ingestionCommand = new RecordTelegramIngestionCommand(
             TelegramUpdateId: command.UpdateId,
             TelegramChatId: chatId,
             TelegramMessageId: messageId,
             TelegramUserId: senderUserId,
-            OriginalUrl: url);
+            OriginalUrl: url,
+            TraceParent: traceCarrier.TraceParent,
+            TraceState: traceCarrier.TraceState);
 
         var result = await ingestionRepository.RecordValidUrlAsync(ingestionCommand, cancellationToken).ConfigureAwait(false);
+        activity?.SetTag(ArchivistTelemetry.ArticleId, result.ArticleId);
+        activity?.SetTag(ArchivistTelemetry.JobId, result.JobId);
 
         if (!result.Created)
         {
+            activity?.SetTag(ArchivistTelemetry.Outcome, "duplicate");
             LogDuplicate(logger, command.UpdateId, result.ArticleId, result.JobId);
 
             return new TelegramWebhookResult(TelegramWebhookOutcome.Duplicate);
         }
 
+        activity?.SetTag(ArchivistTelemetry.Outcome, "queued");
         LogEnqueued(logger, command.UpdateId, result.ArticleId, result.JobId);
 
         try
@@ -93,6 +114,9 @@ public sealed partial class TelegramWebhookHandler(
         catch (Exception ex)
 #pragma warning restore CA1031
         {
+            activity?.SetTag(ArchivistTelemetry.Outcome, "queued_reply_failed");
+            activity?.SetStatus(ActivityStatusCode.Error, "telegram acknowledgement failed");
+            activity?.AddException(ex);
             LogAcknowledgementFailed(logger, ex, command.UpdateId, result.ArticleId, result.JobId);
 
             return new TelegramWebhookResult(TelegramWebhookOutcome.QueuedReplyFailed);
@@ -100,6 +124,22 @@ public sealed partial class TelegramWebhookHandler(
 
         return new TelegramWebhookResult(TelegramWebhookOutcome.Queued);
     }
+
+    private static TraceCarrier CaptureTraceCarrier()
+    {
+        var carrier = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        TraceContextPropagator.Inject(
+            new PropagationContext(Activity.Current?.Context ?? default, Baggage.Current),
+            carrier,
+            static (target, key, value) => target[key] = value);
+
+        carrier.TryGetValue("traceparent", out var traceParent);
+        carrier.TryGetValue("tracestate", out var traceState);
+
+        return new TraceCarrier(traceParent, traceState);
+    }
+
+    private sealed record TraceCarrier(string? TraceParent, string? TraceState);
 
     [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Invalid-message reply failure must not propagate; exception is logged.")]
     private async Task SendReplyFireAndForgetAsync(

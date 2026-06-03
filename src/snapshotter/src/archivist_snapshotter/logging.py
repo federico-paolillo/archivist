@@ -3,13 +3,23 @@ from __future__ import annotations
 import json
 import sys
 from collections.abc import Mapping
+from contextlib import suppress
 from datetime import UTC, datetime
 from typing import TextIO
 
+from opentelemetry import _logs
+from opentelemetry._logs import SeverityNumber
+from opentelemetry.util.types import AnyValue
+
 from archivist_snapshotter.config import ConfigError
+from archivist_snapshotter.telemetry import INSTRUMENTATION_NAME, active_span_ids
 
 SECRET_FIELD_FRAGMENTS = ("secret", "access_key", "credential", "token", "password")
 SAFE_EXCEPTION_MESSAGE_TYPES = (ConfigError,)
+OTEL_SEVERITY_BY_LEVEL = {
+    "info": SeverityNumber.INFO,
+    "error": SeverityNumber.ERROR,
+}
 
 
 class JsonLogger:
@@ -29,8 +39,10 @@ class JsonLogger:
             "time": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         }
         payload.update(_sanitize_fields(fields))
+        payload.update(active_span_ids())
         self._stream.write(json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n")
         self._stream.flush()
+        _emit_otel_log(level, event, payload)
 
 
 def _sanitize_fields(fields: Mapping[str, object]) -> dict[str, object]:
@@ -66,3 +78,28 @@ def _json_safe(value: object) -> object:
     except TypeError:
         return str(value)
     return value
+
+
+def _emit_otel_log(level: str, event: str, payload: Mapping[str, object]) -> None:
+    with suppress(Exception):
+        _logs.get_logger(INSTRUMENTATION_NAME).emit(
+            severity_number=OTEL_SEVERITY_BY_LEVEL[level],
+            severity_text=level.upper(),
+            body=event,
+            attributes=_otel_attributes(payload),
+            event_name=event,
+        )
+
+
+def _otel_attributes(payload: Mapping[str, object]) -> dict[str, AnyValue]:
+    return {key: _otel_attribute_value(value) for key, value in payload.items()}
+
+
+def _otel_attribute_value(value: object) -> AnyValue:
+    if value is None or isinstance(value, (str, bool, int, float, bytes)):
+        return value
+    if isinstance(value, Mapping):
+        return {str(key): _otel_attribute_value(nested) for key, nested in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_otel_attribute_value(item) for item in value]
+    return str(value)

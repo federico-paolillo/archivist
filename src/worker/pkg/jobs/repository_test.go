@@ -10,6 +10,7 @@ import (
 	"codeberg.org/federico-paolillo/archivist/pkg/jobs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
 var errIDGenerator = errors.New("id generator failed")
@@ -200,6 +201,35 @@ func TestEnqueueURLCreatesQueuedArticleAndNonTelegramJob(t *testing.T) {
 	err = database.QueryRow(`SELECT COUNT(*) FROM notifications WHERE job_id = ?`, "JOB001").Scan(&notificationCount)
 	require.NoError(t, err)
 	assert.Equal(t, 0, notificationCount)
+}
+
+func TestEnqueueURLLeavesTraceCarrierNullWhenContextHasSpan(t *testing.T) {
+	database := openTestDB(t)
+	seedUser(t, database)
+
+	tracerProvider := sdktrace.NewTracerProvider()
+	defer func() {
+		require.NoError(t, tracerProvider.Shutdown(t.Context()))
+	}()
+
+	ctx, span := tracerProvider.Tracer("test").Start(t.Context(), "test enqueue")
+	defer span.End()
+
+	repo := jobs.NewSQLiteRepository(database, newTestIDGenerator("ARTICLE001", "JOB001"))
+
+	_, err := repo.EnqueueURL(ctx, "https://example.com/article")
+	require.NoError(t, err)
+
+	var traceparent sql.NullString
+	var tracestate sql.NullString
+
+	err = database.QueryRow(
+		`SELECT traceparent, tracestate FROM jobs WHERE id = ?`,
+		"JOB001",
+	).Scan(&traceparent, &tracestate)
+	require.NoError(t, err)
+	assert.False(t, traceparent.Valid)
+	assert.False(t, tracestate.Valid)
 }
 
 func TestEnqueueURLFailsClearlyWhenDefaultUserIsMissing(t *testing.T) {
@@ -394,6 +424,38 @@ func TestClaimQueuedPreservesAllTelegramOriginFields(t *testing.T) {
 	assert.Equal(t, int64(2001), *claimed.TelegramChatID)
 	assert.Equal(t, int64(3001), *claimed.TelegramMessageID)
 	assert.Equal(t, int64(4001), *claimed.TelegramUserID)
+}
+
+func TestClaimQueuedPreservesTraceCarrierFields(t *testing.T) {
+	database := openTestDB(t)
+	seedUser(t, database)
+	seedArticle(t, database, "ARTICLE001")
+
+	const traceparent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+	const tracestate = "rojo=00f067aa0ba902b7"
+
+	_, err := database.Exec(
+		`INSERT INTO jobs (id, user_id, article_id, type, status, traceparent, tracestate, created_at)
+		 VALUES (?, ?, ?, ?, 'queued', ?, ?, ?)`,
+		"JOB001",
+		"01ASB2XFCZJY7WHZ2FNRTMQJCT",
+		"ARTICLE001",
+		jobs.TypeArticleProcessing,
+		traceparent,
+		tracestate,
+		time.Now().UTC().Format(time.RFC3339Nano),
+	)
+	require.NoError(t, err)
+
+	repo := jobs.NewSQLiteRepository(database, newTestIDGenerator())
+
+	claimed, err := repo.ClaimQueued(t.Context())
+
+	require.NoError(t, err)
+	require.NotNil(t, claimed.TraceParent)
+	require.NotNil(t, claimed.TraceState)
+	assert.Equal(t, traceparent, *claimed.TraceParent)
+	assert.Equal(t, tracestate, *claimed.TraceState)
 }
 
 func TestUpdateArticleTitlePersistsDiscoveredTitle(t *testing.T) {

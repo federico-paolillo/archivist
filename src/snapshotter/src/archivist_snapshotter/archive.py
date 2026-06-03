@@ -11,6 +11,7 @@ from pathlib import Path
 from archivist_snapshotter import __version__
 from archivist_snapshotter.config import Config, normalize_object_prefix
 from archivist_snapshotter.logging import JsonLogger
+from archivist_snapshotter.telemetry import get_tracer, mark_span_error, set_span_attributes
 
 CONSISTENCY_NOTE = (
     "SQLite captured with the SQLite online backup API; non-database artifacts copied "
@@ -34,6 +35,12 @@ class SnapshotResult:
 
     def cleanup(self) -> None:
         shutil.rmtree(self.attempt_dir, ignore_errors=False)
+
+
+@dataclass(frozen=True)
+class ArtifactCopyStats:
+    copied_files: int = 0
+    skipped_files: int = 0
 
 
 def snapshot_timestamp(created_at: datetime | None = None) -> SnapshotTimestamp:
@@ -70,25 +77,90 @@ def create_snapshot_archive(
     if attempt_dir.exists():
         shutil.rmtree(attempt_dir)
 
-    try:
-        staged_data_dir.mkdir(parents=True)
-        _copy_artifacts_best_effort(
-            data_dir=config.data_dir,
-            sqlite_path=config.sqlite_path,
-            staged_data_dir=staged_data_dir,
-            logger=logger,
-        )
-        _backup_sqlite(config.sqlite_path, _staged_sqlite_path(config, staged_data_dir))
-        _write_manifest(
-            stage_root=stage_root,
-            timestamp=timestamp,
-            object_key=object_key,
-            config=config,
-        )
-        _create_tarball(stage_root=stage_root, archive_path=archive_path)
-    except Exception:
-        shutil.rmtree(attempt_dir, ignore_errors=True)
-        raise
+    with get_tracer().start_as_current_span(
+        "snapshotter.archive.create",
+        attributes={
+            "archive.name": timestamp.archive_name,
+            "s3.object_key": object_key,
+            "snapshotter.work_dir": str(config.work_dir),
+        },
+        record_exception=False,
+        set_status_on_exception=False,
+    ) as span:
+        try:
+            staged_data_dir.mkdir(parents=True)
+            with get_tracer().start_as_current_span(
+                "snapshotter.artifact_copy",
+                attributes={
+                    "source.data_dir": str(config.data_dir),
+                    "target.data_dir": str(staged_data_dir),
+                },
+                record_exception=False,
+                set_status_on_exception=False,
+            ) as copy_span:
+                try:
+                    copy_stats = _copy_artifacts_best_effort(
+                        data_dir=config.data_dir,
+                        sqlite_path=config.sqlite_path,
+                        staged_data_dir=staged_data_dir,
+                        logger=logger,
+                    )
+                except Exception:
+                    mark_span_error(copy_span)
+                    raise
+                set_span_attributes(
+                    copy_span,
+                    {
+                        "artifact.copied_files": copy_stats.copied_files,
+                        "artifact.skipped_files": copy_stats.skipped_files,
+                    },
+                )
+            with get_tracer().start_as_current_span(
+                "snapshotter.sqlite_backup",
+                attributes={
+                    "source.sqlite_path": str(config.sqlite_path),
+                    "target.sqlite_path": str(_staged_sqlite_path(config, staged_data_dir)),
+                },
+                record_exception=False,
+                set_status_on_exception=False,
+            ) as backup_span:
+                try:
+                    _backup_sqlite(config.sqlite_path, _staged_sqlite_path(config, staged_data_dir))
+                except Exception:
+                    mark_span_error(backup_span)
+                    raise
+            with get_tracer().start_as_current_span(
+                "snapshotter.manifest_write",
+                attributes={"manifest.path": str(stage_root / "manifest.json")},
+                record_exception=False,
+                set_status_on_exception=False,
+            ) as manifest_span:
+                try:
+                    _write_manifest(
+                        stage_root=stage_root,
+                        timestamp=timestamp,
+                        object_key=object_key,
+                        config=config,
+                    )
+                except Exception:
+                    mark_span_error(manifest_span)
+                    raise
+            with get_tracer().start_as_current_span(
+                "snapshotter.tarball_create",
+                attributes={"archive.path": str(archive_path)},
+                record_exception=False,
+                set_status_on_exception=False,
+            ) as tarball_span:
+                try:
+                    _create_tarball(stage_root=stage_root, archive_path=archive_path)
+                except Exception:
+                    mark_span_error(tarball_span)
+                    raise
+            set_span_attributes(span, {"archive.path": str(archive_path)})
+        except Exception:
+            mark_span_error(span)
+            shutil.rmtree(attempt_dir, ignore_errors=True)
+            raise
 
     logger.info(
         "archive_created",
@@ -110,8 +182,10 @@ def _copy_artifacts_best_effort(
     sqlite_path: Path,
     staged_data_dir: Path,
     logger: JsonLogger,
-) -> None:
+) -> ArtifactCopyStats:
     sqlite_excluded_paths = _sqlite_excluded_paths(sqlite_path)
+    copied_files = 0
+    skipped_files = 0
     for source in data_dir.rglob("*"):
         if source in sqlite_excluded_paths:
             continue
@@ -127,13 +201,17 @@ def _copy_artifacts_best_effort(
                 continue
             if source.is_symlink():
                 logger.info("artifact_skipped", reason="symlink", path=str(relative))
+                skipped_files += 1
                 continue
             if not source.is_file():
                 continue
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, target)
+            copied_files += 1
         except FileNotFoundError:
             logger.info("artifact_skipped", reason="disappeared", path=str(relative))
+            skipped_files += 1
+    return ArtifactCopyStats(copied_files=copied_files, skipped_files=skipped_files)
 
 
 def _backup_sqlite(source_path: Path, target_path: Path) -> None:

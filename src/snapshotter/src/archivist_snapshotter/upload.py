@@ -7,6 +7,7 @@ import boto3
 
 from archivist_snapshotter.config import S3Config
 from archivist_snapshotter.logging import JsonLogger
+from archivist_snapshotter.telemetry import get_tracer, mark_span_error
 
 
 class S3Client(Protocol):
@@ -32,14 +33,30 @@ class S3Uploader:
         )
 
     def upload(self, archive_path: Path, object_key: str) -> None:
-        client = self._client_factory(
-            "s3",
-            endpoint_url=self._config.endpoint_url,
-            region_name=self._config.region,
-            aws_access_key_id=self._config.access_key_id,
-            aws_secret_access_key=self._config.secret_access_key,
-        )
-        client.upload_file(str(archive_path), self._config.bucket, object_key)
+        with get_tracer().start_as_current_span(
+            "snapshotter.s3_upload",
+            attributes={
+                "archive.path": str(archive_path),
+                "s3.bucket": self._config.bucket,
+                "s3.object_key": object_key,
+                "s3.endpoint_url": self._config.endpoint_url,
+                "s3.region": self._config.region,
+            },
+            record_exception=False,
+            set_status_on_exception=False,
+        ) as span:
+            try:
+                client = self._client_factory(
+                    "s3",
+                    endpoint_url=self._config.endpoint_url,
+                    region_name=self._config.region,
+                    aws_access_key_id=self._config.access_key_id,
+                    aws_secret_access_key=self._config.secret_access_key,
+                )
+                client.upload_file(str(archive_path), self._config.bucket, object_key)
+            except Exception:
+                mark_span_error(span)
+                raise
         self._logger.info(
             "upload_succeeded",
             archive_path=str(archive_path),

@@ -118,6 +118,7 @@ Project-specific ordering:
 8. ui
 9. job-recovery
 10. snapshotter
+11. otel-observability
 ```
 
 Task-level cross-feature dependencies in feature `PLAN.md` files further constrain this order. In particular, the shared persistence foundation from `TELING-001` must precede auth password persistence, article processing orchestration, and UI endpoint work; final success notification behavior is completed by `SUMGEN-005`; and the browser UI starts only after auth and UI article endpoint contracts are implemented and validated.
@@ -188,6 +189,7 @@ cd src/snapshotter && uv run ruff check .
 cd src/snapshotter && uv run ty check .
 cd src/snapshotter && uv run pytest
 docker buildx build --file snapshotter.Dockerfile --platform linux/amd64 --load --tag archivist-snapshotter:test .
+docker compose --env-file .env.example config --quiet
 ```
 
 ---

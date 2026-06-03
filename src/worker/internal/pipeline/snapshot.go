@@ -12,7 +12,11 @@ import (
 	"codeberg.org/federico-paolillo/archivist/internal/arc"
 	"codeberg.org/federico-paolillo/archivist/internal/artifacts"
 	"codeberg.org/federico-paolillo/archivist/internal/fetcher"
+	"codeberg.org/federico-paolillo/archivist/internal/observability"
 	"codeberg.org/federico-paolillo/archivist/pkg/jobs"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // MarkdownHandoff is the extension point implemented by Markdown extraction.
@@ -75,9 +79,15 @@ func NewSnapshotPipeline(
 // processed=true when a job was processed, even if the job itself failed and
 // that failure was persisted. It returns a non-nil error only for unexpected
 // infrastructure failures.
+//
+//nolint:funlen // Top-level orchestration is intentionally linear for stage ordering.
 func (p *SnapshotPipeline) ProcessOne(ctx context.Context) (bool, error) {
-	job, claimErr := p.repo.ClaimQueued(ctx)
+	claimCtx, claimSpan := observability.Tracer().Start(ctx, "worker.pipeline.claim", trace.WithSpanKind(trace.SpanKindConsumer))
+
+	job, claimErr := p.repo.ClaimQueued(claimCtx)
 	if claimErr != nil {
+		observability.EndSpan(claimSpan, claimErr)
+
 		if errors.Is(claimErr, sql.ErrNoRows) {
 			return false, nil
 		}
@@ -85,9 +95,23 @@ func (p *SnapshotPipeline) ProcessOne(ctx context.Context) (bool, error) {
 		return false, fmt.Errorf("pipeline: claim queued job: %w", claimErr)
 	}
 
+	claimSpan.SetAttributes(observability.JobAttributes(job.ArticleID, job.ID)...)
+	claimSpan.End()
+
+	ctx = p.continueJobTrace(ctx, job)
+
+	ctx, processSpan := observability.Tracer().Start(
+		ctx,
+		"worker.pipeline.process",
+		trace.WithSpanKind(trace.SpanKindConsumer),
+		trace.WithAttributes(observability.JobAttributes(job.ArticleID, job.ID)...),
+	)
+	defer processSpan.End()
+
 	start := time.Now()
 
-	p.logger.Info(
+	p.logger.InfoContext(
+		ctx,
 		"pipeline: job claimed",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
@@ -97,10 +121,16 @@ func (p *SnapshotPipeline) ProcessOne(ctx context.Context) (bool, error) {
 
 	articleURL, urlErr := p.repo.ArticleURL(ctx, job.ArticleID)
 	if urlErr != nil {
+		processSpan.RecordError(urlErr)
+		processSpan.SetStatus(codes.Error, urlErr.Error())
+
 		return false, fmt.Errorf("pipeline: load article URL for %s: %w", job.ArticleID, urlErr)
 	}
 
-	p.logger.Info(
+	processSpan.SetAttributes(attribute.String("url", articleURL))
+
+	p.logger.InfoContext(
+		ctx,
 		"pipeline: processing job",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
@@ -114,6 +144,9 @@ func (p *SnapshotPipeline) ProcessOne(ctx context.Context) (bool, error) {
 	duration := time.Since(start)
 
 	if processingErr != nil {
+		processSpan.RecordError(processingErr)
+		processSpan.SetStatus(codes.Error, processingErr.Error())
+
 		if _, ok := arc.CodeOf(processingErr); !ok {
 			return false, fmt.Errorf("pipeline: run stages for job %s: %w", job.ID, processingErr)
 		}
@@ -126,7 +159,8 @@ func (p *SnapshotPipeline) ProcessOne(ctx context.Context) (bool, error) {
 		return true, nil
 	}
 
-	p.logger.Info(
+	p.logger.InfoContext(
+		ctx,
 		"pipeline: job stages completed",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
@@ -138,15 +172,47 @@ func (p *SnapshotPipeline) ProcessOne(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
+func (p *SnapshotPipeline) continueJobTrace(ctx context.Context, job *jobs.Job) context.Context {
+	var traceparent string
+	if job.TraceParent != nil {
+		traceparent = *job.TraceParent
+	}
+
+	var tracestate string
+	if job.TraceState != nil {
+		tracestate = *job.TraceState
+	}
+
+	return observability.ExtractTraceContext(ctx, traceparent, tracestate)
+}
+
 // persistFailure logs the failure and commits terminal failure state.
+//
+//nolint:funlen,nonamedreturns // Terminal failure logging and persistence stay adjacent for auditability.
 func (p *SnapshotPipeline) persistFailure(
 	ctx context.Context,
 	job *jobs.Job,
 	articleURL string,
 	processingErr error,
 	duration time.Duration,
-) error {
-	p.logger.Error(
+) (err error) {
+	ctx, span := observability.Tracer().Start(
+		ctx,
+		"worker.pipeline.terminal_failure",
+		trace.WithAttributes(append(
+			observability.JobAttributes(job.ArticleID, job.ID),
+			attribute.String("url", articleURL),
+			attribute.String("arc_code", arc.CodeString(processingErr)),
+		)...),
+	)
+	defer func() {
+		observability.EndSpan(span, err)
+	}()
+
+	span.SetStatus(codes.Error, arc.CodeString(processingErr))
+
+	p.logger.ErrorContext(
+		ctx,
 		"pipeline: job failed",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
@@ -163,7 +229,8 @@ func (p *SnapshotPipeline) persistFailure(
 		errorMessage = arc.Format(arc.CodeUnknownProcessingFailure)
 	}
 
-	p.logger.Info(
+	p.logger.InfoContext(
+		ctx,
 		"pipeline: terminal failure persistence started",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
@@ -178,7 +245,8 @@ func (p *SnapshotPipeline) persistFailure(
 		ErrorMessage: errorMessage,
 	})
 	if terminalErr != nil {
-		p.logger.Error(
+		p.logger.ErrorContext(
+			ctx,
 			"pipeline: terminal failure persistence failed",
 			slog.String("article_id", job.ArticleID),
 			slog.String("job_id", job.ID),
@@ -192,7 +260,8 @@ func (p *SnapshotPipeline) persistFailure(
 		return fmt.Errorf("pipeline: persist terminal failure for job %s: %w", job.ID, terminalErr)
 	}
 
-	p.logger.Info(
+	p.logger.InfoContext(
+		ctx,
 		"pipeline: terminal failure persisted",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
@@ -227,10 +296,25 @@ func (p *SnapshotPipeline) runStages(ctx context.Context, job *jobs.Job, article
 }
 
 // fetchHTML calls the fetcher and maps unexpected errors to ErrUnknown.
-func (p *SnapshotPipeline) fetchHTML(ctx context.Context, job *jobs.Job, articleURL string) (*fetcher.Result, error) {
+//
+//nolint:funlen,nonamedreturns // Fetch telemetry and ARC mapping are intentionally kept together.
+func (p *SnapshotPipeline) fetchHTML(ctx context.Context, job *jobs.Job, articleURL string) (result *fetcher.Result, err error) {
+	ctx, span := observability.Tracer().Start(
+		ctx,
+		"worker.pipeline.fetch",
+		trace.WithAttributes(append(
+			observability.JobAttributes(job.ArticleID, job.ID),
+			attribute.String("url", articleURL),
+		)...),
+	)
+	defer func() {
+		observability.EndSpan(span, err)
+	}()
+
 	start := time.Now()
 
-	p.logger.Info(
+	p.logger.InfoContext(
+		ctx,
 		"pipeline: fetch started",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
@@ -241,7 +325,9 @@ func (p *SnapshotPipeline) fetchHTML(ctx context.Context, job *jobs.Job, article
 
 	result, fetchErr := p.fetch.Fetch(ctx, articleURL)
 	if fetchErr == nil {
-		p.logger.Info(
+		span.SetAttributes(attribute.String("final_url", result.FinalURL))
+		p.logger.InfoContext(
+			ctx,
 			"pipeline: fetch completed",
 			slog.String("article_id", job.ArticleID),
 			slog.String("job_id", job.ID),
@@ -256,7 +342,8 @@ func (p *SnapshotPipeline) fetchHTML(ctx context.Context, job *jobs.Job, article
 	}
 
 	if _, ok := arc.CodeOf(fetchErr); ok {
-		p.logger.Info(
+		p.logger.InfoContext(
+			ctx,
 			"pipeline: fetch completed",
 			slog.String("article_id", job.ArticleID),
 			slog.String("job_id", job.ID),
@@ -268,7 +355,7 @@ func (p *SnapshotPipeline) fetchHTML(ctx context.Context, job *jobs.Job, article
 			slog.Any("error", fetchErr),
 		)
 
-		return nil, pipelineFailure(
+		err = pipelineFailure(
 			"fetch",
 			"fetch html",
 			fetchErr,
@@ -276,9 +363,12 @@ func (p *SnapshotPipeline) fetchHTML(ctx context.Context, job *jobs.Job, article
 			withJobContext(job.ArticleID, job.ID),
 			withPipelineURL(articleURL),
 		)
+
+		return nil, err
 	}
 
-	p.logger.Error(
+	p.logger.ErrorContext(
+		ctx,
 		"pipeline: unexpected fetch error",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
@@ -289,7 +379,7 @@ func (p *SnapshotPipeline) fetchHTML(ctx context.Context, job *jobs.Job, article
 		slog.Any("error", fetchErr),
 	)
 
-	return nil, pipelineFailure(
+	err = pipelineFailure(
 		"fetch",
 		"fetch html",
 		arc.ErrUnknown,
@@ -297,13 +387,27 @@ func (p *SnapshotPipeline) fetchHTML(ctx context.Context, job *jobs.Job, article
 		withJobContext(job.ArticleID, job.ID),
 		withPipelineURL(articleURL),
 	)
+
+	return nil, err
 }
 
 // writeSnapshot atomically writes snapshot.html and maps failures to ARC-007.
-func (p *SnapshotPipeline) writeSnapshot(_ context.Context, job *jobs.Job, result *fetcher.Result) error {
+//
+//nolint:nonamedreturns,spancheck // Deferred span completion records the returned error.
+func (p *SnapshotPipeline) writeSnapshot(ctx context.Context, job *jobs.Job, result *fetcher.Result) (err error) {
+	ctx, span := observability.Tracer().Start(
+		ctx,
+		"worker.pipeline.snapshot_write",
+		trace.WithAttributes(observability.JobAttributes(job.ArticleID, job.ID)...),
+	)
+	defer func() {
+		observability.EndSpan(span, err)
+	}()
+
 	start := time.Now()
 
-	p.logger.Info(
+	p.logger.InfoContext(
+		ctx,
 		"pipeline: snapshot write started",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
@@ -313,7 +417,8 @@ func (p *SnapshotPipeline) writeSnapshot(_ context.Context, job *jobs.Job, resul
 
 	snapshotErr := p.store.WriteSnapshot(job.ArticleID, bytes.NewReader(result.Body))
 	if snapshotErr != nil {
-		p.logger.Error(
+		p.logger.ErrorContext(
+			ctx,
 			"pipeline: snapshot write failed",
 			slog.String("article_id", job.ArticleID),
 			slog.String("job_id", job.ID),
@@ -325,16 +430,19 @@ func (p *SnapshotPipeline) writeSnapshot(_ context.Context, job *jobs.Job, resul
 			slog.Any("error", snapshotErr),
 		)
 
-		return pipelineFailure(
+		err = pipelineFailure(
 			"snapshot",
 			"write snapshot",
 			arc.ErrSnapshotWrite,
 			snapshotErr,
 			withJobContext(job.ArticleID, job.ID),
 		)
+
+		return err
 	}
 
-	p.logger.Info(
+	p.logger.InfoContext(
+		ctx,
 		"pipeline: snapshot written",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
@@ -348,15 +456,31 @@ func (p *SnapshotPipeline) writeSnapshot(_ context.Context, job *jobs.Job, resul
 }
 
 // updateCanonicalURL sets articles.canonical_url to the final redirected URL.
+//
+//nolint:funlen,nonamedreturns,spancheck // Canonical URL telemetry and persistence logging stay together.
 func (p *SnapshotPipeline) updateCanonicalURL(
 	ctx context.Context,
 	job *jobs.Job,
 	articleURL string,
 	finalURL string,
-) error {
+) (err error) {
+	ctx, span := observability.Tracer().Start(
+		ctx,
+		"worker.pipeline.canonical_url_update",
+		trace.WithAttributes(append(
+			observability.JobAttributes(job.ArticleID, job.ID),
+			attribute.String("url", articleURL),
+			attribute.String("final_url", finalURL),
+		)...),
+	)
+	defer func() {
+		observability.EndSpan(span, err)
+	}()
+
 	start := time.Now()
 
-	p.logger.Info(
+	p.logger.InfoContext(
+		ctx,
 		"pipeline: canonical URL update started",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
@@ -368,7 +492,8 @@ func (p *SnapshotPipeline) updateCanonicalURL(
 
 	canonicalErr := p.repo.UpdateCanonicalURL(ctx, job.ArticleID, finalURL)
 	if canonicalErr != nil {
-		p.logger.Error(
+		p.logger.ErrorContext(
+			ctx,
 			"pipeline: canonical URL update failed",
 			slog.String("article_id", job.ArticleID),
 			slog.String("job_id", job.ID),
@@ -380,7 +505,7 @@ func (p *SnapshotPipeline) updateCanonicalURL(
 			slog.Any("error", canonicalErr),
 		)
 
-		return pipelineFailure(
+		err = pipelineFailure(
 			"snapshot",
 			"update canonical URL",
 			arc.ErrUnknown,
@@ -388,9 +513,12 @@ func (p *SnapshotPipeline) updateCanonicalURL(
 			withJobContext(job.ArticleID, job.ID),
 			withPipelineURL(finalURL),
 		)
+
+		return err
 	}
 
-	p.logger.Info(
+	p.logger.InfoContext(
+		ctx,
 		"pipeline: canonical URL updated",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
@@ -406,14 +534,28 @@ func (p *SnapshotPipeline) updateCanonicalURL(
 
 // invokeMarkdownHandoff calls the markdown extraction handoff.
 // Extension point for MDEXT-005 — see MarkdownHandoff contract above.
-func (p *SnapshotPipeline) invokeMarkdownHandoff(ctx context.Context, job *jobs.Job, finalURL string) error {
+//
+//nolint:nonamedreturns // Deferred span completion records the returned error.
+func (p *SnapshotPipeline) invokeMarkdownHandoff(ctx context.Context, job *jobs.Job, finalURL string) (err error) {
+	ctx, span := observability.Tracer().Start(
+		ctx,
+		"worker.pipeline.markdown_handoff",
+		trace.WithAttributes(append(
+			observability.JobAttributes(job.ArticleID, job.ID),
+			attribute.String("url", finalURL),
+		)...),
+	)
+	defer func() {
+		observability.EndSpan(span, err)
+	}()
+
 	mdErr := p.markdownHandoff.Handoff(ctx, job, finalURL)
 	if mdErr == nil {
 		return nil
 	}
 
 	if _, ok := arc.CodeOf(mdErr); ok {
-		return pipelineFailure(
+		err = pipelineFailure(
 			"markdown",
 			"handoff",
 			mdErr,
@@ -421,9 +563,12 @@ func (p *SnapshotPipeline) invokeMarkdownHandoff(ctx context.Context, job *jobs.
 			withJobContext(job.ArticleID, job.ID),
 			withPipelineURL(finalURL),
 		)
+
+		return err
 	}
 
-	p.logger.Error(
+	p.logger.ErrorContext(
+		ctx,
 		"pipeline: unexpected markdown handoff error",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),

@@ -22,6 +22,7 @@ mkdir -p "${package_dir}"
 
 cp docker-compose.prod.yaml "${package_dir}/docker-compose.yml"
 cp .env.example "${package_dir}/.env"
+cp otelcol-config.yaml "${package_dir}/"
 cp rp.Caddyfile "${package_dir}/"
 
 {

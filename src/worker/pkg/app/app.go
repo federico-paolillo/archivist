@@ -10,6 +10,7 @@ import (
 	"codeberg.org/federico-paolillo/archivist/internal/artifacts"
 	"codeberg.org/federico-paolillo/archivist/internal/fetcher"
 	"codeberg.org/federico-paolillo/archivist/internal/markdown"
+	"codeberg.org/federico-paolillo/archivist/internal/observability"
 	"codeberg.org/federico-paolillo/archivist/internal/pipeline"
 	"codeberg.org/federico-paolillo/archivist/internal/ssrf"
 	"codeberg.org/federico-paolillo/archivist/internal/summary"
@@ -181,6 +182,7 @@ func createHTTPClient(logger *slog.Logger) (*ssrf.Guard, *req.Client) {
 	ssrfGuard := ssrf.New(logger)
 	httpClient := req.NewClient().
 		OnBeforeRequest(ssrfGuard.RequestMiddleware()).
+		WrapRoundTripFunc(observability.ReqRoundTripWrapper()).
 		SetRedirectPolicy(ssrfGuard.RedirectPolicy()).
 		SetDial(ssrfGuard.DialContext).
 		SetTimeout(20 * time.Second).

@@ -12,7 +12,9 @@ public sealed record RecordTelegramIngestionCommand(
     long TelegramChatId,
     long TelegramMessageId,
     long TelegramUserId,
-    string OriginalUrl);
+    string OriginalUrl,
+    string? TraceParent = null,
+    string? TraceState = null);
 
 /// <summary>
 /// Describes the outcome of recording a Telegram URL ingestion.

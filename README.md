@@ -124,3 +124,69 @@ caddy run --config Caddyfile.local
 ```
 
 Open `https://localhost:8443` and temporarily trust the local certificate when the browser asks. Do not commit `.local/tls/`.
+
+## Docker Compose Deployment
+
+The Compose stack runs Gateway, Worker, UI, Snapshotter, a private OpenTelemetry Collector, and, in development only, Grafana LGTM for manual OTEL validation.
+
+Create `.env` from `.env.example` and fill every `<specify>` value. For local OTEL validation set the Collector exporter endpoint to the local LGTM container:
+
+```bash
+cp .env.example .env
+docker compose --env-file .env up --build
+```
+
+Set `ARCHIVIST_OTEL_EXPORTER_OTLP_ENDPOINT=http://lgtm:4318` in `.env` for local validation. Grafana is available at `http://localhost:40300` by default. Login with username `admin` and password `admin`. Override the host port with `ARCHIVIST_GRAFANA_PORT` when needed.
+
+Relevant local OTEL variables:
+
+```bash
+OTEL_EXPORTER_OTLP_ENDPOINT=http://otelcol:4318
+
+ARCHIVIST_OTEL_COLLECTOR_IMAGE=otel/opentelemetry-collector-contrib:0.150.0
+ARCHIVIST_OTEL_EXPORTER_OTLP_ENDPOINT=http://lgtm:4318
+ARCHIVIST_OTEL_EXPORTER_OTLP_AUTHORIZATION=
+ARCHIVIST_OTEL_TAIL_SAMPLING_PERCENTAGE=10
+ARCHIVIST_OTEL_TAIL_SAMPLING_DECISION_WAIT=10s
+```
+
+`OTEL_EXPORTER_OTLP_ENDPOINT` is the application SDK endpoint. It points to Archivist's private Collector. `ARCHIVIST_OTEL_EXPORTER_OTLP_ENDPOINT` is the Collector exporter endpoint. In local development it points to Grafana LGTM. Compose does not expose application-side trace/log exporter disable switches; telemetry is always configured.
+
+## Production OTEL Deployment
+
+Production releases package `docker-compose.yml`, `.env`, `.env.images`, `rp.Caddyfile`, and `otelcol-config.yaml`. Operators deploy the packaged `.env` first and `.env.images` second so release image pins win.
+
+The production stack includes the private Archivist Collector but does not include Grafana LGTM. Configure the Collector exporter for your Grafana-compatible OTLP backend:
+
+```bash
+ARCHIVIST_OTEL_EXPORTER_OTLP_ENDPOINT=<grafana-compatible-otlp-http-endpoint>
+ARCHIVIST_OTEL_EXPORTER_OTLP_AUTHORIZATION=<authorization-header-value>
+ARCHIVIST_OTEL_TAIL_SAMPLING_PERCENTAGE=10
+ARCHIVIST_OTEL_TAIL_SAMPLING_DECISION_WAIT=10s
+```
+
+Keep Collector OTLP receiver ports private on the Docker network. Do not publish `4318` to the host. Only ingress Caddy should publish the public application port.
+
+The Collector tail-samples traces:
+
+- all traces with error status are retained;
+- 10% of non-error traces are retained.
+
+Applications export traces with always-on SDK sampling so the Collector can make the sampling decision after seeing trace outcomes.
+
+Collector runtime outages must not stop Gateway, Worker, or Snapshotter core behavior. Standard OTEL exporters may drop telemetry after bounded retries/timeouts while the application continues. Invalid telemetry configuration may still fail startup.
+
+## Manual OTEL Validation
+
+After starting the local Compose stack:
+
+1. Open `http://localhost:40300`.
+2. Submit an article through Telegram or enqueue a URL with the Worker CLI.
+3. In Grafana, inspect traces for Gateway inbound HTTP spans.
+4. Confirm Worker processing continues the Gateway trace for Telegram-created jobs.
+5. Confirm Worker CLI-enqueued jobs create traces without requiring a parent.
+6. Confirm Snapshotter emits independent snapshot attempt traces.
+7. Inspect logs and confirm records inside spans include `trace_id` and `span_id`.
+8. Search logs/traces by `article_id`, `job_id`, URL, or provider request ID as attributes.
+9. Confirm those high-cardinality values are not Loki labels or metric labels.
+10. Stop `otelcol` and confirm core application behavior continues while telemetry export fails non-fatally.

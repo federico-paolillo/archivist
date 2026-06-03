@@ -1,3 +1,4 @@
+using Archivist.Gateway.Application.Observability;
 using Archivist.Gateway.Application.Persistence.Entities;
 
 using Microsoft.Data.Sqlite;
@@ -34,6 +35,10 @@ public sealed class EfTelegramIngestionRepository(
             return new RecordTelegramIngestionResult(false, existing.ArticleId, existing.Id);
         }
 
+        using var activity = ArchivistTelemetry.ActivitySource.StartActivity("gateway.telegram.enqueue");
+        activity?.SetTag(ArchivistTelemetry.TelegramUpdateId, command.TelegramUpdateId);
+        activity?.SetTag(ArchivistTelemetry.Stage, "enqueue");
+
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
 
         await db.Database.ExecuteSqlInterpolatedAsync(
@@ -67,6 +72,8 @@ public sealed class EfTelegramIngestionRepository(
             TelegramMessageId = command.TelegramMessageId,
             TelegramUserId = command.TelegramUserId,
             CreatedAt = now,
+            TraceParent = command.TraceParent,
+            TraceState = command.TraceState,
         };
 
         db.Articles.Add(article);
@@ -96,6 +103,10 @@ public sealed class EfTelegramIngestionRepository(
         }
 
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+
+        activity?.SetTag(ArchivistTelemetry.ArticleId, article.Id);
+        activity?.SetTag(ArchivistTelemetry.JobId, job.Id);
+        activity?.SetTag(ArchivistTelemetry.Outcome, "created");
 
         return new RecordTelegramIngestionResult(true, article.Id, job.Id);
     }

@@ -11,8 +11,11 @@ import (
 
 	"codeberg.org/federico-paolillo/archivist/internal/arc"
 	"codeberg.org/federico-paolillo/archivist/internal/artifacts"
+	"codeberg.org/federico-paolillo/archivist/internal/observability"
 	"codeberg.org/federico-paolillo/archivist/internal/summary"
 	"codeberg.org/federico-paolillo/archivist/pkg/jobs"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // SummaryHandoff is called after content.md promotion.
@@ -58,12 +61,27 @@ func NewSummaryGenerationHandoff(
 	}
 }
 
-func (h *SummaryGenerationHandoff) Summarize(ctx context.Context, job *jobs.Job, canonicalURL string) error {
+//nolint:nonamedreturns,spancheck // Deferred span completion records the returned error.
+func (h *SummaryGenerationHandoff) Summarize(ctx context.Context, job *jobs.Job, canonicalURL string) (err error) {
+	ctx, span := observability.Tracer().Start(
+		ctx,
+		"worker.pipeline.summary",
+		trace.WithAttributes(append(
+			observability.JobAttributes(job.ArticleID, job.ID),
+			attribute.String("url", canonicalURL),
+			attribute.String("provider", string(h.summarizer.Provider())),
+			attribute.String("model", h.summarizer.Model()),
+		)...),
+	)
+	defer func() {
+		observability.EndSpan(span, err)
+	}()
+
 	stageStart := time.Now()
 
 	h.logSummaryStageStart(ctx, job, canonicalURL)
 
-	markdownSource, err := h.readMarkdown(job.ArticleID)
+	markdownSource, err := h.readMarkdown(ctx, job)
 	if err != nil {
 		h.logSummaryReadFailure(ctx, job, canonicalURL, stageStart, err)
 
@@ -82,7 +100,7 @@ func (h *SummaryGenerationHandoff) Summarize(ctx context.Context, job *jobs.Job,
 		return err
 	}
 
-	err = h.writeSummary(job, canonicalURL, output)
+	err = h.writeSummary(ctx, job, canonicalURL, output)
 	if err != nil {
 		return err
 	}
@@ -90,7 +108,7 @@ func (h *SummaryGenerationHandoff) Summarize(ctx context.Context, job *jobs.Job,
 	h.logSummaryStageSuccess(ctx, job, canonicalURL, output, stageStart)
 	h.logTerminalSuccessStart(ctx, job, canonicalURL, output)
 
-	err = h.repo.CompleteTerminal(ctx, job, jobs.TerminalOutcome{Success: true})
+	err = h.completeTerminalSuccess(ctx, job)
 	if err != nil {
 		return h.compensateTerminalSuccessFailure(ctx, job, canonicalURL, output, err)
 	}
@@ -248,8 +266,37 @@ func (h *SummaryGenerationHandoff) compensateTerminalSuccessFailure(
 	)
 }
 
-func (h *SummaryGenerationHandoff) readMarkdown(articleID string) (string, error) {
-	rc, err := h.store.OpenMarkdown(articleID)
+//nolint:nonamedreturns,spancheck // Deferred span completion records the returned error.
+func (h *SummaryGenerationHandoff) completeTerminalSuccess(ctx context.Context, job *jobs.Job) (err error) {
+	ctx, span := observability.Tracer().Start(
+		ctx,
+		"worker.pipeline.terminal_success",
+		trace.WithAttributes(observability.JobAttributes(job.ArticleID, job.ID)...),
+	)
+	defer func() {
+		observability.EndSpan(span, err)
+	}()
+
+	err = h.repo.CompleteTerminal(ctx, job, jobs.TerminalOutcome{Success: true})
+	if err != nil {
+		return fmt.Errorf("pipeline: complete terminal success for job %s: %w", job.ID, err)
+	}
+
+	return nil
+}
+
+//nolint:nonamedreturns,spancheck // Deferred span completion records the returned error.
+func (h *SummaryGenerationHandoff) readMarkdown(ctx context.Context, job *jobs.Job) (content string, err error) {
+	_, span := observability.Tracer().Start(
+		ctx,
+		"worker.pipeline.markdown_read",
+		trace.WithAttributes(observability.JobAttributes(job.ArticleID, job.ID)...),
+	)
+	defer func() {
+		observability.EndSpan(span, err)
+	}()
+
+	rc, err := h.store.OpenMarkdown(job.ArticleID)
 	if err != nil {
 		return "", fmt.Errorf("pipeline: open markdown artifact: %w", err)
 	}
@@ -257,22 +304,37 @@ func (h *SummaryGenerationHandoff) readMarkdown(articleID string) (string, error
 		_ = rc.Close()
 	}()
 
-	content, err := io.ReadAll(rc)
+	data, err := io.ReadAll(rc)
 	if err != nil {
 		return "", fmt.Errorf("pipeline: read markdown artifact: %w", err)
 	}
 
-	return string(content), nil
+	return string(data), nil
 }
 
+//nolint:funlen,nonamedreturns // Provider telemetry and error mapping are intentionally kept together.
 func (h *SummaryGenerationHandoff) summarize(
 	ctx context.Context,
 	job *jobs.Job,
 	canonicalURL string,
 	markdownSource string,
-) (summary.SummarizerOutput, error) {
+) (output summary.SummarizerOutput, err error) {
+	ctx, span := observability.Tracer().Start(
+		ctx,
+		"worker.pipeline.summary_provider",
+		trace.WithAttributes(append(
+			observability.JobAttributes(job.ArticleID, job.ID),
+			attribute.String("url", canonicalURL),
+			attribute.String("provider", string(h.summarizer.Provider())),
+			attribute.String("model", h.summarizer.Model()),
+		)...),
+	)
+	defer func() {
+		observability.EndSpan(span, err)
+	}()
+
 	start := time.Now()
-	output, err := h.summarizer.Summarize(ctx, summary.SummarizerRequest{
+	output, err = h.summarizer.Summarize(ctx, summary.SummarizerRequest{
 		MarkdownSource: markdownSource,
 		ArticleID:      job.ArticleID,
 		JobID:          job.ID,
@@ -335,14 +397,32 @@ func (h *SummaryGenerationHandoff) summarize(
 	return output, nil
 }
 
+//nolint:nonamedreturns,spancheck // Deferred span completion records the returned error.
 func (h *SummaryGenerationHandoff) writeSummary(
+	ctx context.Context,
 	job *jobs.Job,
 	canonicalURL string,
 	output summary.SummarizerOutput,
-) error {
-	err := h.store.WriteSummary(job.ArticleID, bytes.NewBufferString(output.Summary))
+) (err error) {
+	ctx, span := observability.Tracer().Start(
+		ctx,
+		"worker.pipeline.summary_write",
+		trace.WithAttributes(append(
+			observability.JobAttributes(job.ArticleID, job.ID),
+			attribute.String("url", canonicalURL),
+			attribute.String("provider", string(h.summarizer.Provider())),
+			attribute.String("model", h.summarizer.Model()),
+			attribute.String("request_id", output.RequestID),
+		)...),
+	)
+	defer func() {
+		observability.EndSpan(span, err)
+	}()
+
+	err = h.store.WriteSummary(job.ArticleID, bytes.NewBufferString(output.Summary))
 	if err != nil {
-		h.logger.Error(
+		h.logger.ErrorContext(
+			ctx,
 			"pipeline: summary write failed",
 			slog.String("article_id", job.ArticleID),
 			slog.String("job_id", job.ID),
@@ -367,7 +447,8 @@ func (h *SummaryGenerationHandoff) writeSummary(
 		)
 	}
 
-	h.logger.Info(
+	h.logger.InfoContext(
+		ctx,
 		"pipeline: summary written",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),

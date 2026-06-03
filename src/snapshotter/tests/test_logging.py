@@ -3,6 +3,9 @@ from __future__ import annotations
 import io
 import json
 
+from opentelemetry import trace
+from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags, TraceState, use_span
+
 from archivist_snapshotter.config import ConfigError
 from archivist_snapshotter.logging import JsonLogger
 
@@ -45,3 +48,21 @@ def test_logger_redacts_secret_like_fields() -> None:
     assert "secret-key" not in log_text
     assert "token-value" not in log_text
     assert "password-value" not in log_text
+
+
+def test_logger_includes_active_span_ids() -> None:
+    logs = io.StringIO()
+    span_context = SpanContext(
+        trace_id=0x1234567890ABCDEF1234567890ABCDEF,
+        span_id=0x1234567890ABCDEF,
+        is_remote=False,
+        trace_flags=TraceFlags(TraceFlags.SAMPLED),
+        trace_state=TraceState(),
+    )
+
+    with use_span(NonRecordingSpan(span_context)):
+        JsonLogger(logs).info("inside_span")
+
+    payload = json.loads(logs.getvalue())
+    assert payload["trace_id"] == trace.format_trace_id(span_context.trace_id)
+    assert payload["span_id"] == trace.format_span_id(span_context.span_id)

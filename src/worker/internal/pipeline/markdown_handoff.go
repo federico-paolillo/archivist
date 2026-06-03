@@ -12,7 +12,10 @@ import (
 	"codeberg.org/federico-paolillo/archivist/internal/arc"
 	"codeberg.org/federico-paolillo/archivist/internal/artifacts"
 	"codeberg.org/federico-paolillo/archivist/internal/markdown"
+	"codeberg.org/federico-paolillo/archivist/internal/observability"
 	"codeberg.org/federico-paolillo/archivist/pkg/jobs"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // MarkdownExtractionHandoff runs the Markdown stage after snapshot promotion.
@@ -48,12 +51,26 @@ func NewMarkdownExtractionHandoff(
 
 // Handoff extracts Markdown, atomically writes content.md, and leaves terminal
 // success for the downstream summary stage.
-func (h *MarkdownExtractionHandoff) Handoff(ctx context.Context, job *jobs.Job, canonicalURL string) error {
+//
+//nolint:nonamedreturns,spancheck // Deferred span completion records the returned error.
+func (h *MarkdownExtractionHandoff) Handoff(ctx context.Context, job *jobs.Job, canonicalURL string) (err error) {
+	ctx, span := observability.Tracer().Start(
+		ctx,
+		"worker.pipeline.markdown",
+		trace.WithAttributes(append(
+			observability.JobAttributes(job.ArticleID, job.ID),
+			attribute.String("url", canonicalURL),
+		)...),
+	)
+	defer func() {
+		observability.EndSpan(span, err)
+	}()
+
 	stageStart := time.Now()
 
 	h.logMarkdownStageStart(ctx, job, canonicalURL)
 
-	snapshot, err := h.readSnapshot(job.ArticleID)
+	snapshot, err := h.readSnapshot(ctx, job)
 	if err != nil {
 		failure := pipelineFailure(
 			"markdown",
@@ -80,7 +97,7 @@ func (h *MarkdownExtractionHandoff) Handoff(ctx context.Context, job *jobs.Job, 
 		return err
 	}
 
-	err = h.writeMarkdown(job, canonicalURL, provider, selected.Markdown)
+	err = h.writeMarkdown(ctx, job, canonicalURL, provider, selected.Markdown)
 	if err != nil {
 		h.logMarkdownStageFailure(ctx, "pipeline: markdown stage completed", job, canonicalURL, provider, stageStart, err)
 
@@ -173,7 +190,8 @@ func (h *MarkdownExtractionHandoff) persistTitle(
 
 	err := h.repo.UpdateArticleTitle(ctx, job.ArticleID, title)
 	if err != nil {
-		h.logger.Error(
+		h.logger.ErrorContext(
+			ctx,
 			"pipeline: article title update failed",
 			slog.String("article_id", job.ArticleID),
 			slog.String("job_id", job.ID),
@@ -186,7 +204,8 @@ func (h *MarkdownExtractionHandoff) persistTitle(
 		return
 	}
 
-	h.logger.Info(
+	h.logger.InfoContext(
+		ctx,
 		"pipeline: article title updated",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
@@ -220,15 +239,31 @@ func firstMarkdownH1(content string) string {
 	return ""
 }
 
+//nolint:nonamedreturns,spancheck // Deferred span completion records the returned error.
 func (h *MarkdownExtractionHandoff) writeMarkdown(
+	ctx context.Context,
 	job *jobs.Job,
 	canonicalURL string,
 	provider markdown.Provider,
 	content string,
-) error {
+) (err error) {
+	ctx, span := observability.Tracer().Start(
+		ctx,
+		"worker.pipeline.markdown_write",
+		trace.WithAttributes(append(
+			observability.JobAttributes(job.ArticleID, job.ID),
+			attribute.String("url", canonicalURL),
+			attribute.String("provider", string(provider)),
+		)...),
+	)
+	defer func() {
+		observability.EndSpan(span, err)
+	}()
+
 	writeErr := h.store.WriteMarkdown(job.ArticleID, strings.NewReader(content))
 	if writeErr != nil {
-		h.logger.Error(
+		h.logger.ErrorContext(
+			ctx,
 			"pipeline: markdown write failed",
 			slog.String("article_id", job.ArticleID),
 			slog.String("job_id", job.ID),
@@ -242,7 +277,7 @@ func (h *MarkdownExtractionHandoff) writeMarkdown(
 			slog.Any("error", writeErr),
 		)
 
-		return pipelineFailure(
+		err = pipelineFailure(
 			"markdown",
 			"write markdown",
 			arc.ErrMarkdownWrite,
@@ -250,9 +285,12 @@ func (h *MarkdownExtractionHandoff) writeMarkdown(
 			withJobContext(job.ArticleID, job.ID),
 			withPipelineURL(canonicalURL),
 		)
+
+		return err
 	}
 
-	h.logger.Info(
+	h.logger.InfoContext(
+		ctx,
 		"pipeline: markdown written",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
@@ -267,8 +305,18 @@ func (h *MarkdownExtractionHandoff) writeMarkdown(
 	return nil
 }
 
-func (h *MarkdownExtractionHandoff) readSnapshot(articleID string) ([]byte, error) {
-	rc, err := h.store.OpenSnapshot(articleID)
+//nolint:nonamedreturns,spancheck // Deferred span completion records the returned error.
+func (h *MarkdownExtractionHandoff) readSnapshot(ctx context.Context, job *jobs.Job) (snapshot []byte, err error) {
+	_, span := observability.Tracer().Start(
+		ctx,
+		"worker.pipeline.snapshot_read",
+		trace.WithAttributes(observability.JobAttributes(job.ArticleID, job.ID)...),
+	)
+	defer func() {
+		observability.EndSpan(span, err)
+	}()
+
+	rc, err := h.store.OpenSnapshot(job.ArticleID)
 	if err != nil {
 		return nil, fmt.Errorf("pipeline: open snapshot artifact: %w", err)
 	}
@@ -276,7 +324,7 @@ func (h *MarkdownExtractionHandoff) readSnapshot(articleID string) ([]byte, erro
 		_ = rc.Close()
 	}()
 
-	snapshot, err := io.ReadAll(rc)
+	snapshot, err = io.ReadAll(rc)
 	if err != nil {
 		return nil, fmt.Errorf("pipeline: read snapshot artifact: %w", err)
 	}
@@ -293,7 +341,7 @@ func (h *MarkdownExtractionHandoff) extract(
 	localOutput, localErr := h.attempt(ctx, job, canonicalURL, h.local, input, "")
 	if localErr == nil {
 		provider := h.local.Provider()
-		h.logSelectedProvider(job, canonicalURL, provider)
+		h.logSelectedProvider(ctx, job, canonicalURL, provider)
 
 		return localOutput, provider, nil
 	}
@@ -303,7 +351,7 @@ func (h *MarkdownExtractionHandoff) extract(
 	fallbackOutput, fallbackErr := h.attempt(ctx, job, canonicalURL, h.fallback, input, fallbackReason)
 	if fallbackErr == nil {
 		provider := h.fallback.Provider()
-		h.logSelectedProvider(job, canonicalURL, provider)
+		h.logSelectedProvider(ctx, job, canonicalURL, provider)
 
 		return fallbackOutput, provider, nil
 	}
@@ -319,8 +367,23 @@ func (h *MarkdownExtractionHandoff) attempt(
 	input markdown.ExtractInput,
 	fallbackReason string,
 ) (markdown.ExtractOutput, error) {
+	ctx, span := observability.Tracer().Start(
+		ctx,
+		"worker.pipeline.markdown_provider",
+		trace.WithAttributes(append(
+			observability.JobAttributes(job.ArticleID, job.ID),
+			attribute.String("url", canonicalURL),
+			attribute.String("provider", string(extractor.Provider())),
+		)...),
+	)
+
 	start := time.Now()
+
 	output, err := extractor.ExtractMarkdown(ctx, input)
+	defer func() {
+		observability.EndSpan(span, err)
+	}()
+
 	duration := time.Since(start)
 
 	status := "success"
@@ -369,11 +432,13 @@ func (h *MarkdownExtractionHandoff) attempt(
 }
 
 func (h *MarkdownExtractionHandoff) logSelectedProvider(
+	ctx context.Context,
 	job *jobs.Job,
 	canonicalURL string,
 	provider markdown.Provider,
 ) {
-	h.logger.Info(
+	h.logger.InfoContext(
+		ctx,
 		"pipeline: markdown provider selected",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),

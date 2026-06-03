@@ -1,0 +1,47 @@
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    check_interval: 5s
+    limit_mib: 256
+    spike_limit_mib: 64
+  tail_sampling:
+    decision_wait: ${env:ARCHIVIST_OTEL_TAIL_SAMPLING_DECISION_WAIT}
+    num_traces: 5000
+    expected_new_traces_per_sec: 25
+    decision_cache:
+      sampled_cache_size: 10000
+      non_sampled_cache_size: 10000
+    policies:
+      - name: keep-errors
+        type: status_code
+        status_code:
+          status_codes: [ERROR]
+      - name: keep-regular-traces-probabilistically
+        type: probabilistic
+        probabilistic:
+          sampling_percentage: ${env:ARCHIVIST_OTEL_TAIL_SAMPLING_PERCENTAGE}
+  batch:
+    timeout: 5s
+    send_batch_size: 1024
+
+exporters:
+  otlphttp/grafana:
+    endpoint: ${env:ARCHIVIST_OTEL_EXPORTER_OTLP_ENDPOINT}
+    headers:
+      Authorization: ${env:ARCHIVIST_OTEL_EXPORTER_OTLP_AUTHORIZATION}
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, tail_sampling, batch]
+      exporters: [otlphttp/grafana]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlphttp/grafana]
