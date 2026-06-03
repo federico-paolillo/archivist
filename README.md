@@ -4,7 +4,7 @@
 
 ## Launch locally
 
-Archivist runs locally as three processes: the ASP.NET Core Gateway API, the Go Worker, and the Vite UI.
+Archivist runs locally as four processes: the ASP.NET Core Gateway API, the Go Worker, the Vite UI, and the Python Snapshotter.
 
 Create a local data directory and export the shared configuration before starting the processes:
 
@@ -23,6 +23,19 @@ export ARCHIVIST_JINA_API_KEY="<jina-api-key>"
 export ARCHIVIST_LLM_PROVIDER="anthropic"
 export ARCHIVIST_LLM_API_KEY="<anthropic-api-key>"
 export ARCHIVIST_LLM_MODEL="claude-haiku-4-5-20251001"
+```
+
+The Snapshotter also requires S3-compatible Object Storage configuration:
+
+```bash
+export ARCHIVIST_SNAPSHOTTER_INTERVAL_SECONDS="86400"
+export ARCHIVIST_SNAPSHOTTER_WORK_DIR="/tmp/archivist-snapshotter"
+export ARCHIVIST_SNAPSHOTTER_S3_ENDPOINT_URL="<s3-endpoint-url>"
+export ARCHIVIST_SNAPSHOTTER_S3_REGION="<s3-region>"
+export ARCHIVIST_SNAPSHOTTER_S3_BUCKET="<bucket>"
+export ARCHIVIST_SNAPSHOTTER_S3_ACCESS_KEY_ID="<access-key-id>"
+export ARCHIVIST_SNAPSHOTTER_S3_SECRET_ACCESS_KEY="<secret-access-key>"
+export ARCHIVIST_SNAPSHOTTER_OBJECT_PREFIX=""
 ```
 
 Set Telegram configuration only when testing webhook ingestion:
@@ -61,6 +74,14 @@ npm install
 npm run dev
 ```
 
+Start the Snapshotter in a fourth terminal after the Python project has been bootstrapped:
+
+```bash
+cd src/snapshotter
+uv sync --locked --all-extras --dev
+uv run archivist-snapshotter
+```
+
 The standalone Vite dev server does not proxy `/api`. The full authenticated browser flow requires a same-origin HTTPS reverse proxy that strips `/api` before forwarding to Gateway and sends `X-Forwarded-Proto: https`.
 
 Generate a local-only TLS certificate for `localhost`:
@@ -96,7 +117,7 @@ https://localhost:8443 {
 }
 ```
 
-Start the local ingress in a fourth terminal:
+Start the local ingress in another terminal:
 
 ```bash
 caddy run --config Caddyfile.local

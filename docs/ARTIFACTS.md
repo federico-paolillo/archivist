@@ -51,3 +51,47 @@ The artifact access layer is operation-first. It exposes per-artifact `Open<Arti
 
 - Rebuilds must derive artifact paths from `DATA_DIR`, `articles/`, `article_id`, and the stable artifact filenames above.
 - Implementations must not infer required behavior from files that happen to exist under an artifact directory unless a canonical spec declares that artifact as produced by an implemented feature.
+
+## Snapshot Backup Archive
+
+Snapshotter archives the configured `/data` tree into a single gzip-compressed tar archive uploaded to S3-compatible Object Storage. Archive names follow:
+
+```text
+archivist-<yyyy-mm-dd>-<unix-timestamp>.tar.gz
+```
+
+The archive root contains:
+
+```text
+manifest.json
+data/
+  archive.db
+  articles/
+    ...
+```
+
+`data/archive.db` must be produced through the SQLite online backup API. Implementations must not raw-copy the live configured SQLite database file as the backup database. Live SQLite sidecars for the configured database path, such as `archive.db-wal` and `archive.db-shm`, are omitted from the archive.
+
+Non-database files under `DATA_DIR`, including article artifacts, are copied best-effort while Gateway and Worker may continue writing and deleting files. Snapshotter does not coordinate with artifact writers, does not pause Gateway or Worker, and does not claim full transactional consistency between the SQLite backup and copied artifact files. Snapshotter skips symlinks instead of dereferencing or preserving them so a path inside `DATA_DIR` cannot copy data from outside the backup root into the archive.
+
+The root `manifest.json` must include:
+
+- `archive_name`
+- `object_key`
+- `created_at`
+- `unix_timestamp`
+- `source_data_dir`
+- `source_sqlite_path`
+- `snapshotter_version`
+- `consistency`
+
+The `consistency` value must state that SQLite was captured through online backup and artifacts were copied best-effort from a live filesystem.
+
+Manual restore contract:
+
+1. download the archive from object storage;
+2. stop Archivist services;
+3. replace the `/data` volume contents with the archive's `data/` contents;
+4. start Archivist services.
+
+Snapshotter does not provide an automated restore command in v0.

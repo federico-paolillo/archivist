@@ -10,6 +10,15 @@ lint:
     dotnet:
       root: "src/gateway/"
       run: dotnet build
+    snapshotter-format:
+      root: "src/snapshotter/"
+      run: uv run ruff format --check .
+    snapshotter-ruff:
+      root: "src/snapshotter/"
+      run: uv run ruff check .
+    snapshotter-ty:
+      root: "src/snapshotter/"
+      run: uv run ty check .
 
 test:
   parallel: true
@@ -23,6 +32,9 @@ test:
     dotnet:
       root: "src/gateway/"
       run: dotnet test
+    snapshotter:
+      root: "src/snapshotter/"
+      run: uv run pytest
 
 format:
   parallel: true
@@ -36,6 +48,9 @@ format:
     dotnet:
       root: "src/gateway/"
       run: dotnet format
+    snapshotter:
+      root: "src/snapshotter/"
+      run: uv run ruff format .
 
 cover:
   commands:
@@ -56,6 +71,9 @@ build:
     dotnet:
       root: "src/gateway/"
       run: dotnet build
+    snapshotter:
+      root: "src/snapshotter/"
+      run: uv sync --locked --all-extras --dev
 
 pre-push:
   commands:
@@ -65,6 +83,9 @@ pre-push:
         - "*.ts"
         - "*.tsx"
         - "*.cs"
+        - "*.py"
+        - "pyproject.toml"
+        - "uv.lock"
       run: go tool lefthook run test
 
 pre-commit:
@@ -75,4 +96,7 @@ pre-commit:
         - "*.ts"
         - "*.tsx"
         - "*.cs"
+        - "*.py"
+        - "pyproject.toml"
+        - "uv.lock"
       run: go tool lefthook run lint

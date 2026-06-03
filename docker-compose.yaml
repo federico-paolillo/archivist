@@ -57,6 +57,35 @@ services:
       - archivist
     restart: always
 
+  snapshotter:
+    build:
+      context: .
+      dockerfile: snapshotter.Dockerfile
+    image: archivist-snapshotter:local
+    depends_on:
+      - gateway
+      - worker
+    environment:
+      ARCHIVIST_DATA_DIR: ${ARCHIVIST_DATA_DIR:-/data}
+      ARCHIVIST_SQLITE_PATH: ${ARCHIVIST_SQLITE_PATH:-/data/archive.db}
+      ARCHIVIST_SNAPSHOTTER_INTERVAL_SECONDS: ${ARCHIVIST_SNAPSHOTTER_INTERVAL_SECONDS:-86400}
+      ARCHIVIST_SNAPSHOTTER_WORK_DIR: ${ARCHIVIST_SNAPSHOTTER_WORK_DIR:-/work/archivist-snapshotter}
+      ARCHIVIST_SNAPSHOTTER_S3_ENDPOINT_URL: ${ARCHIVIST_SNAPSHOTTER_S3_ENDPOINT_URL:?ARCHIVIST_SNAPSHOTTER_S3_ENDPOINT_URL must be set}
+      ARCHIVIST_SNAPSHOTTER_S3_REGION: ${ARCHIVIST_SNAPSHOTTER_S3_REGION:?ARCHIVIST_SNAPSHOTTER_S3_REGION must be set}
+      ARCHIVIST_SNAPSHOTTER_S3_BUCKET: ${ARCHIVIST_SNAPSHOTTER_S3_BUCKET:?ARCHIVIST_SNAPSHOTTER_S3_BUCKET must be set}
+      ARCHIVIST_SNAPSHOTTER_S3_ACCESS_KEY_ID: ${ARCHIVIST_SNAPSHOTTER_S3_ACCESS_KEY_ID:?ARCHIVIST_SNAPSHOTTER_S3_ACCESS_KEY_ID must be set}
+      ARCHIVIST_SNAPSHOTTER_S3_SECRET_ACCESS_KEY: ${ARCHIVIST_SNAPSHOTTER_S3_SECRET_ACCESS_KEY:?ARCHIVIST_SNAPSHOTTER_S3_SECRET_ACCESS_KEY must be set}
+      ARCHIVIST_SNAPSHOTTER_OBJECT_PREFIX: ${ARCHIVIST_SNAPSHOTTER_OBJECT_PREFIX:-}
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      - data:/data
+      - snapshotter-work:/work
+    networks:
+      - archivist
+    restart: always
+
   ui:
     build:
       context: .
@@ -75,3 +104,4 @@ networks:
 
 volumes:
   data:
+  snapshotter-work:

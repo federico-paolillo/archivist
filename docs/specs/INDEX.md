@@ -19,6 +19,7 @@ This file prevents scattered feature folders from becoming unmanageable.
 | `ui-endpoints` | UI Article Endpoints | done | `authn`, `telegram-ingestion`, `summary-generation` | [`SPEC.md`](./ui-endpoints/SPEC.md) | [`PLAN.md`](./ui-endpoints/PLAN.md) |
 | `ui` | Final Browser UI | done | `authn`, `ui-endpoints` | [`SPEC.md`](./ui/SPEC.md) | [`PLAN.md`](./ui/PLAN.md) |
 | `job-recovery` | Job Recovery And Worker Logging | done | `ui`, `ui-endpoints`, `summary-generation` | [`SPEC.md`](./job-recovery/SPEC.md) | [`PLAN.md`](./job-recovery/PLAN.md) |
+| `snapshotter` | Snapshotter | done | `job-recovery` | [`SPEC.md`](./snapshotter/SPEC.md) | [`PLAN.md`](./snapshotter/PLAN.md) |
 
 Status values: `draft` \| `in_progress` \| `done` \| `blocked` \| `skipped`
 

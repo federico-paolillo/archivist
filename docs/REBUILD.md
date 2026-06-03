@@ -116,6 +116,8 @@ Project-specific ordering:
 6. summary-generation
 7. ui-endpoints
 8. ui
+9. job-recovery
+10. snapshotter
 ```
 
 Task-level cross-feature dependencies in feature `PLAN.md` files further constrain this order. In particular, the shared persistence foundation from `TELING-001` must precede auth password persistence, article processing orchestration, and UI endpoint work; final success notification behavior is completed by `SUMGEN-005`; and the browser UI starts only after auth and UI article endpoint contracts are implemented and validated.
@@ -180,6 +182,12 @@ cd src/ui && npm run format
 cd src/ui && npm run lint
 cd src/ui && npm run build
 cd src/ui && npm run test
+cd src/snapshotter && uv sync --locked --all-extras --dev
+cd src/snapshotter && uv run ruff format --check .
+cd src/snapshotter && uv run ruff check .
+cd src/snapshotter && uv run ty check .
+cd src/snapshotter && uv run pytest
+docker buildx build --file snapshotter.Dockerfile --platform linux/amd64 --load --tag archivist-snapshotter:test .
 ```
 
 ---

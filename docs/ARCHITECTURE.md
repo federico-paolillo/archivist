@@ -20,6 +20,7 @@ Telegram Bot
   -> SQLite articles and jobs
   -> Go worker
   -> SQLite plus filesystem artifacts under /data
+  -> Python snapshotter uploads /data backups to S3-compatible Object Storage
   -> ASP.NET Core API
   -> Preact/Vite UI
 ```
@@ -70,6 +71,23 @@ The system favors a small, rebuildable deployment over horizontal scale. SQLite 
   - show article detail;
   - display title, summary Markdown, content Markdown, original link, progress/failure states, and failure messages;
   - expose delete actions.
+
+### Snapshotter
+
+- Runtime/tooling: Python 3.12 with `uv`, `ruff`, `ty`, and `pytest`.
+- Deployment: one background service in the Docker application stack.
+- Production command: `archivist-snapshotter`.
+- Responsibilities:
+  - sleep for the configured interval before taking the first snapshot;
+  - periodically stage `/data` backups;
+  - copy the configured SQLite database through the SQLite online backup API;
+  - copy non-database `/data` files best-effort while Gateway and Worker may continue writing;
+  - create a single `.tar.gz` archive named `archivist-<yyyy-mm-dd>-<unix-timestamp>.tar.gz`;
+  - include a root `manifest.json` describing the snapshot and its consistency limits;
+  - upload the archive to S3-compatible Object Storage with explicit endpoint, region, bucket, object key, access key, and secret key configuration;
+  - emit structured stdout logs without secrets or article content.
+
+Snapshotter does not own restore, remote retention, pruning, encryption, Gateway/UI status, or writer coordination in v0. Failed snapshot attempts are logged, temporary files are cleaned up, and the service continues to the next interval.
 
 ### Public Browser/API Routing
 
@@ -200,21 +218,21 @@ v0 deploys all components together on a single VPS.
 Deployment requirements:
 
 - one shared `/data` volume for SQLite and article artifacts;
-- gateway, worker, and UI deployed as one application stack;
+- gateway, worker, UI, and snapshotter deployed as one application stack;
 - only ingress Caddy publishes a host port from the Docker stack;
 - Gateway is private on the Docker internal network and has no host-published port;
-- filesystem snapshot backup for `/data`;
+- Snapshotter backs up `/data` to S3-compatible Object Storage;
 - stdout logging collected by the host or deployment environment.
 
 The v0 topology does not target high scalability, multi-region deployment, or real-time processing guarantees.
 
 ### Repository Automation
 
-GitHub Actions is the canonical repository automation surface. CI runs on pushes to `main` and must fail when Gateway, Worker, or UI build, lint, formatting, or test validation fails. Coverage upload is deferred until the component test commands emit coverage reports.
+GitHub Actions is the canonical repository automation surface. CI runs on pushes to `main` and must fail when Gateway, Worker, UI, or Snapshotter build, lint, formatting, type-checking, or test validation fails. Coverage upload is deferred until the component test commands emit coverage reports.
 
-CD is a manually dispatched release workflow. It checks out the requested release ref, validates the same component gates as CI, builds and pushes multi-architecture `linux/amd64` and `linux/arm64` images for Gateway, Worker, and UI to GitHub Container Registry, emits GitHub artifact attestations for each pushed image, tags the resolved release commit, and opens a draft GitHub release. The UI image build receives the resolved release commit SHA through the `VERSION_LABEL` Docker build argument.
+CD is a manually dispatched release workflow. It checks out the requested release ref, validates the same component gates as CI, builds and pushes multi-architecture `linux/amd64` and `linux/arm64` images for Gateway, Worker, UI, and Snapshotter to GitHub Container Registry, emits GitHub artifact attestations for each pushed image, tags the resolved release commit, and opens a draft GitHub release. The UI image build receives the resolved release commit SHA through the `VERSION_LABEL` Docker build argument.
 
-`docker-compose.yaml` is the development Compose file and keeps local `build:` entries. Production releases use `docker-compose.prod.yaml`, which has no `build:` entries and receives Gateway, Worker, and UI images through `ARCHIVIST_GATEWAY_IMAGE`, `ARCHIVIST_WORKER_IMAGE`, and `ARCHIVIST_UI_IMAGE`. The CD workflow generates a digest-pinned `docker-compose.images.env` for the images built in that release, validates the production Compose model with Docker Compose, and publishes `docker-compose.prod.yaml`, `docker-compose.images.env`, `docker-compose.prod.env.example`, and `rp.Caddyfile` as a compressed deployment package attached to both the workflow run and the draft GitHub release. Operators deploy with their runtime `.env` first and the release-provided image env file second so release image pins override accidental local image values.
+`docker-compose.yaml` is the development Compose file and keeps local `build:` entries. Production releases are generated from the repository source file `docker-compose.prod.yaml`, which has no `build:` entries and receives Gateway, Worker, UI, and Snapshotter images through `ARCHIVIST_GATEWAY_IMAGE`, `ARCHIVIST_WORKER_IMAGE`, `ARCHIVIST_UI_IMAGE`, and `ARCHIVIST_SNAPSHOTTER_IMAGE`. The CD workflow generates a release package under `release/compose/` containing `docker-compose.yml`, `.env`, and digest-pinned `.env.images`, validates the packaged production Compose model with Docker Compose, and publishes that package with `rp.Caddyfile` as a compressed deployment artifact attached to both the workflow run and the draft GitHub release. Operators deploy with the packaged runtime `.env` first and the release-provided `.env.images` file second so release image pins override accidental local image values.
 
 ### Reverse Proxy And TLS Termination
 
@@ -293,6 +311,14 @@ LLM_MODEL
 JINA_API_KEY
 GATEWAY_PUBLIC_HOSTS
 VITE_API_BASE_PATH
+SNAPSHOTTER_INTERVAL_SECONDS
+SNAPSHOTTER_WORK_DIR
+SNAPSHOTTER_S3_ENDPOINT_URL
+SNAPSHOTTER_S3_REGION
+SNAPSHOTTER_S3_BUCKET
+SNAPSHOTTER_S3_ACCESS_KEY_ID
+SNAPSHOTTER_S3_SECRET_ACCESS_KEY
+SNAPSHOTTER_OBJECT_PREFIX
 ```
 
 Gateway uses the default ASP.NET Core application configuration sources, appends `ARCHIVIST_`-prefixed environment variables, and creates the builder without command-line arguments. Standalone Gateway keys remain flat, for example `ARCHIVIST_SQLITE_PATH`. Option-bound groups use hierarchy with double underscores in environment variables, for example `ARCHIVIST_Telegram__BotToken`, `ARCHIVIST_Telegram__AllowedUserId`, and `ARCHIVIST_Telegram__WebhookSecret`.
@@ -307,11 +333,14 @@ Worker uses configuro from `src/worker/pkg/app/config`, loads `ARCHIVIST_`-prefi
 
 The UI build uses `VITE_API_BASE_PATH` to choose the same-origin public API base. It defaults to `/api` and is not secret material.
 
+Snapshotter reads only `ARCHIVIST_`-prefixed environment variables. Canonical Snapshotter environment variables are `ARCHIVIST_DATA_DIR`, `ARCHIVIST_SQLITE_PATH`, `ARCHIVIST_SNAPSHOTTER_INTERVAL_SECONDS`, `ARCHIVIST_SNAPSHOTTER_WORK_DIR`, `ARCHIVIST_SNAPSHOTTER_S3_ENDPOINT_URL`, `ARCHIVIST_SNAPSHOTTER_S3_REGION`, `ARCHIVIST_SNAPSHOTTER_S3_BUCKET`, `ARCHIVIST_SNAPSHOTTER_S3_ACCESS_KEY_ID`, `ARCHIVIST_SNAPSHOTTER_S3_SECRET_ACCESS_KEY`, and `ARCHIVIST_SNAPSHOTTER_OBJECT_PREFIX`. `ARCHIVIST_SNAPSHOTTER_INTERVAL_SECONDS` defaults to `86400`. The Snapshotter executable defaults `ARCHIVIST_SNAPSHOTTER_WORK_DIR` to `/tmp/archivist-snapshotter`; Compose deployments set it to `/work/archivist-snapshotter` on a disk-backed `snapshotter-work` volume so snapshot staging is not constrained by tmpfs memory. `ARCHIVIST_SNAPSHOTTER_OBJECT_PREFIX` defaults to empty. The S3 endpoint URL, region, bucket, access key id, and secret access key are required at startup. The access key id and secret access key are secret material.
+
 ## Key Constraints
 
 - Single-user system in v0.
 - Single Go worker instance in v0.
 - Single gateway instance in v0 for in-memory auth sessions and login throttling.
+- Single snapshotter instance in v0.
 - SQLite-backed metadata and job queue.
 - Filesystem-backed artifact storage.
 - No automatic worker retries or Telegram notification retries in v0.
