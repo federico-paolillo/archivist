@@ -31,9 +31,9 @@ async def run_daemon(
     attempts = 0
     while max_attempts is None or attempts < max_attempts:
         logger.info("daemon_sleeping", interval_seconds=config.interval_seconds)
-        await sleep(config.interval_seconds)
-        attempts += 1
         await run_once(logger, capture=capture, upload=upload)
+        attempts += 1
+        await sleep(config.interval_seconds)
 
 
 async def run_once(logger: JsonLogger, *, capture: Capture, upload: Upload) -> None:
