@@ -43,7 +43,7 @@ Not included:
 
 ## Users / Actors
 
-- Personal Archivist user.
+- Authenticated Archivist user.
 - Gateway API.
 - Preact/Vite UI.
 - SQLite database.
@@ -76,6 +76,7 @@ Not included:
 - REQ-023: `DELETE /articles/{id}` must enforce same-origin unsafe-method protection.
 - REQ-024: JSON response bodies must use lower-camel property names.
 - REQ-025: Delete and worker job claim must serialize through SQLite write transactions. Delete must recheck associated job status inside the delete transaction, and worker claim must not claim jobs whose article row has been deleted.
+- REQ-026: Article endpoint logs and spans must attach `user_id` when the authenticated session user id is available.
 
 ## Acceptance Criteria
 
@@ -267,7 +268,7 @@ Impacts:
 
 - UI article endpoints must not be reachable without the authenticated `app-cookie` session.
 - Delete is state-changing and must reject cross-site unsafe requests.
-- Article queries must be scoped by authenticated user ID even though v0 is single-user.
+- Article queries must be scoped by authenticated user ID.
 - Artifact paths must be derived from validated ULID article IDs, not raw path segments.
 
 ## Observability / Logging Notes

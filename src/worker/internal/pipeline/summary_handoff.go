@@ -67,7 +67,7 @@ func (h *SummaryGenerationHandoff) Summarize(ctx context.Context, job *jobs.Job,
 		ctx,
 		"worker.pipeline.summary",
 		trace.WithAttributes(append(
-			observability.JobAttributes(job.ArticleID, job.ID),
+			observability.JobUserAttributes(job.ArticleID, job.ID, job.UserID),
 			attribute.String("url", canonicalURL),
 			attribute.String("provider", string(h.summarizer.Provider())),
 			attribute.String("model", h.summarizer.Model()),
@@ -125,6 +125,7 @@ func (h *SummaryGenerationHandoff) logSummaryStageStart(ctx context.Context, job
 		"pipeline: summary stage started",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
+		slog.String("user_id", job.UserID),
 		slog.String("url", canonicalURL),
 		slog.String("stage", "summary"),
 		slog.String("status", "start"),
@@ -146,6 +147,7 @@ func (h *SummaryGenerationHandoff) logSummaryReadFailure(
 		"pipeline: summary markdown read failed",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
+		slog.String("user_id", job.UserID),
 		slog.String("url", canonicalURL),
 		slog.String("stage", "summary"),
 		slog.String("status", "failure"),
@@ -203,6 +205,7 @@ func (h *SummaryGenerationHandoff) summaryAttrs(
 		attrs,
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
+		slog.String("user_id", job.UserID),
 		slog.String("url", canonicalURL),
 		slog.String("provider", string(h.summarizer.Provider())),
 		slog.String("model", h.summarizer.Model()),
@@ -230,6 +233,7 @@ func (h *SummaryGenerationHandoff) compensateTerminalSuccessFailure(
 	attrs := []slog.Attr{
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
+		slog.String("user_id", job.UserID),
 		slog.String("url", canonicalURL),
 		slog.String("provider", string(h.summarizer.Provider())),
 		slog.String("model", h.summarizer.Model()),
@@ -271,7 +275,7 @@ func (h *SummaryGenerationHandoff) completeTerminalSuccess(ctx context.Context, 
 	ctx, span := observability.Tracer().Start(
 		ctx,
 		"worker.pipeline.terminal_success",
-		trace.WithAttributes(observability.JobAttributes(job.ArticleID, job.ID)...),
+		trace.WithAttributes(observability.JobUserAttributes(job.ArticleID, job.ID, job.UserID)...),
 	)
 	defer func() {
 		observability.EndSpan(span, err)
@@ -290,7 +294,7 @@ func (h *SummaryGenerationHandoff) readMarkdown(ctx context.Context, job *jobs.J
 	_, span := observability.Tracer().Start(
 		ctx,
 		"worker.pipeline.markdown_read",
-		trace.WithAttributes(observability.JobAttributes(job.ArticleID, job.ID)...),
+		trace.WithAttributes(observability.JobUserAttributes(job.ArticleID, job.ID, job.UserID)...),
 	)
 	defer func() {
 		observability.EndSpan(span, err)
@@ -323,7 +327,7 @@ func (h *SummaryGenerationHandoff) summarize(
 		ctx,
 		"worker.pipeline.summary_provider",
 		trace.WithAttributes(append(
-			observability.JobAttributes(job.ArticleID, job.ID),
+			observability.JobUserAttributes(job.ArticleID, job.ID, job.UserID),
 			attribute.String("url", canonicalURL),
 			attribute.String("provider", string(h.summarizer.Provider())),
 			attribute.String("model", h.summarizer.Model()),
@@ -353,6 +357,7 @@ func (h *SummaryGenerationHandoff) summarize(
 	attrs := []slog.Attr{
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
+		slog.String("user_id", job.UserID),
 		slog.String("url", canonicalURL),
 		slog.String("provider", string(h.summarizer.Provider())),
 		slog.String("model", h.summarizer.Model()),
@@ -408,7 +413,7 @@ func (h *SummaryGenerationHandoff) writeSummary(
 		ctx,
 		"worker.pipeline.summary_write",
 		trace.WithAttributes(append(
-			observability.JobAttributes(job.ArticleID, job.ID),
+			observability.JobUserAttributes(job.ArticleID, job.ID, job.UserID),
 			attribute.String("url", canonicalURL),
 			attribute.String("provider", string(h.summarizer.Provider())),
 			attribute.String("model", h.summarizer.Model()),
@@ -426,6 +431,7 @@ func (h *SummaryGenerationHandoff) writeSummary(
 			"pipeline: summary write failed",
 			slog.String("article_id", job.ArticleID),
 			slog.String("job_id", job.ID),
+			slog.String("user_id", job.UserID),
 			slog.String("url", canonicalURL),
 			slog.String("provider", string(h.summarizer.Provider())),
 			slog.String("model", h.summarizer.Model()),
@@ -452,6 +458,7 @@ func (h *SummaryGenerationHandoff) writeSummary(
 		"pipeline: summary written",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
+		slog.String("user_id", job.UserID),
 		slog.String("url", canonicalURL),
 		slog.String("provider", string(h.summarizer.Provider())),
 		slog.String("model", h.summarizer.Model()),

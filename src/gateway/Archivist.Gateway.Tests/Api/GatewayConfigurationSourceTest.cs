@@ -50,7 +50,7 @@ public sealed class GatewayConfigurationSourceTest
     [Fact]
     public void TelegramSettings_BindFromHierarchicalConfiguration()
     {
-        var configuration = CreateTelegramConfiguration("fake-token", "12345", "secret");
+        var configuration = CreateTelegramConfiguration("fake-token", "secret");
 
         var services = new ServiceCollection();
         services.AddSingleton<IConfiguration>(configuration);
@@ -61,14 +61,13 @@ public sealed class GatewayConfigurationSourceTest
         var settings = provider.GetRequiredService<IOptions<TelegramSettings>>().Value;
 
         Assert.Equal("fake-token", settings.BotToken);
-        Assert.Equal(12345, settings.AllowedUserId);
         Assert.Equal("secret", settings.WebhookSecret);
     }
 
     [Fact]
     public void TelegramSettings_ValidConfiguration_PassesStartupValidation()
     {
-        var configuration = CreateTelegramConfiguration("fake-token", "12345", "secret");
+        var configuration = CreateTelegramConfiguration("fake-token", "secret");
         var services = new ServiceCollection();
         services.AddSingleton<IConfiguration>(configuration);
         services.AddTelegram(configuration);
@@ -79,19 +78,16 @@ public sealed class GatewayConfigurationSourceTest
     }
 
     [Theory]
-    [InlineData("", "12345", "secret", "Telegram:BotToken is required.")]
-    [InlineData("  ", "12345", "secret", "Telegram:BotToken is required.")]
-    [InlineData("fake-token", "12345", "", "Telegram:WebhookSecret is required.")]
-    [InlineData("fake-token", "12345", "  ", "Telegram:WebhookSecret is required.")]
-    [InlineData("fake-token", "0", "secret", "Telegram:AllowedUserId must be greater than zero.")]
-    [InlineData("fake-token", "-1", "secret", "Telegram:AllowedUserId must be greater than zero.")]
+    [InlineData("", "secret", "Telegram:BotToken is required.")]
+    [InlineData("  ", "secret", "Telegram:BotToken is required.")]
+    [InlineData("fake-token", "", "Telegram:WebhookSecret is required.")]
+    [InlineData("fake-token", "  ", "Telegram:WebhookSecret is required.")]
     public void TelegramSettings_InvalidConfiguration_FailsStartupValidation(
         string botToken,
-        string allowedUserId,
         string webhookSecret,
         string expectedFailure)
     {
-        var configuration = CreateTelegramConfiguration(botToken, allowedUserId, webhookSecret);
+        var configuration = CreateTelegramConfiguration(botToken, webhookSecret);
         var services = new ServiceCollection();
         services.AddSingleton<IConfiguration>(configuration);
         services.AddTelegram(configuration);
@@ -107,7 +103,7 @@ public sealed class GatewayConfigurationSourceTest
     [Fact]
     public void AddTelegram_RegistersHttpTelegramClient()
     {
-        var configuration = CreateTelegramConfiguration("fake-token", "12345", "secret");
+        var configuration = CreateTelegramConfiguration("fake-token", "secret");
         var services = new ServiceCollection();
         services.AddSingleton<IConfiguration>(configuration);
         services.AddTelegram(configuration);
@@ -122,7 +118,7 @@ public sealed class GatewayConfigurationSourceTest
     [Fact]
     public void AddTelegram_RemovesHttpClientFactoryLoggingForTelegramClient()
     {
-        var configuration = CreateTelegramConfiguration("fake-token", "12345", "secret");
+        var configuration = CreateTelegramConfiguration("fake-token", "secret");
         var services = new ServiceCollection();
         services.AddSingleton<IConfiguration>(configuration);
         services.AddTelegram(configuration);
@@ -151,14 +147,12 @@ public sealed class GatewayConfigurationSourceTest
 
     private static IConfiguration CreateTelegramConfiguration(
         string botToken,
-        string allowedUserId,
         string webhookSecret)
     {
         return new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["Telegram:BotToken"] = botToken,
-                ["Telegram:AllowedUserId"] = allowedUserId,
                 ["Telegram:WebhookSecret"] = webhookSecret,
             })
             .Build();

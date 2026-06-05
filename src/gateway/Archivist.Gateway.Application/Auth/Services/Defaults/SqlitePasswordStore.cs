@@ -5,19 +5,17 @@ using Microsoft.Data.Sqlite;
 namespace Archivist.Gateway.Application.Auth.Services.Defaults;
 
 /// <summary>
-/// Reads the personal user's stored Argon2id password hash from SQLite.
+/// Reads password-bearing users' stored Argon2id password hashes from SQLite.
 /// </summary>
 public sealed class SqlitePasswordStore(AuthSettings settings) : IPasswordStore
 {
-    private const string PersonalUserId = "01ASB2XFCZJY7WHZ2FNRTMQJCT";
-
-    public async Task<string?> GetPasswordHashAsync(CancellationToken ct = default)
+    public async Task<IReadOnlyList<PasswordCredential>> GetPasswordCredentialsAsync(CancellationToken ct = default)
     {
         var sqlitePath = settings.SqlitePath;
 
         if (string.IsNullOrWhiteSpace(sqlitePath))
         {
-            return null;
+            return [];
         }
 
         var connectionString = $"Data Source={sqlitePath}";
@@ -25,14 +23,23 @@ public sealed class SqlitePasswordStore(AuthSettings settings) : IPasswordStore
         await using var connection = new SqliteConnection(connectionString);
         await connection.OpenAsync(ct);
 
-        const string sql = "SELECT password_hash FROM users WHERE id = @id;";
+        const string sql = """
+            SELECT id, password_hash
+            FROM users
+            WHERE password_hash IS NOT NULL AND password_hash <> ''
+            ORDER BY id;
+            """;
 
         await using var cmd = connection.CreateCommand();
         cmd.CommandText = sql;
-        cmd.Parameters.AddWithValue("@id", PersonalUserId);
 
-        var result = await cmd.ExecuteScalarAsync(ct);
+        var credentials = new List<PasswordCredential>();
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+        {
+            credentials.Add(new PasswordCredential(reader.GetString(0), reader.GetString(1)));
+        }
 
-        return result is DBNull or null ? null : (string)result;
+        return credentials;
     }
 }

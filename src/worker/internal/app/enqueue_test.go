@@ -171,9 +171,27 @@ func TestEnqueueCommandFailsWhenDefaultUserIsMissing(t *testing.T) {
 	err := CliProgram(t.Context(), application, cfg)
 
 	require.Error(t, err)
-	assert.ErrorContains(t, err, "default user 01ASB2XFCZJY7WHZ2FNRTMQJCT is missing")
+	assert.ErrorContains(t, err, "default user "+jobs.DefaultUserID+" is missing")
 	assert.Equal(t, 0, scalarInt(t, application.DB, `SELECT COUNT(*) FROM articles`))
 	assert.Equal(t, 0, scalarInt(t, application.DB, `SELECT COUNT(*) FROM jobs`))
+}
+
+func TestEnqueueCommandUsesDefaultUserWhenMultipleUsersExist(t *testing.T) {
+	application, cfg := newProcessTestApp(t)
+	seedProcessUser(t, application.DB)
+
+	_, err := application.DB.Exec(`INSERT INTO users (id) VALUES (?)`, "01ASB2XFCZJY7WHZ2FNRTMQJCX")
+	require.NoError(t, err)
+
+	withArgs(t, "archivist-worker", "enqueue", "https://example.com/article")
+
+	err = CliProgram(t.Context(), application, cfg)
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, scalarInt(t, application.DB, `SELECT COUNT(*) FROM articles`))
+	assert.Equal(t, 1, scalarInt(t, application.DB, `SELECT COUNT(*) FROM jobs`))
+	assert.Equal(t, jobs.DefaultUserID, scalarString(t, application.DB, `SELECT user_id FROM articles LIMIT 1`))
+	assert.Equal(t, jobs.DefaultUserID, scalarString(t, application.DB, `SELECT user_id FROM jobs LIMIT 1`))
 }
 
 func scalarInt(t *testing.T, database *sql.DB, query string, args ...any) int {

@@ -28,6 +28,7 @@ public sealed class EfArticleQueryService(
         ArgumentException.ThrowIfNullOrWhiteSpace(userId);
 
         using var activity = ArchivistTelemetry.ActivitySource.StartActivity("gateway.articles.list");
+        activity?.SetTag(ArchivistTelemetry.UserId, userId);
         activity?.SetTag(ArchivistTelemetry.Stage, "articles_list");
 
         var query = db.Articles
@@ -77,6 +78,7 @@ public sealed class EfArticleQueryService(
 
         using var activity = ArchivistTelemetry.ActivitySource.StartActivity("gateway.articles.detail");
         activity?.SetTag(ArchivistTelemetry.ArticleId, articleId);
+        activity?.SetTag(ArchivistTelemetry.UserId, userId);
         activity?.SetTag(ArchivistTelemetry.Stage, "articles_detail");
 
         var article = await db.Articles

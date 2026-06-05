@@ -3,7 +3,7 @@ using System.Security.Cryptography;
 using Archivist.Gateway.Api.Auth.Models;
 using Archivist.Gateway.Application.Auth;
 using Archivist.Gateway.Application.Auth.Services;
-using Archivist.Gateway.Application.Persistence;
+using Archivist.Gateway.Application.Observability;
 
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.Extensions.Options;
@@ -60,16 +60,21 @@ internal static class Handlers
             return TypedResults.Unauthorized();
         }
 
-        // Read stored hash. Return generic 401 if none exists.
-        var storedHash = await passwordStore.GetPasswordHashAsync(ct);
-        if (storedHash is null)
+        var credentials = await passwordStore.GetPasswordCredentialsAsync(ct);
+        PasswordCredential? matchedCredential = null;
+        var matchCount = 0;
+
+        foreach (var credential in credentials)
         {
-            loginThrottle.RecordFailure(sourceIp);
-            return TypedResults.Unauthorized();
+            // Verify every candidate before deciding so matching position is not observable.
+            if (passwordHasher.Verify(password, credential.PasswordHash))
+            {
+                matchCount++;
+                matchedCredential = credential;
+            }
         }
 
-        // Verify password with Argon2id constant-time comparison.
-        if (!passwordHasher.Verify(password, storedHash))
+        if (matchCount != 1 || matchedCredential is null)
         {
             loginThrottle.RecordFailure(sourceIp);
             return TypedResults.Unauthorized();
@@ -89,15 +94,14 @@ internal static class Handlers
             .Replace('/', '_')
             .TrimEnd('=');
 
-        var personalUserId = PersistenceConstants.PersonalUserId;
-
         var now = timeProvider.GetUtcNow();
         var entry = new SessionEntry(
-            UserId: personalUserId,
+            UserId: matchedCredential.UserId,
             CreatedAt: now,
             AbsoluteExpiresAt: now.Add(cookieOptions.SessionLifetime));
 
         await sessionStore.SetAsync(newSessionId, entry, ct);
+        System.Diagnostics.Activity.Current?.SetTag(ArchivistTelemetry.UserId, matchedCredential.UserId);
 
         loginThrottle.RecordSuccess(sourceIp);
 

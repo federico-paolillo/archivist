@@ -11,7 +11,9 @@ using Microsoft.Extensions.Options;
 public sealed class TelegramWebhookHandlerTest
 {
     private const string WebhookSecret = "test-webhook-secret";
-    private const long AllowedUserId = 99999;
+    private const string MappedUserId = "01ASB2XFCZJY7WHZ2FNRTMQJCT";
+    private const long MappedTelegramUserId = 99999;
+    private const long UnmappedTelegramUserId = 11111;
     private const long ChatId = 200;
     private const long MessageId = 300;
 
@@ -26,7 +28,7 @@ public sealed class TelegramWebhookHandlerTest
             new TelegramWebhookCommand(
                 WebhookSecret,
                 UpdateId: 1,
-                SenderUserId: AllowedUserId,
+                SenderUserId: MappedTelegramUserId,
                 ChatId: ChatId,
                 MessageId: MessageId,
                 MessageText: null),
@@ -51,7 +53,7 @@ public sealed class TelegramWebhookHandlerTest
             new TelegramWebhookCommand(
                 WebhookSecret,
                 UpdateId: 2,
-                SenderUserId: AllowedUserId,
+                SenderUserId: MappedTelegramUserId,
                 ChatId: null,
                 MessageId: MessageId,
                 MessageText: null),
@@ -77,7 +79,7 @@ public sealed class TelegramWebhookHandlerTest
             new TelegramWebhookCommand(
                 WebhookSecret,
                 UpdateId: 3,
-                SenderUserId: AllowedUserId,
+                SenderUserId: MappedTelegramUserId,
                 ChatId: ChatId,
                 MessageId: MessageId,
                 MessageText: "https://example.com/article"),
@@ -87,21 +89,46 @@ public sealed class TelegramWebhookHandlerTest
 
         Assert.NotNull(command.TraceParent);
         Assert.Contains(root.TraceId.ToHexString(), command.TraceParent, StringComparison.Ordinal);
+        Assert.Equal(MappedUserId, command.UserId);
+    }
+
+    [Fact]
+    public async Task HandleAsync_UnmappedSender_ReturnsUnauthorizedWithNoSideEffectsOrReply()
+    {
+        var repo = new FakeTelegramIngestionRepository();
+        var client = new FakeTelegramClient();
+        var resolver = new FakeTelegramUserResolver();
+        var handler = CreateHandler(repo, client, resolver);
+
+        var result = await handler.HandleAsync(
+            new TelegramWebhookCommand(
+                WebhookSecret,
+                UpdateId: 4,
+                SenderUserId: UnmappedTelegramUserId,
+                ChatId: ChatId,
+                MessageId: MessageId,
+                MessageText: "https://example.com/article"),
+            CancellationToken.None);
+
+        Assert.Equal(TelegramWebhookOutcome.Unauthorized, result.Outcome);
+        Assert.False(repo.WasCalled);
+        Assert.Empty(client.SentReplies);
     }
 
     private static TelegramWebhookHandler CreateHandler(
         FakeTelegramIngestionRepository repo,
-        FakeTelegramClient client)
+        FakeTelegramClient client,
+        FakeTelegramUserResolver? resolver = null)
     {
         var settings = Options.Create(new TelegramSettings
         {
             WebhookSecret = WebhookSecret,
-            AllowedUserId = AllowedUserId,
             BotToken = "fake-token",
         });
 
         return new TelegramWebhookHandler(
             settings,
+            resolver ?? new FakeTelegramUserResolver(),
             repo,
             client,
             NullLogger<TelegramWebhookHandler>.Instance);
@@ -120,6 +147,16 @@ public sealed class TelegramWebhookHandlerTest
     }
 
     private sealed record SentReply(long ChatId, long ReplyToMessageId, string Text);
+
+    private sealed class FakeTelegramUserResolver : ITelegramUserResolver
+    {
+        public Task<string?> ResolveUserIdAsync(long telegramUserId, CancellationToken cancellationToken)
+        {
+            var userId = telegramUserId == MappedTelegramUserId ? MappedUserId : null;
+
+            return Task.FromResult<string?>(userId);
+        }
+    }
 
     private sealed class FakeTelegramIngestionRepository : ITelegramIngestionRepository
     {

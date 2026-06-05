@@ -16,9 +16,4 @@ public sealed class TelegramSettings
     /// Gets or sets the webhook secret used to validate incoming updates.
     /// </summary>
     public string WebhookSecret { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Gets or sets the allowed Telegram user ID for ingestion.
-    /// </summary>
-    public long AllowedUserId { get; set; }
 }

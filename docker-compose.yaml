@@ -26,7 +26,6 @@ services:
       ARCHIVIST_DATA_DIR: ${ARCHIVIST_DATA_DIR:-/data}
       ARCHIVIST_GATEWAY_PUBLIC_HOSTS: ${ARCHIVIST_GATEWAY_PUBLIC_HOSTS:?ARCHIVIST_GATEWAY_PUBLIC_HOSTS must be set}
       ARCHIVIST_Telegram__BotToken: ${ARCHIVIST_Telegram__BotToken:?ARCHIVIST_Telegram__BotToken must be set}
-      ARCHIVIST_Telegram__AllowedUserId: ${ARCHIVIST_Telegram__AllowedUserId:?ARCHIVIST_Telegram__AllowedUserId must be set}
       ARCHIVIST_Telegram__WebhookSecret: ${ARCHIVIST_Telegram__WebhookSecret:?ARCHIVIST_Telegram__WebhookSecret must be set}
       ARCHIVIST_AUTH_BOOTSTRAP_PASSWORD: ${ARCHIVIST_AUTH_BOOTSTRAP_PASSWORD:-}
       OTEL_SERVICE_NAME: archivist-gateway

@@ -57,6 +57,7 @@ public sealed class EfArticleDeleteService(
 
         using var activity = ArchivistTelemetry.ActivitySource.StartActivity("gateway.articles.delete");
         activity?.SetTag(ArchivistTelemetry.ArticleId, articleId);
+        activity?.SetTag(ArchivistTelemetry.UserId, userId);
         activity?.SetTag(ArchivistTelemetry.Stage, allowStaleRunningJobs ? "articles_force_delete" : "articles_delete");
 
         await using var transaction = await db.Database

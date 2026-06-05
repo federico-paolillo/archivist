@@ -14,6 +14,7 @@ public static class ArchivistTelemetry
 
     public const string ArticleId = "archivist.article.id";
     public const string JobId = "archivist.job.id";
+    public const string UserId = "user_id";
     public const string TelegramUpdateId = "archivist.telegram.update_id";
     public const string Outcome = "archivist.outcome";
     public const string Stage = "archivist.stage";

@@ -30,7 +30,7 @@ In scope:
 
 - Gateway traces and OTLP logs.
 - Worker traces and OTLP logs.
-- Snapshotter traces and OTLP logs.
+- Snapshotter traces and OTLP logs without user attribution.
 - Logs correlated to traces with `trace_id` and `span_id`.
 - Gateway-to-Worker W3C trace propagation through persisted job carrier fields.
 - Private official OpenTelemetry Collector Contrib service.
@@ -58,10 +58,12 @@ Not included:
 - REQ-006: Gateway must persist W3C `traceparent` and `tracestate` when enqueueing article-processing jobs.
 - REQ-007: Worker must extract persisted W3C trace context when present and support root traces when absent.
 - REQ-008: Snapshotter must produce independent root traces for scheduled snapshot attempts.
-- REQ-009: `article_id`, `job_id`, URLs, and request IDs must be trace/log attributes only, not Loki labels or metric labels.
+- REQ-009: `user_id`, `article_id`, `job_id`, URLs, and request IDs must be trace/log attributes only, not Loki labels or metric labels.
 - REQ-010: Telemetry must not expose secrets, cookies, auth headers, Telegram bot tokens, full article HTML, full Markdown, full summaries, LLM payloads, or S3 credentials.
 - REQ-011: Use .NET `Activity`, Go/Python OpenTelemetry SDKs, and W3C Trace Context propagators before custom code.
 - REQ-012: Compose must always configure application traces and logs; application-side trace/log exporter disable switches are not part of the deployment contract.
+- REQ-013: Gateway and Worker must attach `user_id` to logs and spans when the Archivist user has been resolved.
+- REQ-014: Snapshotter must not attach `user_id`.
 
 ## Acceptance Criteria
 

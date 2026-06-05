@@ -1,8 +1,14 @@
 package jobs
 
-import "time"
+import (
+	"errors"
+	"time"
+)
 
-// DefaultUserID is the fixed personal Archivist user for v0.
+// ErrOwnershipMismatch indicates a claimed job and its article do not share ownership.
+var ErrOwnershipMismatch = errors.New("jobs: job and article ownership mismatch")
+
+// DefaultUserID is the bootstrapped Archivist user used by Worker CLI enqueue.
 const DefaultUserID = "01ASB2XFCZJY7WHZ2FNRTMQJCT"
 
 // Status values for a job. Only the four v0 states are valid.

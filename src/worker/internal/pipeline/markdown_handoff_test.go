@@ -86,15 +86,15 @@ func (r *fakeJobsRepository) CompleteTerminal(_ context.Context, _ *jobs.Job, _ 
 	return errors.New("fake jobs repository does not complete jobs")
 }
 
-func (r *fakeJobsRepository) ArticleURL(_ context.Context, _ string) (string, error) {
+func (r *fakeJobsRepository) ArticleURL(_ context.Context, _ string, _ string) (string, error) {
 	return "", errors.New("fake jobs repository does not load article URLs")
 }
 
-func (r *fakeJobsRepository) UpdateCanonicalURL(_ context.Context, _ string, _ string) error {
+func (r *fakeJobsRepository) UpdateCanonicalURL(_ context.Context, _ string, _ string, _ string) error {
 	return errors.New("fake jobs repository does not update canonical URLs")
 }
 
-func (r *fakeJobsRepository) UpdateArticleTitle(_ context.Context, articleID string, title string) error {
+func (r *fakeJobsRepository) UpdateArticleTitle(_ context.Context, articleID string, _ string, title string) error {
 	if r.updateTitleErr != nil {
 		return r.updateTitleErr
 	}

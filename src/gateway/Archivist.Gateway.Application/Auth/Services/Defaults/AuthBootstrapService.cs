@@ -18,6 +18,7 @@ public sealed partial class AuthBootstrapService(
 ) : IAuthBootstrapService
 {
     private const string PersonalUserId = "01ASB2XFCZJY7WHZ2FNRTMQJCT";
+    private const long PersonalTelegramUserId = 1559957191;
 
     public async Task InitializeAsync(CancellationToken ct = default)
     {
@@ -55,19 +56,21 @@ public sealed partial class AuthBootstrapService(
         await cmd.ExecuteNonQueryAsync(ct);
     }
 
-    private static async Task EnsurePersonalUserAsync(SqliteConnection connection, CancellationToken ct)
+    private async Task EnsurePersonalUserAsync(SqliteConnection connection, CancellationToken ct)
     {
         // Insert the personal user row if it does not already exist.
-        // Do not overwrite telegram_user_id or password_hash if the row already exists.
+        // Seed telegram_user_id only when the row has no mapping. Do not overwrite password_hash.
         const string sql = """
             INSERT INTO users (id, telegram_user_id, password_hash)
-            VALUES (@id, NULL, NULL)
-            ON CONFLICT(id) DO NOTHING;
+            VALUES (@id, @telegram_user_id, NULL)
+            ON CONFLICT(id) DO UPDATE SET
+                telegram_user_id = COALESCE(users.telegram_user_id, excluded.telegram_user_id);
             """;
 
         await using var cmd = connection.CreateCommand();
         cmd.CommandText = sql;
         cmd.Parameters.AddWithValue("@id", PersonalUserId);
+        cmd.Parameters.AddWithValue("@telegram_user_id", PersonalTelegramUserId);
         await cmd.ExecuteNonQueryAsync(ct);
     }
 

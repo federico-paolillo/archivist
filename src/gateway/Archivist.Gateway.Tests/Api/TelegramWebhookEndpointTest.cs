@@ -16,8 +16,9 @@ public sealed class TelegramWebhookEndpointTest(ITestOutputHelper testOutputHelp
     private const string WebhookPath = "/telegram/webhook";
     private const string SecretHeader = "X-Telegram-Bot-Api-Secret-Token";
     private const string ValidSecret = "test-webhook-secret";
-    private const long AllowedUserId = 99999;
-    private const long AnotherUserId = 11111;
+    private const string MappedUserId = "01ASB2XFCZJY7WHZ2FNRTMQJCT";
+    private const long MappedTelegramUserId = 99999;
+    private const long UnmappedTelegramUserId = 22222;
     private const long ChatId = 200;
     private const long MessageId = 300;
 
@@ -34,7 +35,7 @@ public sealed class TelegramWebhookEndpointTest(ITestOutputHelper testOutputHelp
         PrepareWebhookEnvironment(repo, client);
 
         using var http = CreateHttpClient();
-        var update = BuildTextUpdate(1, AllowedUserId, ChatId, MessageId, "https://example.com");
+        var update = BuildTextUpdate(1, MappedTelegramUserId, ChatId, MessageId, "https://example.com");
         using var request = new HttpRequestMessage(HttpMethod.Post, WebhookPath)
         {
             Content = JsonContent.Create(update),
@@ -57,7 +58,7 @@ public sealed class TelegramWebhookEndpointTest(ITestOutputHelper testOutputHelp
         PrepareWebhookEnvironment(repo, client);
 
         using var http = CreateHttpClient();
-        var update = BuildTextUpdate(1, AllowedUserId, ChatId, MessageId, "https://example.com");
+        var update = BuildTextUpdate(1, MappedTelegramUserId, ChatId, MessageId, "https://example.com");
         var response = await http.PostAsJsonAsync(WebhookPath, update);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -78,7 +79,7 @@ public sealed class TelegramWebhookEndpointTest(ITestOutputHelper testOutputHelp
         PrepareWebhookEnvironment(repo, client);
 
         using var http = CreateHttpClient();
-        var update = BuildTextUpdate(2, AnotherUserId, ChatId, MessageId, "https://example.com");
+        var update = BuildTextUpdate(2, UnmappedTelegramUserId, ChatId, MessageId, "https://example.com");
         var response = await SendWithSecret(http, update);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -103,7 +104,7 @@ public sealed class TelegramWebhookEndpointTest(ITestOutputHelper testOutputHelp
         PrepareWebhookEnvironment(repo, client);
 
         using var http = CreateHttpClient();
-        var update = BuildTextUpdate(3, AllowedUserId, ChatId, MessageId, text);
+        var update = BuildTextUpdate(3, MappedTelegramUserId, ChatId, MessageId, text);
         var response = await SendWithSecret(http, update);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -123,7 +124,7 @@ public sealed class TelegramWebhookEndpointTest(ITestOutputHelper testOutputHelp
         PrepareWebhookEnvironment(repo, client);
 
         using var http = CreateHttpClient();
-        var update = BuildMediaOnlyUpdate(4, AllowedUserId, ChatId, MessageId);
+        var update = BuildMediaOnlyUpdate(4, MappedTelegramUserId, ChatId, MessageId);
         var response = await SendWithSecret(http, update);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -143,7 +144,7 @@ public sealed class TelegramWebhookEndpointTest(ITestOutputHelper testOutputHelp
         PrepareWebhookEnvironment(repo, client);
 
         using var http = CreateHttpClient();
-        var update = BuildCaptionUpdate(5, AllowedUserId, ChatId, MessageId, "https://example.com/article");
+        var update = BuildCaptionUpdate(5, MappedTelegramUserId, ChatId, MessageId, "https://example.com/article");
         var response = await SendWithSecret(http, update);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -167,7 +168,7 @@ public sealed class TelegramWebhookEndpointTest(ITestOutputHelper testOutputHelp
         PrepareWebhookEnvironment(repo, client);
 
         using var http = CreateHttpClient();
-        var update = BuildTextUpdate(10, AllowedUserId, ChatId, MessageId, "https://example.com/article");
+        var update = BuildTextUpdate(10, MappedTelegramUserId, ChatId, MessageId, "https://example.com/article");
         var response = await SendWithSecret(http, update);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -177,7 +178,8 @@ public sealed class TelegramWebhookEndpointTest(ITestOutputHelper testOutputHelp
         Assert.Equal(10, cmd.TelegramUpdateId);
         Assert.Equal(ChatId, cmd.TelegramChatId);
         Assert.Equal(MessageId, cmd.TelegramMessageId);
-        Assert.Equal(AllowedUserId, cmd.TelegramUserId);
+        Assert.Equal(MappedTelegramUserId, cmd.TelegramUserId);
+        Assert.Equal(MappedUserId, cmd.UserId);
         Assert.Equal("https://example.com/article", cmd.OriginalUrl);
 
         var reply = Assert.Single(client.SentReplies);
@@ -195,7 +197,7 @@ public sealed class TelegramWebhookEndpointTest(ITestOutputHelper testOutputHelp
         PrepareWebhookEnvironment(repo, client);
 
         const long distinctChatId = 555555;
-        const long senderUserId = AllowedUserId;
+        const long senderUserId = MappedTelegramUserId;
 
         using var http = CreateHttpClient();
         var update = BuildTextUpdate(20, senderUserId, distinctChatId, MessageId, "https://example.com/article");
@@ -223,7 +225,7 @@ public sealed class TelegramWebhookEndpointTest(ITestOutputHelper testOutputHelp
         PrepareWebhookEnvironment(repo, client);
 
         using var http = CreateHttpClient();
-        var update = BuildTextUpdate(50, AllowedUserId, ChatId, MessageId, "https://example.com/article");
+        var update = BuildTextUpdate(50, MappedTelegramUserId, ChatId, MessageId, "https://example.com/article");
         var response = await SendWithSecret(http, update);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -244,7 +246,7 @@ public sealed class TelegramWebhookEndpointTest(ITestOutputHelper testOutputHelp
         PrepareWebhookEnvironment(repo, client);
 
         using var http = CreateHttpClient();
-        var update = BuildTextUpdate(60, AllowedUserId, ChatId, MessageId, "https://example.com/article");
+        var update = BuildTextUpdate(60, MappedTelegramUserId, ChatId, MessageId, "https://example.com/article");
         var response = await SendWithSecret(http, update);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -282,7 +284,7 @@ public sealed class TelegramWebhookEndpointTest(ITestOutputHelper testOutputHelp
         PrepareWebhookEnvironment(repo, client);
 
         using var http = CreateHttpClient();
-        var update = BuildTextUpdate(71, AllowedUserId, chatId: 0, messageId: null, "https://example.com/article");
+        var update = BuildTextUpdate(71, MappedTelegramUserId, chatId: 0, messageId: null, "https://example.com/article");
         update.Message!.Chat = null;
         var response = await SendWithSecret(http, update);
 
@@ -307,13 +309,13 @@ public sealed class TelegramWebhookEndpointTest(ITestOutputHelper testOutputHelp
             {
                 services.AddSingleton<ITelegramIngestionRepository>(repo);
                 services.AddSingleton<ITelegramClient>(client);
+                services.AddSingleton<ITelegramUserResolver>(new FakeTelegramUserResolver());
             },
             configureConfiguration: cfg =>
                 cfg.AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["SQLITE_PATH"] = sqlitePath,
                     ["Telegram:WebhookSecret"] = ValidSecret,
-                    ["Telegram:AllowedUserId"] = AllowedUserId.ToString(),
                     ["Telegram:BotToken"] = "fake-token",
                 }));
     }
@@ -411,6 +413,16 @@ public sealed class TelegramWebhookEndpointTest(ITestOutputHelper testOutputHelp
     }
 
     private sealed record SentReply(long ChatId, long ReplyToMessageId, string Text);
+
+    private sealed class FakeTelegramUserResolver : ITelegramUserResolver
+    {
+        public Task<string?> ResolveUserIdAsync(long telegramUserId, CancellationToken cancellationToken)
+        {
+            var userId = telegramUserId == MappedTelegramUserId ? MappedUserId : null;
+
+            return Task.FromResult<string?>(userId);
+        }
+    }
 
     // -------------------------------------------------------------------------
     // Fake ingestion repository

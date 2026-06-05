@@ -23,11 +23,11 @@ public static class ServiceCollectionExtensions
             .BindConfiguration(TelegramSettings.Section)
             .Validate(static settings => !string.IsNullOrWhiteSpace(settings.BotToken), "Telegram:BotToken is required.")
             .Validate(static settings => !string.IsNullOrWhiteSpace(settings.WebhookSecret), "Telegram:WebhookSecret is required.")
-            .Validate(static settings => settings.AllowedUserId > 0, "Telegram:AllowedUserId must be greater than zero.")
             .ValidateOnStart();
 
         services.AddHttpClient<ITelegramClient, HttpTelegramClient>()
             .RemoveAllLoggers();
+        services.AddScoped<ITelegramUserResolver, EfTelegramUserResolver>();
         services.AddScoped<TelegramWebhookHandler>();
 
         // TELING-004: notification dispatcher

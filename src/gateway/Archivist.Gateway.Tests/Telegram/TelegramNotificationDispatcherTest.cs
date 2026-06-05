@@ -457,7 +457,7 @@ public sealed class TelegramNotificationDispatcherTest
         string jobStatus,
         string? errorMessage)
     {
-        const string userId = PersistenceConstants.PersonalUserId;
+        const string userId = "01ASB2XFCZJY7WHZ2FNRTMQJCT";
         const string jobId = "01JOBID0000000000000000001";
         const string notificationId = "01NOTIFID00000000000000001";
 
@@ -528,7 +528,7 @@ public sealed class TelegramNotificationDispatcherTest
         string notificationStatus,
         DateTimeOffset expiresAt)
     {
-        const string userId = PersistenceConstants.PersonalUserId;
+        const string userId = "01ASB2XFCZJY7WHZ2FNRTMQJCT";
         const string articleId = "01ARTICLEID000000000000002";
         const string jobId = "01JOBID0000000000000000002";
         const string notificationId = "01NOTIFID00000000000000002";

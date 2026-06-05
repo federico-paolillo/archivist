@@ -118,6 +118,16 @@ func JobAttributes(articleID, jobID string) []attribute.KeyValue {
 	}
 }
 
+func UserAttribute(userID string) attribute.KeyValue {
+	return attribute.String("user_id", userID)
+}
+
+func JobUserAttributes(articleID, jobID string, userID string) []attribute.KeyValue {
+	attrs := JobAttributes(articleID, jobID)
+
+	return append(attrs, UserAttribute(userID))
+}
+
 func ExtractTraceContext(ctx context.Context, traceparent string, tracestate string) context.Context {
 	if traceparent == "" {
 		return ctx

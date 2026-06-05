@@ -13,6 +13,7 @@ namespace Archivist.Gateway.Tests.Auth;
 public sealed class AuthBootstrapServiceTest : IDisposable
 {
     private const string PersonalUserId = "01ASB2XFCZJY7WHZ2FNRTMQJCT";
+    private const long PersonalTelegramUserId = 1559957191;
 
     private readonly string _dbPath = Path.Combine(
         Path.GetTempPath(),
@@ -32,7 +33,9 @@ public sealed class AuthBootstrapServiceTest : IDisposable
 
     private static string ValidBootstrapPassword() => new('a', PasswordValidator.RequiredLength);
 
-    private AuthBootstrapService CreateService(string? bootstrapPassword = null, string? sqlitePath = null)
+    private AuthBootstrapService CreateService(
+        string? bootstrapPassword = null,
+        string? sqlitePath = null)
     {
         var settings = new AuthSettings
         {
@@ -58,6 +61,19 @@ public sealed class AuthBootstrapServiceTest : IDisposable
 
         var result = await cmd.ExecuteScalarAsync();
         return result is DBNull or null ? null : (string)result;
+    }
+
+    private async Task<long?> ReadTelegramUserIdAsync()
+    {
+        await using var connection = new SqliteConnection($"Data Source={_dbPath}");
+        await connection.OpenAsync();
+
+        await using var cmd = connection.CreateCommand();
+        cmd.CommandText = "SELECT telegram_user_id FROM users WHERE id = @id;";
+        cmd.Parameters.AddWithValue("@id", PersonalUserId);
+
+        var result = await cmd.ExecuteScalarAsync();
+        return result is DBNull or null ? null : Convert.ToInt64(result);
     }
 
     private async Task<bool> PersonalUserExistsAsync()
@@ -117,6 +133,40 @@ public sealed class AuthBootstrapServiceTest : IDisposable
         await service.InitializeAsync();
 
         Assert.True(await PersonalUserExistsAsync());
+    }
+
+    [Fact]
+    public async Task InitializeAsync_SeedsPersonalTelegramUserId()
+    {
+        var service = CreateService(bootstrapPassword: ValidBootstrapPassword());
+
+        await service.InitializeAsync();
+
+        Assert.Equal(PersonalTelegramUserId, await ReadTelegramUserIdAsync());
+    }
+
+    [Fact]
+    public async Task InitializeAsync_WhenTelegramUserAlreadyMapped_DoesNotOverwriteMapping()
+    {
+        var existingHash = _passwordHasher.Hash(ValidBootstrapPassword());
+        await SeedExistingHashAsync(existingHash);
+
+        await using (var connection = new SqliteConnection($"Data Source={_dbPath}"))
+        {
+            await connection.OpenAsync();
+
+            await using var update = connection.CreateCommand();
+            update.CommandText = "UPDATE users SET telegram_user_id = @telegram_user_id WHERE id = @id;";
+            update.Parameters.AddWithValue("@telegram_user_id", 11111);
+            update.Parameters.AddWithValue("@id", PersonalUserId);
+            await update.ExecuteNonQueryAsync();
+        }
+
+        var service = CreateService(bootstrapPassword: null);
+
+        await service.InitializeAsync();
+
+        Assert.Equal(11111, await ReadTelegramUserIdAsync());
     }
 
     [Fact]

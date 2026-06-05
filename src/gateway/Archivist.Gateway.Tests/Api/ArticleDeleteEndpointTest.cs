@@ -29,7 +29,7 @@ public sealed class ArticleDeleteEndpointTest(ITestOutputHelper testOutputHelper
     private const string SessionId = "test-session-id";
     private const string PublicHost = "localhost";
     private const string PublicOrigin = "https://localhost";
-    private const string PersonalUserId = PersistenceConstants.PersonalUserId;
+    private const string PersonalUserId = "01ASB2XFCZJY7WHZ2FNRTMQJCT";
     private const string OtherUserId = "01ASB2XFCZJY7WHZ2FNRTMQJCV";
     private static readonly DateTimeOffset FixedNow = new(2026, 5, 7, 12, 0, 0, TimeSpan.Zero);
 
@@ -665,7 +665,6 @@ public sealed class ArticleDeleteEndpointTest(ITestOutputHelper testOutputHelper
                     ["SQLITE_PATH"] = sqlitePath,
                     ["DATA_DIR"] = dataDirectory,
                     ["Telegram:WebhookSecret"] = "test-webhook-secret",
-                    ["Telegram:AllowedUserId"] = "99999",
                     ["Telegram:BotToken"] = "fake-token",
                     ["GATEWAY_PUBLIC_HOSTS"] = PublicHost,
                 }));

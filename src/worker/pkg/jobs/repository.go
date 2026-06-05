@@ -29,12 +29,13 @@ type TerminalOutcome struct {
 type EnqueueResult struct {
 	ArticleID string
 	JobID     string
+	UserID    string
 }
 
 // Enqueuer defines the worker persistence contract for imperative URL queueing.
 type Enqueuer interface {
 	// EnqueueURL creates a queued article and non-Telegram article-processing job
-	// for the fixed personal user. It does not create users or notifications.
+	// for DefaultUserID. It does not create users or notifications.
 	EnqueueURL(ctx context.Context, rawURL string) (*EnqueueResult, error)
 }
 
@@ -54,14 +55,14 @@ type Repository interface {
 	// All three writes (article, job, notification) happen in one transaction.
 	CompleteTerminal(ctx context.Context, job *Job, outcome TerminalOutcome) error
 
-	// ArticleURL returns the original_url for the article associated with the job.
-	ArticleURL(ctx context.Context, articleID string) (string, error)
+	// ArticleURL returns the original_url for an article owned by userID.
+	ArticleURL(ctx context.Context, articleID string, userID string) (string, error)
 
-	// UpdateCanonicalURL sets articles.canonical_url to canonicalURL for the given articleID.
-	UpdateCanonicalURL(ctx context.Context, articleID string, canonicalURL string) error
+	// UpdateCanonicalURL sets articles.canonical_url to canonicalURL for an article owned by userID.
+	UpdateCanonicalURL(ctx context.Context, articleID string, userID string, canonicalURL string) error
 
-	// UpdateArticleTitle sets articles.title to title for the given articleID.
-	UpdateArticleTitle(ctx context.Context, articleID string, title string) error
+	// UpdateArticleTitle sets articles.title to title for an article owned by userID.
+	UpdateArticleTitle(ctx context.Context, articleID string, userID string, title string) error
 }
 
 // SQLiteRepository is the SQLite-backed implementation of Repository.
@@ -78,7 +79,7 @@ func NewSQLiteRepository(database *sql.DB, ids IDGenerator) *SQLiteRepository {
 	}
 }
 
-// EnqueueURL inserts a queued article and queued non-Telegram job for the fixed personal user.
+// EnqueueURL inserts a queued article and queued non-Telegram job for DefaultUserID.
 //
 //nolint:funlen,nonamedreturns,spancheck // Deferred span completion records the returned error.
 func (r *SQLiteRepository) EnqueueURL(ctx context.Context, rawURL string) (result *EnqueueResult, err error) {
@@ -107,6 +108,9 @@ func (r *SQLiteRepository) EnqueueURL(ctx context.Context, rawURL string) (resul
 		return nil, err
 	}
 
+	userID := DefaultUserID
+	span.SetAttributes(observability.UserAttribute(userID))
+
 	articleID, err := r.ids.NewID()
 	if err != nil {
 		return nil, fmt.Errorf("jobs: failed to generate article id: %w", err)
@@ -119,7 +123,7 @@ func (r *SQLiteRepository) EnqueueURL(ctx context.Context, rawURL string) (resul
 		`INSERT INTO articles (id, user_id, original_url, status, created_at)
 		 VALUES (?, ?, ?, 'queued', ?)`,
 		articleID,
-		DefaultUserID,
+		userID,
 		rawURL,
 		now,
 	)
@@ -132,14 +136,14 @@ func (r *SQLiteRepository) EnqueueURL(ctx context.Context, rawURL string) (resul
 		return nil, fmt.Errorf("jobs: failed to generate job id: %w", err)
 	}
 
-	span.SetAttributes(observability.JobAttributes(articleID, jobID)...)
+	span.SetAttributes(observability.JobUserAttributes(articleID, jobID, userID)...)
 
 	_, err = tx.ExecContext(
 		ctx,
 		`INSERT INTO jobs (id, user_id, article_id, type, status, created_at)
 		 VALUES (?, ?, ?, ?, 'queued', ?)`,
 		jobID,
-		DefaultUserID,
+		userID,
 		articleID,
 		TypeArticleProcessing,
 		now,
@@ -153,19 +157,18 @@ func (r *SQLiteRepository) EnqueueURL(ctx context.Context, rawURL string) (resul
 		return nil, fmt.Errorf("jobs: failed to commit enqueue transaction: %w", err)
 	}
 
-	return &EnqueueResult{ArticleID: articleID, JobID: jobID}, nil
+	return &EnqueueResult{ArticleID: articleID, JobID: jobID, UserID: userID}, nil
 }
 
 func ensureDefaultUserExists(ctx context.Context, tx *sql.Tx) error {
 	var exists int
 
-	err := tx.QueryRowContext(
-		ctx,
-		`SELECT 1 FROM users WHERE id = ?`,
-		DefaultUserID,
-	).Scan(&exists)
+	err := tx.QueryRowContext(ctx, `SELECT 1 FROM users WHERE id = ?`, DefaultUserID).Scan(&exists)
 	if errors.Is(err, sql.ErrNoRows) {
-		return fmt.Errorf("jobs: default user %s is missing; run Gateway auth bootstrap before enqueueing URLs", DefaultUserID)
+		return fmt.Errorf(
+			"jobs: default user %s is missing; run Gateway auth bootstrap before enqueueing URLs",
+			DefaultUserID,
+		)
 	}
 
 	if err != nil {
@@ -198,6 +201,7 @@ func (r *SQLiteRepository) ClaimQueued(ctx context.Context) (job *Job, err error
 		        SELECT 1
 		        FROM   articles
 		        WHERE  articles.id = jobs.article_id
+		        AND    articles.user_id = jobs.user_id
 		    )
 		    ORDER  BY created_at ASC
 		    LIMIT  1
@@ -225,7 +229,7 @@ func (r *SQLiteRepository) ClaimQueued(ctx context.Context) (job *Job, err error
 
 	job, err = scanJob(row)
 	if err == nil {
-		span.SetAttributes(observability.JobAttributes(job.ArticleID, job.ID)...)
+		span.SetAttributes(observability.JobUserAttributes(job.ArticleID, job.ID, job.UserID)...)
 	}
 
 	return job, err
@@ -238,7 +242,7 @@ func (r *SQLiteRepository) CompleteTerminal(ctx context.Context, job *Job, outco
 	ctx, span := observability.Tracer().Start(
 		ctx,
 		"worker.jobs.complete_terminal",
-		trace.WithAttributes(observability.JobAttributes(job.ArticleID, job.ID)...),
+		trace.WithAttributes(observability.JobUserAttributes(job.ArticleID, job.ID, job.UserID)...),
 	)
 	defer func() {
 		observability.EndSpan(span, err)
@@ -301,18 +305,23 @@ func applyArticleTerminal(ctx context.Context, tx *sql.Tx, job *Job, outcome Ter
 		articleError = &outcome.ErrorMessage
 	}
 
-	_, err := tx.ExecContext(
+	result, err := tx.ExecContext(
 		ctx,
-		`UPDATE articles SET status = ?, error_message = ? WHERE id = ?`,
+		`UPDATE articles
+		 SET    status = ?,
+		        error_message = ?
+		 WHERE  id = ?
+		 AND    user_id = ?`,
 		articleStatus,
 		articleError,
 		job.ArticleID,
+		job.UserID,
 	)
 	if err != nil {
 		return fmt.Errorf("jobs: failed to update article terminal state: %w", err)
 	}
 
-	return nil
+	return expectOneOwnedRow(result, "update article terminal state", job.ArticleID, job.UserID)
 }
 
 func applyJobTerminal(
@@ -334,25 +343,29 @@ func applyJobTerminal(
 		jobError = &outcome.ErrorMessage
 	}
 
-	_, err := tx.ExecContext(
+	result, err := tx.ExecContext(
 		ctx,
 		`UPDATE jobs
 		 SET    status        = ?,
 		        error_message = ?,
 		        completed_at  = ?,
 		        expires_at    = ?
-		 WHERE  id = ?`,
+		 WHERE  id = ?
+		 AND    article_id = ?
+		 AND    user_id = ?`,
 		jobStatus,
 		jobError,
 		now.Format(time.RFC3339Nano),
 		expiresAt.Format(time.RFC3339Nano),
 		job.ID,
+		job.ArticleID,
+		job.UserID,
 	)
 	if err != nil {
 		return fmt.Errorf("jobs: failed to update job terminal state: %w", err)
 	}
 
-	return nil
+	return expectOneOwnedRow(result, "update job terminal state", job.ArticleID, job.UserID)
 }
 
 // scanJob scans one row from an UPDATE...RETURNING or SELECT of the jobs table.
@@ -558,20 +571,28 @@ func parseNullableTime(ns sql.NullString, field string) (time.Time, bool, error)
 	return parsed, true, nil
 }
 
-// ArticleURL returns the original_url for the article with the given ID.
+// ArticleURL returns the original_url for an article with the given ID and user ID.
 //
 //nolint:nonamedreturns,spancheck // Deferred span completion records the returned error.
-func (r *SQLiteRepository) ArticleURL(ctx context.Context, articleID string) (originalURL string, err error) {
-	ctx, span := observability.Tracer().Start(ctx, "worker.jobs.article_url", trace.WithAttributes(attribute.String("article_id", articleID)))
+func (r *SQLiteRepository) ArticleURL(ctx context.Context, articleID string, userID string) (originalURL string, err error) {
+	ctx, span := observability.Tracer().Start(ctx, "worker.jobs.article_url", trace.WithAttributes(
+		attribute.String("article_id", articleID),
+		observability.UserAttribute(userID),
+	))
 	defer func() {
 		observability.EndSpan(span, err)
 	}()
 
 	err = r.db.QueryRowContext(
 		ctx,
-		`SELECT original_url FROM articles WHERE id = ?`,
+		`SELECT original_url FROM articles WHERE id = ? AND user_id = ?`,
 		articleID,
+		userID,
 	).Scan(&originalURL)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", fmt.Errorf("jobs: article %s is not owned by user %s: %w", articleID, userID, ErrOwnershipMismatch)
+	}
+
 	if err != nil {
 		return "", fmt.Errorf("jobs: failed to load article URL for %s: %w", articleID, err)
 	}
@@ -579,51 +600,78 @@ func (r *SQLiteRepository) ArticleURL(ctx context.Context, articleID string) (or
 	return originalURL, nil
 }
 
-// UpdateCanonicalURL sets articles.canonical_url for the given articleID.
+// UpdateCanonicalURL sets articles.canonical_url for the given articleID and userID.
 //
 //nolint:nonamedreturns,spancheck // Deferred span completion records the returned error.
-func (r *SQLiteRepository) UpdateCanonicalURL(ctx context.Context, articleID string, canonicalURL string) (err error) {
+func (r *SQLiteRepository) UpdateCanonicalURL(ctx context.Context, articleID string, userID string, canonicalURL string) (err error) {
 	ctx, span := observability.Tracer().Start(ctx, "worker.jobs.update_canonical_url", trace.WithAttributes(
 		attribute.String("article_id", articleID),
+		observability.UserAttribute(userID),
 		attribute.String("url", canonicalURL),
 	))
 	defer func() {
 		observability.EndSpan(span, err)
 	}()
 
-	_, err = r.db.ExecContext(
+	result, err := r.db.ExecContext(
 		ctx,
-		`UPDATE articles SET canonical_url = ? WHERE id = ?`,
+		`UPDATE articles SET canonical_url = ? WHERE id = ? AND user_id = ?`,
 		canonicalURL,
 		articleID,
+		userID,
 	)
 	if err != nil {
 		return fmt.Errorf("jobs: failed to update canonical URL for article %s: %w", articleID, err)
 	}
 
-	return nil
+	return expectOneOwnedRow(result, "update canonical URL", articleID, userID)
 }
 
-// UpdateArticleTitle sets articles.title for the given articleID.
+// UpdateArticleTitle sets articles.title for the given articleID and userID.
 //
 //nolint:nonamedreturns,spancheck // Deferred span completion records the returned error.
-func (r *SQLiteRepository) UpdateArticleTitle(ctx context.Context, articleID string, title string) (err error) {
-	ctx, span := observability.Tracer().Start(ctx, "worker.jobs.update_article_title", trace.WithAttributes(attribute.String("article_id", articleID)))
+func (r *SQLiteRepository) UpdateArticleTitle(ctx context.Context, articleID string, userID string, title string) (err error) {
+	ctx, span := observability.Tracer().Start(ctx, "worker.jobs.update_article_title", trace.WithAttributes(
+		attribute.String("article_id", articleID),
+		observability.UserAttribute(userID),
+	))
 	defer func() {
 		observability.EndSpan(span, err)
 	}()
 
-	_, err = r.db.ExecContext(
+	result, err := r.db.ExecContext(
 		ctx,
-		`UPDATE articles SET title = ? WHERE id = ?`,
+		`UPDATE articles SET title = ? WHERE id = ? AND user_id = ?`,
 		title,
 		articleID,
+		userID,
 	)
 	if err != nil {
 		return fmt.Errorf("jobs: failed to update title for article %s: %w", articleID, err)
 	}
 
-	return nil
+	return expectOneOwnedRow(result, "update article title", articleID, userID)
+}
+
+func expectOneOwnedRow(result sql.Result, operation string, articleID string, userID string) error {
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("jobs: failed to inspect %s row count: %w", operation, err)
+	}
+
+	// Article and job ids are primary keys, so the practical failure case here is
+	// zero rows: the row is missing or the ownership-scoped WHERE clause did not match.
+	if affected == 1 {
+		return nil
+	}
+
+	return fmt.Errorf("jobs: %s for article %s and user %s affected %d rows: %w",
+		operation,
+		articleID,
+		userID,
+		affected,
+		ErrOwnershipMismatch,
+	)
 }
 
 func (r *SQLiteRepository) insertPendingNotification(ctx context.Context, tx *sql.Tx, job *Job, now time.Time) error {

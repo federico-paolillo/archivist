@@ -221,6 +221,36 @@ dotnet test     — Passed: 44, Failed: 0, Skipped: 0
 - `docs/specs/authn/plans/AUTHN-003-gateway-cookie-authentication.execplan.md` — status: completed
 - `docs/specs/authn/DIARY.md` — this entry
 
+## 2026-06-05 — AUTHN-DOC: Multi-Password Login And Bootstrap Telegram Sender Correction
+
+Status:
+- completed correction
+
+Summary:
+- Corrected the canonical auth contract so password-only login supports multiple password-bearing users and auth bootstrap seeds the personal Telegram sender mapping from the fixed accepted id.
+
+Changes:
+- Replaced the stale "single password-bearing user row" login rule with candidate-based verification across all non-empty Argon2id PHC password hashes.
+- Specified that login issues a session only when exactly one candidate matches; duplicate password matches fail closed.
+- Documented that multiple password-bearing rows are valid.
+- Documented that auth bootstrap sets the personal row's `telegram_user_id` to `1559957191` only when null and preserves an existing non-null value.
+- Removed `Telegram:AllowedUserId` as an auth bootstrap input.
+
+Decisions:
+- Password-only login ambiguity is resolved by the submitted password, not by requiring a single password-bearing row.
+- No registration, user-management endpoints, or user self-service are introduced.
+
+Validation:
+- Documentation-only correction. `git diff --check` was run by the docs worker.
+
+Follow-ups:
+- None.
+
+Canonical Updates:
+- `docs/specs/authn/SPEC.md`
+- `docs/ARCHITECTURE.md`
+- `docs/DESIGN.md`
+
 ## 2026-05-12 — AUTHN-004: Protect UI API and validate auth client contract
 
 Task ID: AUTHN-004

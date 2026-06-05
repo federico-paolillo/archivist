@@ -119,6 +119,7 @@ Project-specific ordering:
 9. job-recovery
 10. snapshotter
 11. otel-observability
+12. user-id-parameterization
 ```
 
 Task-level cross-feature dependencies in feature `PLAN.md` files further constrain this order. In particular, the shared persistence foundation from `TELING-001` must precede auth password persistence, article processing orchestration, and UI endpoint work; final success notification behavior is completed by `SUMGEN-005`; and the browser UI starts only after auth and UI article endpoint contracts are implemented and validated.

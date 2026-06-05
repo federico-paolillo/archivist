@@ -1,7 +1,7 @@
 namespace Archivist.Gateway.Application.Persistence.Entities;
 
 /// <summary>
-/// Represents the fixed personal Archivist user.
+/// Represents a persisted Archivist user.
 /// </summary>
 public sealed class UserEntity
 {

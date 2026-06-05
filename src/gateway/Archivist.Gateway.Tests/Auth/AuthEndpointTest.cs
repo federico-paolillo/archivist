@@ -22,6 +22,7 @@ public sealed class AuthEndpointTest(ITestOutputHelper testOutputHelper) : Integ
     private const string CookieName = "__Host-app-auth";
     private const int PasswordLength = 2048;
     private const string PersonalUserId = "01ASB2XFCZJY7WHZ2FNRTMQJCT";
+    private const string PasswordUserId = "01BSB2XFCZJY7WHZ2FNRTMQJCT";
     private const string PublicHost = "localhost";
     private const string PublicOrigin = "https://localhost";
 
@@ -146,6 +147,45 @@ public sealed class AuthEndpointTest(ITestOutputHelper testOutputHelper) : Integ
         Assert.DoesNotContain("Max-Age=", setCookie, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task PostLogin_ValidPassword_CreatesSessionForPasswordStoreUser()
+    {
+        var (sessionStore, _, _) = SetupSuccessEnvironment();
+
+        var response = await SendLoginWithOrigin(ValidPassword());
+        var setCookie = GetAuthCookieHeader(response);
+        var sessionId = ExtractCookieValue(setCookie);
+
+        var entry = await sessionStore.GetAsync(sessionId);
+
+        Assert.NotNull(entry);
+        Assert.Equal(PasswordUserId, entry.UserId);
+    }
+
+    [Fact]
+    public async Task PostLogin_ValidPasswordForSecondUser_CreatesSessionForMatchedUser()
+    {
+        var passwordHasher = new Argon2idPasswordHasher();
+        var otherHash = passwordHasher.Hash(new string('b', PasswordLength));
+        var validHash = passwordHasher.Hash(ValidPassword());
+        var (sessionStore, _, _) = SetupSuccessEnvironment(
+            passwordCredentials:
+            [
+                new PasswordCredential(PersonalUserId, otherHash),
+                new PasswordCredential(PasswordUserId, validHash),
+            ]);
+
+        var response = await SendLoginWithOrigin(ValidPassword());
+        var setCookie = GetAuthCookieHeader(response);
+        var sessionId = ExtractCookieValue(setCookie);
+
+        var entry = await sessionStore.GetAsync(sessionId);
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.NotNull(entry);
+        Assert.Equal(PasswordUserId, entry.UserId);
+    }
+
     // -------------------------------------------------------------------------
     // POST /login failures
     // -------------------------------------------------------------------------
@@ -173,6 +213,51 @@ public sealed class AuthEndpointTest(ITestOutputHelper testOutputHelper) : Integ
             response.Headers.GetValues("Set-Cookie").Any(c => c.StartsWith(CookieName, StringComparison.Ordinal));
 
         Assert.False(hasCookie);
+    }
+
+    [Fact]
+    public async Task PostLogin_PasswordMatchesMultipleUsers_Returns401WithoutCookie()
+    {
+        var passwordHasher = new Argon2idPasswordHasher();
+        var credentials = new[]
+        {
+            new PasswordCredential(PersonalUserId, passwordHasher.Hash(ValidPassword())),
+            new PasswordCredential(PasswordUserId, passwordHasher.Hash(ValidPassword())),
+        };
+        SetupSuccessEnvironment(passwordCredentials: credentials);
+
+        var response = await SendLoginWithOrigin(ValidPassword());
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Null(GetAuthCookieHeader(response));
+    }
+
+    [Fact]
+    public async Task PostLogin_VerifiesAllPasswordCandidatesBeforeDeciding()
+    {
+        var matchingHashes = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "match-a",
+            "match-b",
+        };
+        var passwordHasher = new RecordingPasswordHasher(matchingHashes);
+        SetupSuccessEnvironment(
+            passwordCredentials:
+            [
+                new PasswordCredential(PersonalUserId, "match-a"),
+                new PasswordCredential(PasswordUserId, "match-b"),
+                new PasswordCredential("01CSB2XFCZJY7WHZ2FNRTMQJCT", "miss-c"),
+            ],
+            passwordHasherOverride: passwordHasher);
+
+        var response = await SendLoginWithOrigin(ValidPassword());
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Collection(
+            passwordHasher.VerifiedHashes,
+            hash => Assert.Equal("match-a", hash),
+            hash => Assert.Equal("match-b", hash),
+            hash => Assert.Equal("miss-c", hash));
     }
 
     [Fact]
@@ -543,13 +628,15 @@ public sealed class AuthEndpointTest(ITestOutputHelper testOutputHelper) : Integ
 
     private (InMemorySessionStore SessionStore, FakePasswordStore PasswordStore, FakeTimeProvider Time) SetupSuccessEnvironment(
         Action<IServiceCollection>? configureServices = null,
-        string publicHosts = PublicHost)
+        string publicHosts = PublicHost,
+        IReadOnlyList<PasswordCredential>? passwordCredentials = null,
+        IPasswordHasher? passwordHasherOverride = null)
     {
         var fakeTime = new FakeTimeProvider();
         var sessionStore = new InMemorySessionStore(fakeTime);
         var passwordHasher = new Argon2idPasswordHasher();
         var validHash = passwordHasher.Hash(ValidPassword());
-        var passwordStore = new FakePasswordStore(validHash);
+        var passwordStore = new FakePasswordStore(passwordCredentials ?? [new PasswordCredential(PasswordUserId, validHash)]);
 
         PrepareEnvironment(
             Environments.Development,
@@ -558,6 +645,10 @@ public sealed class AuthEndpointTest(ITestOutputHelper testOutputHelper) : Integ
                 services.AddSingleton<ISessionStore>(sessionStore);
                 services.AddSingleton<IPasswordStore>(passwordStore);
                 services.AddSingleton<TimeProvider>(fakeTime);
+                if (passwordHasherOverride is not null)
+                {
+                    services.AddSingleton(passwordHasherOverride);
+                }
 
                 configureServices?.Invoke(services);
             },
@@ -604,14 +695,39 @@ public sealed class AuthEndpointTest(ITestOutputHelper testOutputHelper) : Integ
             .FirstOrDefault(c => c.StartsWith(CookieName, StringComparison.Ordinal));
     }
 
+    private static string ExtractCookieValue(string? setCookie)
+    {
+        Assert.NotNull(setCookie);
+
+        var valueStart = CookieName.Length + 1;
+        var valueEnd = setCookie.IndexOf(';', valueStart);
+
+        return valueEnd < 0
+            ? setCookie[valueStart..]
+            : setCookie[valueStart..valueEnd];
+    }
+
     // -------------------------------------------------------------------------
     // Fakes
     // -------------------------------------------------------------------------
 
-    private sealed class FakePasswordStore(string? hash) : IPasswordStore
+    private sealed class FakePasswordStore(IReadOnlyList<PasswordCredential> credentials) : IPasswordStore
     {
-        public Task<string?> GetPasswordHashAsync(CancellationToken ct = default) =>
-            Task.FromResult(hash);
+        public Task<IReadOnlyList<PasswordCredential>> GetPasswordCredentialsAsync(CancellationToken ct = default) =>
+            Task.FromResult(credentials);
+    }
+
+    private sealed class RecordingPasswordHasher(IReadOnlySet<string> matchingHashes) : IPasswordHasher
+    {
+        public List<string> VerifiedHashes { get; } = [];
+
+        public string Hash(string password) => throw new NotSupportedException();
+
+        public bool Verify(string password, string phcHash)
+        {
+            VerifiedHashes.Add(phcHash);
+            return matchingHashes.Contains(phcHash);
+        }
     }
 
     private sealed class AlwaysThrottledLoginThrottle : ILoginThrottle

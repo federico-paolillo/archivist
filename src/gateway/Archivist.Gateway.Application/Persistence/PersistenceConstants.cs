@@ -6,11 +6,6 @@ namespace Archivist.Gateway.Application.Persistence;
 public static class PersistenceConstants
 {
     /// <summary>
-    /// Fixed personal user ULID for v0.
-    /// </summary>
-    public const string PersonalUserId = "01ASB2XFCZJY7WHZ2FNRTMQJCT";
-
-    /// <summary>
     /// Article status used before worker processing completes.
     /// </summary>
     public const string ArticleQueued = "queued";

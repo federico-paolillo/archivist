@@ -27,6 +27,7 @@ import (
 
 const (
 	personalUserID = "01ASB2XFCZJY7WHZ2FNRTMQJCT"
+	otherUserID    = "01ASB2XFCZJY7WHZ2FNRTMQJCX"
 	articleID      = "01ASB2XFCZJY7WHZ2FNRTMQJA1"
 	jobID          = "01ASB2XFCZJY7WHZ2FNRTMQJB1"
 )
@@ -53,6 +54,13 @@ func seedUser(t *testing.T, database *sql.DB) {
 	t.Helper()
 
 	_, err := database.Exec(`INSERT INTO users (id) VALUES (?)`, personalUserID)
+	require.NoError(t, err)
+}
+
+func seedOtherUser(t *testing.T, database *sql.DB) {
+	t.Helper()
+
+	_, err := database.Exec(`INSERT INTO users (id) VALUES (?)`, otherUserID)
 	require.NoError(t, err)
 }
 
@@ -294,6 +302,39 @@ func TestSnapshotSSRFPolicyBlockPersistsARC017(t *testing.T) {
 	assert.Equal(t, 1, scalarInt(t, database, `SELECT COUNT(*) FROM notifications WHERE job_id = ? AND status = 'pending'`, jobID))
 }
 
+func TestSnapshotDoesNotProcessJobWhenArticleOwnershipDoesNotMatch(t *testing.T) {
+	database := openTestDB(t)
+	seedUser(t, database)
+	seedOtherUser(t, database)
+
+	_, err := database.Exec(
+		`INSERT INTO articles (id, user_id, original_url, status, created_at)
+		 VALUES (?, ?, ?, 'queued', ?)`,
+		articleID,
+		otherUserID,
+		"https://example.com/article",
+		time.Now().UTC().Format(time.RFC3339Nano),
+	)
+	require.NoError(t, err)
+
+	seedTelegramJob(t, database, jobID, articleID)
+
+	store, err := artifacts.NewStore(t.TempDir())
+	require.NoError(t, err)
+	defer store.Close()
+
+	p := newTestPipeline(t, database, store, fetcher.New(req.NewClient()), nil)
+
+	processed, err := p.ProcessOne(t.Context())
+	require.NoError(t, err)
+	require.False(t, processed)
+
+	assert.Equal(t, "queued", scalarString(t, database, `SELECT status FROM articles WHERE id = ?`, articleID))
+	assert.Equal(t, jobs.StatusQueued, scalarString(t, database, `SELECT status FROM jobs WHERE id = ?`, jobID))
+	assert.Empty(t, scalarNullableString(t, database, `SELECT canonical_url FROM articles WHERE id = ?`, articleID))
+	assert.Equal(t, 0, scalarInt(t, database, `SELECT COUNT(*) FROM notifications WHERE job_id = ?`, jobID))
+}
+
 // TestSnapshotNonHTMLFailureMapsToARC005 verifies non-HTML content type maps to ARC-005.
 func TestSnapshotNonHTMLFailureMapsToARC005(t *testing.T) {
 	database := openTestDB(t)
@@ -391,6 +432,7 @@ func TestSnapshotLogsClaimBeforeArticleURLLoad(t *testing.T) {
 	logText := logs.String()
 	assert.Contains(t, logText, `"article_id":"`+articleID+`"`)
 	assert.Contains(t, logText, `"job_id":"`+jobID+`"`)
+	assert.Contains(t, logText, `"user_id":"`+personalUserID+`"`)
 	assert.Contains(t, logText, `"stage":"claim"`)
 	assert.Contains(t, logText, `"status":"claimed"`)
 }
@@ -601,16 +643,16 @@ func (r *claimBeforeURLLoadRepo) CompleteTerminal(context.Context, *jobs.Job, jo
 	return nil
 }
 
-func (r *claimBeforeURLLoadRepo) ArticleURL(context.Context, string) (string, error) {
+func (r *claimBeforeURLLoadRepo) ArticleURL(context.Context, string, string) (string, error) {
 	r.articleURLCalled = true
 
 	return "", fmt.Errorf("article URL load failed")
 }
 
-func (r *claimBeforeURLLoadRepo) UpdateCanonicalURL(context.Context, string, string) error {
+func (r *claimBeforeURLLoadRepo) UpdateCanonicalURL(context.Context, string, string, string) error {
 	return nil
 }
 
-func (r *claimBeforeURLLoadRepo) UpdateArticleTitle(context.Context, string, string) error {
+func (r *claimBeforeURLLoadRepo) UpdateArticleTitle(context.Context, string, string, string) error {
 	return nil
 }

@@ -1,13 +1,17 @@
 namespace Archivist.Gateway.Application.Auth.Services;
 
 /// <summary>
-/// Reads the personal user's stored Argon2id password hash from the persistence layer.
+/// Reads password-bearing user credentials from the persistence layer.
 /// </summary>
 public interface IPasswordStore
 {
     /// <summary>
-    /// Returns the stored Argon2id PHC hash for the personal user,
-    /// or <c>null</c> if no hash has been stored yet.
+    /// Returns all stored password-bearing user rows.
     /// </summary>
-    Task<string?> GetPasswordHashAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<PasswordCredential>> GetPasswordCredentialsAsync(CancellationToken ct = default);
 }
+
+/// <summary>
+/// Represents the user id and Argon2id PHC hash used for password login.
+/// </summary>
+public sealed record PasswordCredential(string UserId, string PasswordHash);

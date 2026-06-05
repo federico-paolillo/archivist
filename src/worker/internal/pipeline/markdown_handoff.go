@@ -58,7 +58,7 @@ func (h *MarkdownExtractionHandoff) Handoff(ctx context.Context, job *jobs.Job, 
 		ctx,
 		"worker.pipeline.markdown",
 		trace.WithAttributes(append(
-			observability.JobAttributes(job.ArticleID, job.ID),
+			observability.JobUserAttributes(job.ArticleID, job.ID, job.UserID),
 			attribute.String("url", canonicalURL),
 		)...),
 	)
@@ -122,6 +122,7 @@ func (h *MarkdownExtractionHandoff) logMarkdownStageStart(ctx context.Context, j
 		"pipeline: markdown stage started",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
+		slog.String("user_id", job.UserID),
 		slog.String("url", canonicalURL),
 		slog.String("stage", "markdown"),
 		slog.String("status", "start"),
@@ -140,6 +141,7 @@ func (h *MarkdownExtractionHandoff) logMarkdownStageFailure(
 	attrs := []slog.Attr{
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
+		slog.String("user_id", job.UserID),
 		slog.String("url", canonicalURL),
 		slog.String("stage", "markdown"),
 		slog.String("status", "failure"),
@@ -167,6 +169,7 @@ func (h *MarkdownExtractionHandoff) logMarkdownStageSuccess(
 		"pipeline: markdown stage completed",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
+		slog.String("user_id", job.UserID),
 		slog.String("url", canonicalURL),
 		slog.String("provider", string(provider)),
 		slog.String("selected_provider", string(provider)),
@@ -188,13 +191,14 @@ func (h *MarkdownExtractionHandoff) persistTitle(
 		return
 	}
 
-	err := h.repo.UpdateArticleTitle(ctx, job.ArticleID, title)
+	err := h.repo.UpdateArticleTitle(ctx, job.ArticleID, job.UserID, title)
 	if err != nil {
 		h.logger.ErrorContext(
 			ctx,
 			"pipeline: article title update failed",
 			slog.String("article_id", job.ArticleID),
 			slog.String("job_id", job.ID),
+			slog.String("user_id", job.UserID),
 			slog.String("url", canonicalURL),
 			slog.String("stage", "title_update"),
 			slog.String("status", "failure"),
@@ -209,6 +213,7 @@ func (h *MarkdownExtractionHandoff) persistTitle(
 		"pipeline: article title updated",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
+		slog.String("user_id", job.UserID),
 		slog.String("url", canonicalURL),
 		slog.String("stage", "title_update"),
 		slog.String("status", "success"),
@@ -251,7 +256,7 @@ func (h *MarkdownExtractionHandoff) writeMarkdown(
 		ctx,
 		"worker.pipeline.markdown_write",
 		trace.WithAttributes(append(
-			observability.JobAttributes(job.ArticleID, job.ID),
+			observability.JobUserAttributes(job.ArticleID, job.ID, job.UserID),
 			attribute.String("url", canonicalURL),
 			attribute.String("provider", string(provider)),
 		)...),
@@ -267,6 +272,7 @@ func (h *MarkdownExtractionHandoff) writeMarkdown(
 			"pipeline: markdown write failed",
 			slog.String("article_id", job.ArticleID),
 			slog.String("job_id", job.ID),
+			slog.String("user_id", job.UserID),
 			slog.String("url", canonicalURL),
 			slog.String("provider", string(provider)),
 			slog.String("selected_provider", string(provider)),
@@ -294,6 +300,7 @@ func (h *MarkdownExtractionHandoff) writeMarkdown(
 		"pipeline: markdown written",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
+		slog.String("user_id", job.UserID),
 		slog.String("url", canonicalURL),
 		slog.String("provider", string(provider)),
 		slog.String("selected_provider", string(provider)),
@@ -310,7 +317,7 @@ func (h *MarkdownExtractionHandoff) readSnapshot(ctx context.Context, job *jobs.
 	_, span := observability.Tracer().Start(
 		ctx,
 		"worker.pipeline.snapshot_read",
-		trace.WithAttributes(observability.JobAttributes(job.ArticleID, job.ID)...),
+		trace.WithAttributes(observability.JobUserAttributes(job.ArticleID, job.ID, job.UserID)...),
 	)
 	defer func() {
 		observability.EndSpan(span, err)
@@ -371,7 +378,7 @@ func (h *MarkdownExtractionHandoff) attempt(
 		ctx,
 		"worker.pipeline.markdown_provider",
 		trace.WithAttributes(append(
-			observability.JobAttributes(job.ArticleID, job.ID),
+			observability.JobUserAttributes(job.ArticleID, job.ID, job.UserID),
 			attribute.String("url", canonicalURL),
 			attribute.String("provider", string(extractor.Provider())),
 		)...),
@@ -397,6 +404,7 @@ func (h *MarkdownExtractionHandoff) attempt(
 	attrs := []slog.Attr{
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
+		slog.String("user_id", job.UserID),
 		slog.String("url", canonicalURL),
 		slog.String("provider", string(extractor.Provider())),
 		slog.String("stage", "markdown_provider"),
@@ -442,6 +450,7 @@ func (h *MarkdownExtractionHandoff) logSelectedProvider(
 		"pipeline: markdown provider selected",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
+		slog.String("user_id", job.UserID),
 		slog.String("url", canonicalURL),
 		slog.String("provider", string(provider)),
 		slog.String("selected_provider", string(provider)),

@@ -1,6 +1,8 @@
 using System.Data.Common;
+using System.Diagnostics;
 
 using Archivist.Gateway.Application.ArticleArtifacts;
+using Archivist.Gateway.Application.Observability;
 using Archivist.Gateway.Application.Persistence;
 using Archivist.Gateway.Application.Persistence.Defaults;
 using Archivist.Gateway.Application.Persistence.Entities;
@@ -14,13 +16,17 @@ namespace Archivist.Gateway.Tests.Persistence;
 
 public sealed class TelegramIngestionRepositoryTest
 {
+    private const string TestUserId = "01ASB2XFCZJY7WHZ2FNRTMQJCT";
+    private const string OtherUserId = "01BSB2XFCZJY7WHZ2FNRTMQJCT";
+
     [Fact]
-    public async Task RecordValidUrlCreatesUserArticleAndQueuedJobAtomically()
+    public async Task RecordValidUrlCreatesArticleAndQueuedJobForResolvedUser()
     {
         await using var db = await CreateDbAsync();
         db.Users.Add(new UserEntity
         {
-            Id = PersistenceConstants.PersonalUserId,
+            Id = TestUserId,
+            TelegramUserId = 400,
             PasswordHash = "$argon2id$existing",
         });
         await db.SaveChangesAsync();
@@ -33,6 +39,7 @@ public sealed class TelegramIngestionRepositoryTest
                 200,
                 300,
                 400,
+                TestUserId,
                 "https://example.com/article"),
             CancellationToken.None);
 
@@ -42,12 +49,14 @@ public sealed class TelegramIngestionRepositoryTest
         var article = await db.Articles.SingleAsync(CancellationToken.None);
         var job = await db.Jobs.SingleAsync(CancellationToken.None);
 
-        Assert.Equal(PersistenceConstants.PersonalUserId, user.Id);
+        Assert.Equal(TestUserId, user.Id);
         Assert.Equal(400, user.TelegramUserId);
         Assert.Equal("$argon2id$existing", user.PasswordHash);
+        Assert.Equal(TestUserId, article.UserId);
         Assert.Equal(PersistenceConstants.ArticleQueued, article.Status);
         Assert.Equal("https://example.com/article", article.OriginalUrl);
         Assert.Equal(article.Id, result.ArticleId);
+        Assert.Equal(TestUserId, job.UserId);
         Assert.Equal(PersistenceConstants.JobQueued, job.Status);
         Assert.Equal(PersistenceConstants.ArticleProcessingJobType, job.Type);
         Assert.Equal(100, job.TelegramUpdateId);
@@ -61,6 +70,8 @@ public sealed class TelegramIngestionRepositoryTest
     public async Task RecordValidUrlPersistsTraceCarrier()
     {
         await using var db = await CreateDbAsync();
+        db.Users.Add(new UserEntity { Id = TestUserId, TelegramUserId = 400 });
+        await db.SaveChangesAsync();
         var repo = CreateRepository(db);
 
         await repo.RecordValidUrlAsync(
@@ -69,6 +80,7 @@ public sealed class TelegramIngestionRepositoryTest
                 200,
                 300,
                 400,
+                TestUserId,
                 "https://example.com/article",
                 "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
                 "vendor=value"),
@@ -78,6 +90,31 @@ public sealed class TelegramIngestionRepositoryTest
 
         Assert.Equal("00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01", job.TraceParent);
         Assert.Equal("vendor=value", job.TraceState);
+    }
+
+    [Fact]
+    public async Task RecordValidUrlActivityIncludesUserId()
+    {
+        await using var db = await CreateDbAsync();
+        db.Users.Add(new UserEntity { Id = TestUserId, TelegramUserId = 400 });
+        await db.SaveChangesAsync();
+        var repo = CreateRepository(db);
+        var stoppedActivities = new List<Activity>();
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = static source => source.Name == ArchivistTelemetry.ActivitySourceName,
+            Sample = static (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
+            ActivityStopped = stoppedActivities.Add,
+        };
+        ActivitySource.AddActivityListener(listener);
+
+        await repo.RecordValidUrlAsync(
+            new RecordTelegramIngestionCommand(100, 200, 300, 400, TestUserId, "https://example.com/article"),
+            CancellationToken.None);
+
+        var activity = Assert.Single(stoppedActivities, x => x.DisplayName == "gateway.telegram.enqueue");
+        var userIdTag = Assert.Single(activity.Tags, x => x.Key == "user_id");
+        Assert.Equal(TestUserId, userIdTag.Value);
     }
 
     [Fact]
@@ -107,8 +144,10 @@ public sealed class TelegramIngestionRepositoryTest
     public async Task RecordValidUrlIgnoresDuplicateTelegramUpdate()
     {
         await using var db = await CreateDbAsync();
+        db.Users.Add(new UserEntity { Id = TestUserId, TelegramUserId = 400 });
+        await db.SaveChangesAsync();
         var repo = CreateRepository(db);
-        var command = new RecordTelegramIngestionCommand(100, 200, 300, 400, "https://example.com/article");
+        var command = new RecordTelegramIngestionCommand(100, 200, 300, 400, TestUserId, "https://example.com/article");
 
         var first = await repo.RecordValidUrlAsync(command, CancellationToken.None);
         var second = await repo.RecordValidUrlAsync(command, CancellationToken.None);
@@ -122,6 +161,43 @@ public sealed class TelegramIngestionRepositoryTest
 
         var user = await db.Users.SingleAsync(CancellationToken.None);
         Assert.Equal(command.TelegramUserId, user.TelegramUserId);
+        Assert.Equal(TestUserId, user.Id);
+    }
+
+    [Fact]
+    public async Task RecordValidUrlDoesNotCreateOrReassignUserRows()
+    {
+        await using var db = await CreateDbAsync();
+        db.Users.AddRange(
+            new UserEntity
+            {
+                Id = TestUserId,
+                TelegramUserId = 400,
+                PasswordHash = "$argon2id$existing",
+            },
+            new UserEntity
+            {
+                Id = OtherUserId,
+                TelegramUserId = 401,
+                PasswordHash = null,
+            });
+        await db.SaveChangesAsync();
+        var repo = CreateRepository(db);
+
+        await repo.RecordValidUrlAsync(
+            new RecordTelegramIngestionCommand(100, 200, 300, 400, TestUserId, "https://example.com/article"),
+            CancellationToken.None);
+
+        var users = await db.Users.OrderBy(x => x.Id).ToListAsync(CancellationToken.None);
+        var article = await db.Articles.SingleAsync(CancellationToken.None);
+        var job = await db.Jobs.SingleAsync(CancellationToken.None);
+
+        Assert.Equal(2, users.Count);
+        Assert.Equal(TestUserId, article.UserId);
+        Assert.Equal(TestUserId, job.UserId);
+        Assert.Equal("$argon2id$existing", users.Single(x => x.Id == TestUserId).PasswordHash);
+        Assert.Equal(400, users.Single(x => x.Id == TestUserId).TelegramUserId);
+        Assert.Equal(401, users.Single(x => x.Id == OtherUserId).TelegramUserId);
     }
 
     [Fact]
@@ -129,6 +205,12 @@ public sealed class TelegramIngestionRepositoryTest
     {
         var dbPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.db");
         await EnsureSchemaAsync(dbPath);
+        await using (var seedDb = CreateDbContext(dbPath))
+        {
+            seedDb.Users.Add(new UserEntity { Id = TestUserId, TelegramUserId = 400 });
+            await seedDb.SaveChangesAsync();
+        }
+
         var barrier = new TransactionStartBarrier();
         await using var db1 = CreateDbContext(dbPath, barrier);
         await using var db2 = CreateDbContext(dbPath, barrier);
@@ -141,7 +223,7 @@ public sealed class TelegramIngestionRepositoryTest
             db2,
             new QueueIdGenerator("01H00000000000000000000014", "01H00000000000000000000015"),
             time);
-        var command = new RecordTelegramIngestionCommand(100, 200, 300, 400, "https://example.com/article");
+        var command = new RecordTelegramIngestionCommand(100, 200, 300, 400, TestUserId, "https://example.com/article");
         var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var task1 = Task.Run(async () =>
         {

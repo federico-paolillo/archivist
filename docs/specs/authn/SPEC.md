@@ -13,7 +13,7 @@ canonical: true
 
 ## Intent
 
-Protect the Archivist web UI and UI-facing gateway API with single-user cookie authentication.
+Protect the Archivist web UI and UI-facing gateway API with cookie authentication for the bootstrapped user set.
 
 ## Motivation
 
@@ -23,9 +23,10 @@ Archivist v0 exposes a private browser UI for article review and administration.
 
 In scope:
 
-- Password-only login for the fixed personal Archivist user.
+- Password-only login across all password-bearing Archivist user rows, with session issuance only when exactly one stored hash matches the submitted password.
 - Argon2id password hash storage in SQLite.
 - One-time bootstrap of the personal user's password hash from `AUTH_BOOTSTRAP_PASSWORD`.
+- Bootstrap of the personal user's `telegram_user_id` to the fixed Telegram sender id `1559957191` when the row has no Telegram sender mapping.
 - Opaque server-issued session id cookies integrated through a custom ASP.NET Core authentication handler.
 - Browser-session auth cookies with `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/`, no `Domain`, and the `__Host-app-auth` cookie name.
 - In-memory v0 `ISessionStore` with 24-hour server-side absolute expiry.
@@ -41,7 +42,7 @@ In scope:
 Not included:
 
 - Account registration, password reset, password rotation UI, user self-service, roles, or tenant isolation.
-- Multiple authorized UI users.
+- User registration or user-management UI.
 - Multi-replica auth operation in v0.
 - Custom HMAC cookies, random cookie names, or user-id hash cookie payloads.
 - Sliding expiry, refresh tokens, multiple concurrent sessions per user, or revocation lists beyond plain session entry removal.
@@ -62,7 +63,7 @@ Not included:
 - REQ-003: The gateway must reject malformed or oversized login requests before Argon2id verification.
 - REQ-004: The `users` table must contain `password_hash` as an Argon2id PHC string containing algorithm, parameters, salt, and hash.
 - REQ-005: Argon2id verification must use at least `m=19456,t=2,p=1`; implementations may increase cost only by updating this spec and validation expectations.
-- REQ-006: The personal user row must use `id = 01ASB2XFCZJY7WHZ2FNRTMQJCT`.
+- REQ-006: Authentication bootstrap must create the initial personal user row with `id = 01ASB2XFCZJY7WHZ2FNRTMQJCT`.
 - REQ-007: `AUTH_BOOTSTRAP_PASSWORD` must be accepted only when the personal user has no stored password hash.
 - REQ-008: The bootstrap password must not be logged, returned, or persisted in plaintext.
 - REQ-009: Successful login must issue an opaque session cookie named `__Host-app-auth`.
@@ -92,6 +93,12 @@ Not included:
 - REQ-033: Gateway startup must process `X-Forwarded-Proto` and `X-Forwarded-For` before authentication middleware, authorization middleware, and endpoint mapping.
 - REQ-034: Forwarded host values must be constrained by `GATEWAY_PUBLIC_HOSTS`.
 - REQ-035: Same-origin checks for unsafe methods must compare post-forwarding scheme, host, and effective port.
+- REQ-036: Authentication bootstrap must set the personal row's `telegram_user_id` to the fixed Telegram sender id `1559957191` when the row has no Telegram sender mapping, and must preserve an existing non-null `telegram_user_id`.
+- REQ-037: Authentication bootstrap must not read `settings.PersonalTelegramUserId`, `Telegram:AllowedUserId`, or any equivalent deployment setting to seed the personal Telegram sender mapping.
+- REQ-038: Successful login must load every user row with a non-empty Argon2id PHC `password_hash`, verify the submitted password against every candidate, and issue the session for the matched row's `id` only when exactly one candidate matches.
+- REQ-039: Multiple password-bearing user rows are valid.
+- REQ-040: Login must fail closed when no password-bearing row exists, when no candidate hash matches, or when more than one candidate hash matches the submitted password.
+- REQ-041: Auth must not introduce registration, user-management endpoints, or user self-service.
 
 ## Acceptance Criteria
 
@@ -104,23 +111,37 @@ Scenario: Bootstrap stores the personal password hash
   When the gateway starts
   Then the users table contains the personal user
   And password_hash is an Argon2id PHC string
+  And telegram_user_id is 1559957191 when it was previously null
   And the plaintext bootstrap secret is not logged or stored
 
+Scenario: Bootstrap preserves an existing Telegram sender mapping
+  Given the personal user has a non-null telegram_user_id
+  When the gateway starts
+  Then telegram_user_id is unchanged
+
 Scenario: Successful login
-  Given the personal user has a stored password_hash for the submitted password
+  Given exactly one password-bearing user has a stored password_hash for the submitted password
+  And other password-bearing users do not match the submitted password
   When the browser posts the password to /login
   Then the response status is 204
   And Set-Cookie contains "__Host-app-auth"
   And the cookie is HttpOnly, Secure, SameSite=Strict, and Path=/
   And the cookie has no Domain, Expires, or Max-Age
   And the session store contains a fresh session entry expiring 24 hours after issue
+  And the session entry user_id is the matching user's id
 
 Scenario: Invalid login
-  Given the personal user has a stored password_hash
+  Given password-bearing users exist
   When the browser posts the wrong password to /login
   Then the response status is 401
   And no auth cookie is issued
   And throttle counters are incremented
+
+Scenario: Duplicate password match fails closed
+  Given two password-bearing users have password_hash values that verify the submitted password
+  When the browser posts the password to /login
+  Then the response status is 401
+  And no auth cookie is issued
 
 Scenario: Protected API request
   Given no valid auth cookie is present
@@ -148,7 +169,7 @@ Scenario: Authentication handler rejects an expired session
   And authentication fails
 
 Scenario: Login succeeds behind trusted reverse proxy
-  Given the personal user has a stored password_hash for the submitted password
+  Given exactly one password-bearing user has a stored password_hash for the submitted password
   And Gateway receives internal HTTP from Caddy
   And trusted forwarded headers set the effective public scheme to https
   And the Origin matches the effective public origin
@@ -157,7 +178,7 @@ Scenario: Login succeeds behind trusted reverse proxy
   And the auth cookie attributes remain unchanged
 
 Scenario: Login rejects ineffective HTTPS context
-  Given the personal user has a stored password_hash for the submitted password
+  Given exactly one password-bearing user has a stored password_hash for the submitted password
   And forwarded-header processing leaves the effective public scheme as http
   When the browser posts the password to /login
   Then the response status is 403
@@ -172,15 +193,15 @@ Scenario: Unsafe request rejects public origin mismatch
 
 ## Data and State
 
-SQLite remains the source of truth for the personal user.
+SQLite remains the source of truth for authenticated users.
 
 ### `users`
 
 - `id`: ULID, seeded as `01ASB2XFCZJY7WHZ2FNRTMQJCT`.
-- `telegram_user_id`: nullable until Telegram ingestion maps the configured Telegram user; unique when present.
+- `telegram_user_id`: nullable until bootstrap or another canonical user-provisioning path maps a Telegram sender; unique when present. Auth bootstrap sets the personal row to `1559957191` only when this value is null.
 - `password_hash`: nullable only before auth bootstrap completes; after bootstrap it stores an Argon2id PHC string.
 
-The v0 system has one user row. Auth does not introduce provisioning state, roles, tenants, external identity tables, password history, refresh tokens, or roles.
+The v0 system starts with one bootstrapped user row. Additional password-bearing rows may exist through canonical provisioning outside auth, and password-only login supports them by matching the submitted password against all non-empty Argon2id PHC hashes. Auth does not introduce registration, provisioning state, roles, tenants, external identity tables, password history, refresh tokens, or user self-service.
 
 ### `ISessionStore`
 
@@ -209,8 +230,8 @@ The v0 implementation is in-memory and may use `ConcurrentDictionary<string, Ses
   - The request must be `POST`, same-origin, and have effective public scheme `https`.
   - The effective public scheme is `HttpRequest.Scheme` after forwarded-header processing.
   - Per-IP and global login throttling run before Argon2id verification.
-  - Success: always remove any existing valid session from the request cookie, create a fresh session id, store a `SessionEntry`, and return `204 No Content` with `Set-Cookie`.
-  - Failure: `401 Unauthorized`; the response must not disclose whether bootstrap is missing, the password is wrong, or throttling contributed.
+  - Success: always remove any existing valid session from the request cookie, load all non-empty Argon2id PHC password hashes, verify every candidate, create a fresh session id for the matched user's `id` only when exactly one candidate matches, store a `SessionEntry`, and return `204 No Content` with `Set-Cookie`.
+  - Failure: `401 Unauthorized`; the response must not disclose whether bootstrap is missing, no hash matched, duplicate hashes matched, the password is wrong, or throttling contributed.
 - `POST /logout`
   - Removes the matching session-store entry when present.
   - Always clears the auth cookie with `Set-Cookie: __Host-app-auth=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0`.
@@ -256,7 +277,7 @@ services.AddAuthorization();
 Depends on:
 
 - `telegram-ingestion` persistence foundation for the shared `users` table contract.
-- `docs/ARCHITECTURE.md` v0 single-user gateway/UI boundary.
+- `docs/ARCHITECTURE.md` v0 bootstrapped-user gateway/UI boundary.
 - `docs/ARCHITECTURE.md` reverse-proxy deployment topology.
 
 Implementation agents should use `.agents/skills/archivist-gateway/SKILL.md` and `.agents/skills/archivist-ui/SKILL.md` for module coding guidance. These skills are not feature dependencies or rebuild sources of truth.

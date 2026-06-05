@@ -49,9 +49,20 @@ Only decisions with `Status: accepted` are binding for rebuild. Decisions marked
 
 **Context:** The initial product serves one person through Telegram and a private web UI.
 
-**Decision:** v0 is single-user. Telegram ingestion is restricted to one configured Telegram user, and the UI/API are protected as one private authenticated surface.
+**Decision:** v0 has one bootstrapped personal user and no user-facing account management. Telegram ingestion and UI/API access are private authenticated surfaces.
 
-**Consequences:** v0 does not include tenant isolation, account management, user roles, per-user storage partitioning, or multi-user authorization rules.
+**Consequences:** v0 does not include tenant isolation, account management, user roles, per-user storage partitioning, registration, or user administration. Runtime ownership resolution is refined by DSGN-017.
+
+### DSGN-017: Runtime User ID Resolution
+
+**Date:** 2026-06-05
+**Status:** accepted
+
+**Context:** Archivist already persists `users`, `articles.user_id`, `jobs.user_id`, and authenticated sessions with a user id. Runtime code still assigned the personal user ULID in several paths, which made ownership fields look user-aware while behavior remained single-user-by-constant.
+
+**Decision:** Authentication bootstrap is the primary production code path allowed to hardcode the initial personal user id and fixed personal Telegram sender id `1559957191`. Bootstrap sets the personal row's `telegram_user_id` to `1559957191` only when it is null and preserves an existing non-null value; it does not read `settings.PersonalTelegramUserId`, `Telegram:AllowedUserId`, or equivalent deployment configuration for that seed. Worker CLI enqueue is the only runtime exception: it uses `jobs.DefaultUserID = 01ASB2XFCZJY7WHZ2FNRTMQJCT`, checks `users.id` by that id, never infers ownership from user-table cardinality, and never creates the user. Other runtime Gateway and Worker behavior resolves `user_id` from persisted user rows, authenticated session state, claimed jobs, or article ownership. Password login loads all non-empty Argon2id PHC password hashes, verifies every candidate, and issues a session only when exactly one user matches the submitted password. Multiple password-bearing rows are valid; duplicate password matches fail closed. Telegram webhook authorization is based on the existence of a `users.telegram_user_id` mapping; unknown Telegram senders receive no reply and create no rows. Gateway and Worker attach `user_id` to logs and traces when known, using the exact key `user_id`; Snapshotter remains user-agnostic.
+
+**Consequences:** v0 still has no registration, roles, tenant administration, or user-facing multi-user UI. The existing personal account remains bootstrapped. Runtime ownership no longer relies on a hardcoded personal-id fallback except for Worker CLI enqueue's explicit default-user existence check. Future user provisioning can add rows, password hashes, and Telegram mappings without changing Gateway, UI, or Worker processing ownership semantics; password-only login remains ambiguous only when the submitted password matches multiple users, in which case it fails closed. Worker CLI enqueue continues to target the bootstrapped personal account unless a future canonical decision changes that command.
 
 ### DSGN-003: SQLite Owns State and Filesystem Owns Artifacts
 
@@ -192,7 +203,7 @@ Only decisions with `Status: accepted` are binding for rebuild. Decisions marked
 
 **Context:** The v0 web UI needs a private browser authentication surface for one personal user. The original custom-cookie idea included random cookie names, user-id hashes, startup-generated signing secrets, and an in-memory user-id map. The later cookie-ticket design made auth cookie key-ring management part of the deployment surface. Both approaches add concerns that do not improve the v0 threat model.
 
-**Decision:** UI/API authentication uses password-only login against the fixed personal user and an opaque server-issued session id cookie. The password is a generated 2048-character printable ASCII bearer secret stored only as an Argon2id PHC hash on `users.password_hash`.
+**Decision:** UI/API authentication uses password-only login against password-bearing user rows and an opaque server-issued session id cookie. Passwords are generated 2048-character printable ASCII bearer secrets stored only as Argon2id PHC hashes on `users.password_hash`.
 
 The auth cookie is named `__Host-app-auth` and carries only an opaque session identifier: 32 bytes from `RandomNumberGenerator.GetBytes`, base64url-encoded without padding. The cookie is a pure capability. It contains no user id, role, expiry timestamp, or session metadata.
 
@@ -200,9 +211,9 @@ The gateway stores authoritative session state server-side as `sessionId -> { us
 
 Cookie attributes are fixed: `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/`, no `Domain`, and the `__Host-` prefix. Cookie values are never logged and must be redacted from request and response logging middleware.
 
-Authentication integrates with the normal ASP.NET Core authentication pipeline through a custom `IAuthenticationHandler`, or `AuthenticationHandler<AppCookieSettings>`, registered by `AddAppCookie()` on `AuthenticationBuilder`. The default scheme and authentication type are `"app-cookie"`. On success, the handler sets `HttpContext.User` to a minimal `ClaimsPrincipal` containing only `ClaimTypes.NameIdentifier` with the personal user id.
+Authentication integrates with the normal ASP.NET Core authentication pipeline through a custom `IAuthenticationHandler`, or `AuthenticationHandler<AppCookieSettings>`, registered by `AddAppCookie()` on `AuthenticationBuilder`. The default scheme and authentication type are `"app-cookie"`. On success, the handler sets `HttpContext.User` to a minimal `ClaimsPrincipal` containing only `ClaimTypes.NameIdentifier` with the authenticated session's user id.
 
-`POST /login` accepts the password in the request body and rejects non-`POST`, non-same-origin, or requests whose effective public scheme is not `https`. The effective public scheme is `HttpRequest.Scheme` after trusted forwarded-header processing. Login throttling is applied per IP and globally before Argon2id verification so throttling cannot become a CPU amplification vector. Failed verification returns `401`, does not disclose whether the user exists or whether a hash exists, and increments throttle counters. Successful verification always rotates the session: if the request carries an existing valid cookie, the old session-store entry is removed; a fresh 32-byte session id is generated; `{ userId, createdAt = now, absoluteExpiresAt = now + 24h }` is inserted; `__Host-app-auth` is set with the fixed cookie attributes; and the endpoint returns `204 No Content`. The endpoint must not log the password, session id, cookie value, or `Set-Cookie` header.
+`POST /login` accepts the password in the request body and rejects non-`POST`, non-same-origin, or requests whose effective public scheme is not `https`. The effective public scheme is `HttpRequest.Scheme` after trusted forwarded-header processing. Login throttling is applied per IP and globally before Argon2id verification so throttling cannot become a CPU amplification vector. Gateway loads every user row with a non-empty Argon2id PHC `password_hash`, verifies the submitted password against every candidate, and treats the login as successful only when exactly one candidate verifies. Multiple password-bearing rows are valid. Zero matches and duplicate matches fail closed with `401`; the response does not disclose whether users exist, hashes exist, no hash matched, or multiple hashes matched. Successful verification always rotates the session: if the request carries an existing valid cookie, the old session-store entry is removed; a fresh 32-byte session id is generated; `{ userId, createdAt = now, absoluteExpiresAt = now + 24h }` is inserted for the matching user id; `__Host-app-auth` is set with the fixed cookie attributes; and the endpoint returns `204 No Content`. The endpoint must not log the password, session id, cookie value, or `Set-Cookie` header.
 
 Gateway runs privately behind the trusted Docker reverse proxy in the primary deployment topology. Public TLS termination occurs upstream of Caddy, Caddy forwards plaintext HTTP to Gateway on the Docker internal network, and Gateway must process forwarded headers before authentication and authorization. Gateway must not be exposed directly to the public Internet while trusting forwarded headers.
 

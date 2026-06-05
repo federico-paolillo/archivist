@@ -13,7 +13,7 @@ canonical: true
 
 ## Intent
 
-Accept article URLs from one authorized Telegram user, enqueue them for background processing, record the sender identity against the personal Archivist user, and report processing outcomes back to the original Telegram message.
+Accept article URLs from Telegram senders mapped to Archivist users, enqueue them for background processing, record sender identity and resolved ownership, and report processing outcomes back to the original Telegram message.
 
 ## Motivation
 
@@ -27,12 +27,12 @@ In scope:
 
 - Telegram webhook ingestion through the gateway.
 - Webhook secret validation.
-- Single allowed Telegram user validation.
+- Sender authorization by `users.telegram_user_id` existence.
 - URL-only message validation.
-- Atomic user, article, and job creation in SQLite.
+- Atomic article and job creation in SQLite for the resolved user.
 - Idempotency for Telegram updates.
 - Telegram sender user ID persistence on jobs.
-- One personal Archivist user row with fixed ULID `01ASB2XFCZJY7WHZ2FNRTMQJCT`.
+- Preservation of the existing bootstrapped user row and password hash.
 - Immediate acknowledgement reply after a valid URL is queued.
 - Invalid-message reply for authorized non-URL messages.
 - Terminal success/failure Telegram replies using the original message as the reply target.
@@ -45,8 +45,7 @@ Not included:
 
 - Article fetching, extraction, Markdown generation, and summarization implementation details.
 - Telegram commands, menus, inline keyboards, media messages, captions, or conversation flows.
-- Multiple authorized users or multi-tenant Telegram behavior.
-- User provisioning, account management, tenant ownership, or per-user routing.
+- User registration, account management, tenant administration, or user-facing user selection.
 - Automatic worker retries or automatic Telegram notification retries.
 - Persistent extraction observability fields such as selected extractor or extraction score.
 - A dedicated observability stack.
@@ -63,18 +62,18 @@ Not included:
 
 - REQ-001: The gateway must expose `POST /telegram/webhook` for Telegram update delivery.
 - REQ-002: The gateway must validate `X-Telegram-Bot-Api-Secret-Token` against `Telegram:WebhookSecret` before processing a Telegram update.
-- REQ-003: The gateway must process messages only from `Telegram:AllowedUserId`.
+- REQ-003: The gateway must process messages only from Telegram senders whose id maps to an existing `users.telegram_user_id` row.
 - REQ-004: Unauthorized Telegram users must not create users, articles, jobs, notifications, or Telegram replies.
 - REQ-005: The gateway must accept only text messages whose trimmed body is exactly one absolute `http` or `https` URL.
 - REQ-006: Unsupported schemes, missing schemes, media/captions, extra text, and multiple tokens must be rejected.
 - REQ-007: Authorized invalid messages must receive the exact reply `Nope, you must send only an URL`.
-- REQ-008: A valid URL must create one article record and one queued article-processing job in the same SQLite transaction.
+- REQ-008: A valid URL from a mapped sender must create one article record and one queued article-processing job for the resolved Archivist user in the same SQLite transaction.
 - REQ-009: A valid queued URL must receive the exact acknowledgement reply `Ok, I will have a look` after the enqueue transaction commits.
 - REQ-010: Failure to send the queued acknowledgement must not roll back or delete the article/job.
 - REQ-011: Telegram `update_id` must be persisted on jobs for idempotency so duplicate updates do not create duplicate jobs.
 - REQ-012: Jobs must retain Telegram reply-target metadata: `telegram_chat_id`, `telegram_message_id`, and `telegram_update_id`.
 - REQ-013: Jobs must retain Telegram sender identity metadata as `telegram_user_id`, distinct from `telegram_chat_id`.
-- REQ-014: The personal `users` row must use `id = 01ASB2XFCZJY7WHZ2FNRTMQJCT`; Telegram ingestion must set or preserve the authorized Telegram sender user ID on that row without changing `password_hash`.
+- REQ-014: Telegram ingestion must not create, upsert, or reassign `users`; user and Telegram identity mapping is owned by bootstrap or future user-provisioning features.
 - REQ-015: The worker must claim queued jobs atomically with `UPDATE ... RETURNING`.
 - REQ-016: Job states must be limited to `queued`, `running`, `succeeded`, and `failed`.
 - REQ-017: Worker completion must update article state, update job state, and insert one pending notification in the same SQLite transaction.
@@ -92,7 +91,7 @@ Not included:
 - REQ-027: Notification states must be limited to `pending`, `sent`, and `failed`.
 - REQ-028: Terminal jobs expire after 14 days.
 - REQ-029: Sent or failed notifications expire after 7 days.
-- REQ-030: Gateway startup must validate Telegram runtime configuration and fail when `Telegram:BotToken` or `Telegram:WebhookSecret` is blank, or when `Telegram:AllowedUserId` is less than or equal to zero.
+- REQ-030: Gateway startup must validate Telegram runtime configuration and fail when `Telegram:BotToken` or `Telegram:WebhookSecret` is blank.
 
 ## Acceptance Criteria
 
@@ -101,18 +100,17 @@ Feature: Telegram ingestion
 
 Scenario: Authorized user submits a valid URL
   Given a Telegram update has a valid webhook secret
-  And the message sender is the configured allowed user
+  And the message sender maps to an existing users.telegram_user_id row
   And the message text is "https://example.com/article"
   When Telegram posts the update to /telegram/webhook
-  Then the personal user row exists with id "01ASB2XFCZJY7WHZ2FNRTMQJCT"
-  And one article is created with the original URL and status "queued"
-  And one queued article-processing job is created for that article
+  Then one article is created with the original URL, resolved user_id, and status "queued"
+  And one queued article-processing job is created for that article with the same user_id
   And the job stores telegram_update_id, telegram_chat_id, telegram_message_id, and telegram_user_id
   And the gateway replies to the original Telegram message with "Ok, I will have a look"
 
 Scenario: Authorized user submits non-URL text
   Given a Telegram update has a valid webhook secret
-  And the message sender is the configured allowed user
+  And the message sender maps to an existing users.telegram_user_id row
   And the message text is "read this please https://example.com/article"
   When Telegram posts the update to /telegram/webhook
   Then no article is created
@@ -122,7 +120,7 @@ Scenario: Authorized user submits non-URL text
 
 Scenario: Unauthorized user sends a valid URL
   Given a Telegram update has a valid webhook secret
-  And the message sender is not the configured allowed user
+  And the message sender does not map to a users.telegram_user_id row
   When Telegram posts the update to /telegram/webhook
   Then no user is created or updated
   And no article is created
@@ -197,7 +195,7 @@ SQLite remains the source of truth for users, articles, jobs, and notifications.
 ### `users`
 
 - `id`: ULID, seeded as `01ASB2XFCZJY7WHZ2FNRTMQJCT`.
-- `telegram_user_id`: nullable until Telegram ingestion maps the configured Telegram user; unique when present and required for accepted Telegram ingestion behavior.
+- `telegram_user_id`: nullable until bootstrap or another user-provisioning path maps a Telegram sender; unique when present and required for accepted Telegram ingestion behavior.
 - `password_hash`: Argon2id PHC string owned by `authn`; Telegram ingestion must preserve it.
 
 The v0 system has one user row. No user timestamps, provisioning state, roles, tenants, or external identity table are required.
@@ -263,7 +261,7 @@ Notifications are gateway delivery records. They do not copy article IDs, Telegr
 - Telegram webhook: `POST /telegram/webhook`.
 - Telegram webhook secret header: `X-Telegram-Bot-Api-Secret-Token`.
 - Telegram send API: gateway sends replies using `Telegram:BotToken`.
-- SQLite user contract: gateway ensures the personal user row exists for accepted authorized Telegram messages.
+- SQLite user contract: accepted Telegram messages resolve an existing `users` row by `telegram_user_id`.
 - SQLite queue contract: gateway inserts article and queued job records; worker claims queued jobs atomically with `UPDATE ... RETURNING`.
 - SQLite notification contract: worker inserts one pending notification when a job reaches `succeeded` or `failed`; gateway dispatches pending notifications.
 - Filesystem artifact contract: worker writes deterministic article artifacts under `DATA_DIR`; summary-generation owns Gateway summary artifact reads for success replies, and UI endpoints own UI artifact reads.
@@ -272,7 +270,7 @@ Notifications are gateway delivery records. They do not copy article IDs, Telegr
   - `DATA_DIR`
   - `SQLITE_PATH`
   - `Telegram:BotToken`
-  - `Telegram:AllowedUserId`
+  - `Telegram:AllowedUserId` as the current bootstrap seed for `users.telegram_user_id`, not as runtime webhook authorization
   - `Telegram:WebhookSecret`
   - Gateway reads these hierarchical keys from configuration sections or `ARCHIVIST_`-prefixed environment variables, for example `ARCHIVIST_Telegram__BotToken` and `ARCHIVIST_Telegram__WebhookSecret`.
 

@@ -18,6 +18,7 @@ using OpenTelemetry.Context.Propagation;
 /// </summary>
 public sealed partial class TelegramWebhookHandler(
     IOptions<TelegramSettings> settings,
+    ITelegramUserResolver userResolver,
     ITelegramIngestionRepository ingestionRepository,
     ITelegramClient telegramClient,
     ILogger<TelegramWebhookHandler> logger)
@@ -39,9 +40,7 @@ public sealed partial class TelegramWebhookHandler(
         activity?.SetTag(ArchivistTelemetry.TelegramUpdateId, command.UpdateId);
         activity?.SetTag(ArchivistTelemetry.Stage, "telegram_webhook");
 
-        var telegramSettings = settings.Value;
-
-        if (!IsSecretValid(command.WebhookSecret, telegramSettings.WebhookSecret))
+        if (!IsSecretValid(command.WebhookSecret, settings.Value.WebhookSecret))
         {
             activity?.SetTag(ArchivistTelemetry.Outcome, "bad_secret");
             LogBadSecret(logger, command.UpdateId);
@@ -49,7 +48,7 @@ public sealed partial class TelegramWebhookHandler(
             return new TelegramWebhookResult(TelegramWebhookOutcome.BadSecret);
         }
 
-        if (command.SenderUserId is null || command.SenderUserId != telegramSettings.AllowedUserId)
+        if (command.SenderUserId is null)
         {
             activity?.SetTag(ArchivistTelemetry.Outcome, "unauthorized");
             LogUnauthorized(logger, command.UpdateId, command.SenderUserId);
@@ -57,17 +56,32 @@ public sealed partial class TelegramWebhookHandler(
             return new TelegramWebhookResult(TelegramWebhookOutcome.Unauthorized);
         }
 
+        var senderUserId = command.SenderUserId.Value;
+        var userId = await userResolver.ResolveUserIdAsync(senderUserId, cancellationToken).ConfigureAwait(false);
+        if (userId is null)
+        {
+            activity?.SetTag(ArchivistTelemetry.Outcome, "unauthorized");
+            LogUnauthorized(logger, command.UpdateId, command.SenderUserId);
+
+            return new TelegramWebhookResult(TelegramWebhookOutcome.Unauthorized);
+        }
+
+        activity?.SetTag(ArchivistTelemetry.UserId, userId);
+        using var userScope = logger.BeginScope(new Dictionary<string, object?>
+        {
+            [ArchivistTelemetry.UserId] = userId,
+        });
+
         if (command.ChatId is null || command.MessageId is null)
         {
             activity?.SetTag(ArchivistTelemetry.Outcome, "no_message");
-            LogNoMessage(logger, command.UpdateId, command.SenderUserId.Value);
+            LogNoMessage(logger, command.UpdateId, senderUserId);
 
             return new TelegramWebhookResult(TelegramWebhookOutcome.NoMessage);
         }
 
         var chatId = command.ChatId.Value;
         var messageId = command.MessageId.Value;
-        var senderUserId = command.SenderUserId.Value;
 
         if (command.MessageText is null || !TryParseUrl(command.MessageText, out var url))
         {
@@ -87,6 +101,7 @@ public sealed partial class TelegramWebhookHandler(
             TelegramChatId: chatId,
             TelegramMessageId: messageId,
             TelegramUserId: senderUserId,
+            UserId: userId,
             OriginalUrl: url,
             TraceParent: traceCarrier.TraceParent,
             TraceState: traceCarrier.TraceState);
@@ -199,7 +214,7 @@ public sealed partial class TelegramWebhookHandler(
     [LoggerMessage(Level = LogLevel.Warning, Message = "Telegram webhook update {UpdateId} rejected: invalid secret")]
     private static partial void LogBadSecret(ILogger logger, long updateId);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Telegram webhook update {UpdateId} rejected: sender {SenderId} is not the allowed user")]
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Telegram webhook update {UpdateId} rejected: sender {SenderId} is not mapped to an Archivist user")]
     private static partial void LogUnauthorized(ILogger logger, long updateId, long? senderId);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Telegram webhook update {UpdateId} from user {UserId}: no processable text message")]

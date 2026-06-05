@@ -22,6 +22,7 @@ public sealed class EfTelegramIngestionRepository(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
+        ArgumentException.ThrowIfNullOrWhiteSpace(command.UserId);
         ArgumentException.ThrowIfNullOrWhiteSpace(command.OriginalUrl);
 
         var existing = await db.Jobs.AsNoTracking()
@@ -37,25 +38,16 @@ public sealed class EfTelegramIngestionRepository(
 
         using var activity = ArchivistTelemetry.ActivitySource.StartActivity("gateway.telegram.enqueue");
         activity?.SetTag(ArchivistTelemetry.TelegramUpdateId, command.TelegramUpdateId);
+        activity?.SetTag(ArchivistTelemetry.UserId, command.UserId);
         activity?.SetTag(ArchivistTelemetry.Stage, "enqueue");
 
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
-
-        await db.Database.ExecuteSqlInterpolatedAsync(
-                $"""
-                INSERT INTO users (id, telegram_user_id)
-                VALUES ({PersistenceConstants.PersonalUserId}, {command.TelegramUserId})
-                ON CONFLICT(id) DO UPDATE SET telegram_user_id = excluded.telegram_user_id;
-                """,
-                cancellationToken)
-            .ConfigureAwait(false);
-        db.ChangeTracker.Clear();
 
         var now = timeProvider.GetUtcNow();
         var article = new ArticleEntity
         {
             Id = ids.NewId(),
-            UserId = PersistenceConstants.PersonalUserId,
+            UserId = command.UserId,
             OriginalUrl = command.OriginalUrl,
             Status = PersistenceConstants.ArticleQueued,
             CreatedAt = now,
@@ -63,7 +55,7 @@ public sealed class EfTelegramIngestionRepository(
         var job = new JobEntity
         {
             Id = ids.NewId(),
-            UserId = PersistenceConstants.PersonalUserId,
+            UserId = command.UserId,
             ArticleId = article.Id,
             Type = PersistenceConstants.ArticleProcessingJobType,
             Status = PersistenceConstants.JobQueued,

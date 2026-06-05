@@ -21,6 +21,7 @@ This file prevents scattered feature folders from becoming unmanageable.
 | `job-recovery` | Job Recovery And Worker Logging | done | `ui`, `ui-endpoints`, `summary-generation` | [`SPEC.md`](./job-recovery/SPEC.md) | [`PLAN.md`](./job-recovery/PLAN.md) |
 | `snapshotter` | Snapshotter | done | `job-recovery` | [`SPEC.md`](./snapshotter/SPEC.md) | [`PLAN.md`](./snapshotter/PLAN.md) |
 | `otel-observability` | OpenTelemetry Observability | done | `snapshotter` | [`SPEC.md`](./otel-observability/SPEC.md) | [`PLAN.md`](./otel-observability/PLAN.md) |
+| `user-id-parameterization` | User ID Parameterization | done | `otel-observability` | [`SPEC.md`](./user-id-parameterization/SPEC.md) | [`PLAN.md`](./user-id-parameterization/PLAN.md) |
 
 Status values: `draft` \| `in_progress` \| `done` \| `blocked` \| `skipped`
 

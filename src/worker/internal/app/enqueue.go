@@ -26,6 +26,7 @@ func enqueue(ctx context.Context, a *pkgapp.App, rawURL string) error {
 		"enqueue: URL queued",
 		slog.String("article_id", result.ArticleID),
 		slog.String("job_id", result.JobID),
+		slog.String("user_id", result.UserID),
 		slog.String("url", normalizedURL),
 	)
 

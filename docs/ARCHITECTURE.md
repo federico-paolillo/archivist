@@ -8,7 +8,7 @@ Architecture decisions that constrain all features belong here or in `docs/DESIG
 
 ## System Overview
 
-Archivist is a single-user personal article archiving system.
+Archivist is a personal article archiving system with one bootstrapped user in v0 and a user-aware ownership model.
 
 The v0 system accepts article URLs through Telegram, stores article state in SQLite, processes queued article jobs with a single worker, writes large artifacts to the filesystem, generates text LLM summaries, and exposes a minimal authenticated web UI for review and administration.
 
@@ -25,7 +25,7 @@ Telegram Bot
   -> Preact/Vite UI
 ```
 
-The system favors a small, rebuildable deployment over horizontal scale. SQLite owns authoritative state. Filesystem artifacts are derived or retained content associated with article records.
+The system favors a small, rebuildable deployment over horizontal scale. SQLite owns authoritative state. Filesystem artifacts are derived or retained content associated with article records. Runtime Gateway and Worker code must resolve article and job ownership from SQLite, authenticated session state, or claimed job state. Authentication bootstrap may hardcode the initial personal user id and fixed personal Telegram sender id `1559957191`. Worker CLI enqueue is the only runtime exception: it uses `jobs.DefaultUserID = 01ASB2XFCZJY7WHZ2FNRTMQJCT`, checks that `users.id` exists by that id, never infers ownership from user-table cardinality, and never creates the user.
 
 ## Executables and Services
 
@@ -35,7 +35,7 @@ The system favors a small, rebuildable deployment over horizontal scale. SQLite 
 - Responsibilities:
   - receive Telegram webhook requests;
   - authenticate Telegram webhook requests using the configured secret;
-  - accept URLs only from the configured Telegram user;
+  - accept URLs only from Telegram senders mapped by `users.telegram_user_id`;
   - create article records;
   - enqueue article processing jobs;
   - send immediate Telegram replies for accepted or invalid authorized ingestion messages;
@@ -137,7 +137,7 @@ The canonical artifact path contract is defined in `docs/ARTIFACTS.md`.
 Core user state includes:
 
 - `id`: seeded as `01ASB2XFCZJY7WHZ2FNRTMQJCT` for the personal account in v0
-- `telegram_user_id`: nullable until Telegram ingestion maps the configured Telegram user, unique when present
+- `telegram_user_id`: nullable until bootstrap or another canonical user-provisioning path maps a Telegram sender id, unique when present. Auth bootstrap sets the personal row to `1559957191` only when this value is null and preserves an existing non-null value.
 - `password_hash`: nullable only before UI/API authentication bootstrap completes, then an Argon2id PHC string
 
 Core article state includes:
@@ -186,6 +186,8 @@ Jobs do not retry automatically in v0. Notifications do not retry automatically 
 
 `jobs.traceparent` and `jobs.tracestate` are nullable W3C Trace Context carrier fields. Gateway writes them when creating a queued job inside a traced request. Worker extracts them when claiming the job to continue Gateway-originated traces. Worker-created CLI enqueue jobs may leave them null; processing those jobs starts a valid root trace.
 
+Worker CLI enqueue uses `jobs.DefaultUserID = 01ASB2XFCZJY7WHZ2FNRTMQJCT` as the default owner for operator-created jobs. Before inserting an article or job, the Worker must query `users.id` for that exact id. Missing default user fails enqueue. Additional user rows do not change the selected owner or cause failure. Worker CLI enqueue must not create, upsert, or repair `users`.
+
 In final v0 processing, `articles.status = ready`, `jobs.status = succeeded`, and the success notification row are committed only after `summary.md` has been atomically written. HTML snapshotting and Markdown extraction are intermediate stages once summary generation exists. Any terminal failure in fetch, snapshot, Markdown extraction, summarization, or artifact writing marks the article and job failed with an ARC-coded public error.
 
 ## Service Boundaries and Communication
@@ -200,13 +202,13 @@ The worker owns processing jobs, filesystem artifact production, final article/j
 
 ### Telegram
 
-Telegram is the only v0 ingestion channel. The gateway accepts Telegram webhook requests and rejects requests that do not match the configured webhook secret or allowed Telegram user ID.
+Telegram is the only v0 ingestion channel. The gateway accepts Telegram webhook requests and rejects requests that do not match the configured webhook secret. Sender authorization is based on `users.telegram_user_id`: a sender is authorized only when the sender id maps to an existing Archivist user row.
 
 Authorized Telegram messages must contain exactly one trimmed absolute `http` or `https` URL. Invalid authorized messages receive `Nope, you must send only an URL`. Valid queued URL messages receive `Ok, I will have a look` after the article/job enqueue transaction commits. Completion replies are sent later by the gateway from SQLite notification rows, as replies to the original Telegram message.
 
-The gateway persists the Telegram sender user ID separately from `telegram_chat_id` and `telegram_message_id`. `telegram_user_id` is sender identity metadata. `telegram_chat_id` and `telegram_message_id` are reply-target metadata.
+The gateway persists the Telegram sender user ID separately from `telegram_chat_id` and `telegram_message_id`. `telegram_user_id` is sender identity metadata. `telegram_chat_id` and `telegram_message_id` are reply-target metadata. Accepted Telegram ingestion stores the resolved Archivist `user_id` on both the article and job rows.
 
-The v0 personal account ULID must not be treated as a catch-all for future multi-user ingestion. Any feature that accepts additional Telegram users must define explicit identity-linking behavior before changing `Telegram:AllowedUserId` authorization semantics.
+The v0 personal account ULID must not be treated as a catch-all for runtime ingestion. Auth bootstrap seeds the personal row's Telegram sender mapping with `1559957191` only when `users.telegram_user_id` is null. `Telegram:AllowedUserId`, `settings.PersonalTelegramUserId`, and equivalent deployment settings are not bootstrap inputs and are not runtime webhook authorization gates.
 
 The worker must not call Telegram APIs directly.
 
@@ -293,15 +295,15 @@ If a future deployment sends TLS all the way to Caddy, then Caddy becomes the TL
 
 ## Security Boundaries
 
-The system is single-user.
+The v0 deployment has one bootstrapped user, but runtime authorization is user-aware.
 
 Security boundaries:
 
-- Telegram ingestion is limited to one configured `Telegram:AllowedUserId`.
+- Telegram ingestion is limited to senders mapped by `users.telegram_user_id`.
 - Telegram webhook requests require `Telegram:WebhookSecret`.
 - The entire UI and UI-facing API are protected by cookie authentication.
-- UI/API authentication uses password-only login for the fixed personal user.
-- Password hashes are Argon2id PHC strings stored on the personal `users` row.
+- UI/API authentication uses password-only login against all password-bearing user rows. Login loads every non-empty Argon2id PHC hash, verifies the submitted password against every candidate, and issues a session only when exactly one user matches. Multiple password-bearing rows are valid; duplicate password matches fail closed.
+- Password hashes are Argon2id PHC strings stored on password-bearing `users` rows.
 - `AUTH_BOOTSTRAP_PASSWORD` is a one-time secret used only to initialize `users.password_hash` when missing.
 - Browser auth uses an opaque server-issued session id in `__Host-app-auth`, with `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/`, no `Domain`, browser-session cookie lifetime, and 24-hour server-side absolute expiry.
 - UI/API auth HTTPS decisions use the effective public request context after trusted forwarded-header processing.
@@ -320,7 +322,6 @@ The following logical configuration keys define the v0 runtime surface:
 DATA_DIR
 SQLITE_PATH
 Telegram:BotToken
-Telegram:AllowedUserId
 Telegram:WebhookSecret
 AUTH_BOOTSTRAP_PASSWORD
 LLM_PROVIDER
@@ -347,7 +348,7 @@ ARCHIVIST_OTEL_TAIL_SAMPLING_PERCENTAGE
 ARCHIVIST_OTEL_TAIL_SAMPLING_DECISION_WAIT
 ```
 
-Gateway uses the default ASP.NET Core application configuration sources, appends `ARCHIVIST_`-prefixed environment variables, and creates the builder without command-line arguments. Standalone Gateway keys remain flat, for example `ARCHIVIST_SQLITE_PATH`. Option-bound groups use hierarchy with double underscores in environment variables, for example `ARCHIVIST_Telegram__BotToken`, `ARCHIVIST_Telegram__AllowedUserId`, and `ARCHIVIST_Telegram__WebhookSecret`.
+Gateway uses the default ASP.NET Core application configuration sources, appends `ARCHIVIST_`-prefixed environment variables, and creates the builder without command-line arguments. Standalone Gateway keys remain flat, for example `ARCHIVIST_SQLITE_PATH`. Option-bound groups use hierarchy with double underscores in environment variables, for example `ARCHIVIST_Telegram__BotToken` and `ARCHIVIST_Telegram__WebhookSecret`.
 
 Worker uses configuro from `src/worker/pkg/app/config`, loads `ARCHIVIST_`-prefixed environment variables, and exposes runtime values through the config structs. Canonical Worker environment variables are `ARCHIVIST_SQLITE_PATH`, `ARCHIVIST_DATA_DIR`, `ARCHIVIST_JINA_API_KEY`, `ARCHIVIST_LLM_PROVIDER`, `ARCHIVIST_LLM_API_KEY`, and `ARCHIVIST_LLM_MODEL`. `SQLITE_PATH`, `DATA_DIR`, `JINA_API_KEY`, and `LLM_API_KEY` for the Anthropic provider are required when `config.Load()` runs; missing required values fail startup before the Worker composition root is built.
 
@@ -361,11 +362,11 @@ The UI build uses `VITE_API_BASE_PATH` to choose the same-origin public API base
 
 Snapshotter reads `ARCHIVIST_`-prefixed application variables and standard `OTEL_*` SDK variables set by Compose. Canonical Snapshotter application variables are `ARCHIVIST_DATA_DIR`, `ARCHIVIST_SQLITE_PATH`, `ARCHIVIST_SNAPSHOTTER_INTERVAL_SECONDS`, `ARCHIVIST_SNAPSHOTTER_WORK_DIR`, `ARCHIVIST_SNAPSHOTTER_S3_ENDPOINT_URL`, `ARCHIVIST_SNAPSHOTTER_S3_REGION`, `ARCHIVIST_SNAPSHOTTER_S3_BUCKET`, `ARCHIVIST_SNAPSHOTTER_S3_ACCESS_KEY_ID`, `ARCHIVIST_SNAPSHOTTER_S3_SECRET_ACCESS_KEY`, and `ARCHIVIST_SNAPSHOTTER_OBJECT_PREFIX`. `ARCHIVIST_SNAPSHOTTER_INTERVAL_SECONDS` defaults to `86400`. The Snapshotter executable defaults `ARCHIVIST_SNAPSHOTTER_WORK_DIR` to `/tmp/archivist-snapshotter`; Compose deployments set it to `/work/archivist-snapshotter` on a disk-backed `snapshotter-work` volume so snapshot staging is not constrained by tmpfs memory. `ARCHIVIST_SNAPSHOTTER_OBJECT_PREFIX` defaults to empty. The S3 endpoint URL, region, bucket, access key id, and secret access key are required at startup. The access key id and secret access key are secret material.
 
-Compose configures application SDKs with `OTEL_SERVICE_NAME`, `OTEL_RESOURCE_ATTRIBUTES`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and always-on trace sampling. Application-side trace/log exporter disable switches are not part of the deployment contract. Collector-specific deployment variables use `ARCHIVIST_OTEL_*`. Applications must keep core behavior working during Collector runtime outages. Invalid telemetry configuration may fail startup. Telemetry must not expose secrets, cookies, Telegram bot tokens, authentication headers, full article HTML, full Markdown, full summaries, provider payloads, or S3 credentials. High-cardinality values such as `article_id`, `job_id`, URLs, and provider request IDs remain trace/log attributes and must not be promoted to Loki labels or metric labels.
+Compose configures application SDKs with `OTEL_SERVICE_NAME`, `OTEL_RESOURCE_ATTRIBUTES`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and always-on trace sampling. Application-side trace/log exporter disable switches are not part of the deployment contract. Collector-specific deployment variables use `ARCHIVIST_OTEL_*`. Applications must keep core behavior working during Collector runtime outages. Invalid telemetry configuration may fail startup. Telemetry must not expose secrets, cookies, Telegram bot tokens, authentication headers, full article HTML, full Markdown, full summaries, provider payloads, or S3 credentials. High-cardinality values such as `user_id`, `article_id`, `job_id`, URLs, and provider request IDs remain trace/log attributes and must not be promoted to Loki labels or metric labels. Gateway and Worker attach `user_id` when the Archivist user is resolved; Snapshotter does not attach `user_id`.
 
 ## Key Constraints
 
-- Single-user system in v0.
+- One bootstrapped user in v0; runtime ownership and authorization paths remain user-aware.
 - Single Go worker instance in v0.
 - Single gateway instance in v0 for in-memory auth sessions and login throttling.
 - Single snapshotter instance in v0.

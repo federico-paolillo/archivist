@@ -12,6 +12,7 @@ public sealed record RecordTelegramIngestionCommand(
     long TelegramChatId,
     long TelegramMessageId,
     long TelegramUserId,
+    string UserId,
     string OriginalUrl,
     string? TraceParent = null,
     string? TraceState = null);
@@ -30,7 +31,7 @@ public sealed record RecordTelegramIngestionResult(
 public interface ITelegramIngestionRepository
 {
     /// <summary>
-    /// Ensures the personal user exists and creates the article and queued job unless the update was already seen.
+    /// Creates the article and queued job for the resolved user unless the update was already seen.
     /// </summary>
     Task<RecordTelegramIngestionResult> RecordValidUrlAsync(
         RecordTelegramIngestionCommand command,

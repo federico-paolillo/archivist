@@ -1,6 +1,7 @@
 package jobs_test
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"testing"
@@ -10,10 +11,18 @@ import (
 	"codeberg.org/federico-paolillo/archivist/pkg/jobs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 )
 
 var errIDGenerator = errors.New("id generator failed")
+
+const (
+	testUserID      = jobs.DefaultUserID
+	testOtherUserID = "01ASB2XFCZJY7WHZ2FNRTMQJCX"
+)
 
 type fakeIDGenerator struct {
 	ids []string
@@ -56,14 +65,21 @@ func openTestDB(t *testing.T) *sql.DB {
 	return database
 }
 
-// seedUser inserts the personal Archivist user row required by foreign keys.
+// seedUser inserts an Archivist user row required by foreign keys.
 func seedUser(t *testing.T, database *sql.DB) {
 	t.Helper()
 
 	_, err := database.Exec(
 		`INSERT INTO users (id) VALUES (?)`,
-		"01ASB2XFCZJY7WHZ2FNRTMQJCT",
+		testUserID,
 	)
+	require.NoError(t, err)
+}
+
+func seedOtherUser(t *testing.T, database *sql.DB) {
+	t.Helper()
+
+	_, err := database.Exec(`INSERT INTO users (id) VALUES (?)`, testOtherUserID)
 	require.NoError(t, err)
 }
 
@@ -75,7 +91,7 @@ func seedArticle(t *testing.T, database *sql.DB, articleID string) {
 		`INSERT INTO articles (id, user_id, original_url, status, created_at)
 		 VALUES (?, ?, ?, 'queued', ?)`,
 		articleID,
-		"01ASB2XFCZJY7WHZ2FNRTMQJCT",
+		testUserID,
 		"https://example.com/article",
 		time.Now().UTC().Format(time.RFC3339Nano),
 	)
@@ -99,7 +115,7 @@ func seedTelegramJob(t *testing.T, database *sql.DB, jobID, articleID string) {
 		                   telegram_message_id, telegram_user_id, created_at)
 		 VALUES (?, ?, ?, ?, 'queued', ?, ?, ?, ?, ?)`,
 		jobID,
-		"01ASB2XFCZJY7WHZ2FNRTMQJCT",
+		testUserID,
 		articleID,
 		jobs.TypeArticleProcessing,
 		telegramUpdateID,
@@ -119,7 +135,7 @@ func seedNonTelegramJob(t *testing.T, database *sql.DB, jobID, articleID string)
 		`INSERT INTO jobs (id, user_id, article_id, type, status, created_at)
 		 VALUES (?, ?, ?, ?, 'queued', ?)`,
 		jobID,
-		"01ASB2XFCZJY7WHZ2FNRTMQJCT",
+		testUserID,
 		articleID,
 		jobs.TypeArticleProcessing,
 		time.Now().UTC().Format(time.RFC3339Nano),
@@ -134,7 +150,7 @@ func seedTypedJob(t *testing.T, database *sql.DB, jobID, articleID, jobType stri
 		`INSERT INTO jobs (id, user_id, article_id, type, status, created_at)
 		 VALUES (?, ?, ?, ?, 'queued', ?)`,
 		jobID,
-		"01ASB2XFCZJY7WHZ2FNRTMQJCT",
+		testUserID,
 		articleID,
 		jobType,
 		time.Now().UTC().Format(time.RFC3339Nano),
@@ -150,7 +166,7 @@ func TestEnqueueURLCreatesQueuedArticleAndNonTelegramJob(t *testing.T) {
 
 	result, err := repo.EnqueueURL(t.Context(), "https://example.com/article")
 	require.NoError(t, err)
-	require.Equal(t, &jobs.EnqueueResult{ArticleID: "ARTICLE001", JobID: "JOB001"}, result)
+	require.Equal(t, &jobs.EnqueueResult{ArticleID: "ARTICLE001", JobID: "JOB001", UserID: jobs.DefaultUserID}, result)
 
 	var articleUserID, originalURL, articleStatus string
 
@@ -203,6 +219,21 @@ func TestEnqueueURLCreatesQueuedArticleAndNonTelegramJob(t *testing.T) {
 	assert.Equal(t, 0, notificationCount)
 }
 
+func TestEnqueueURLDoesNotUseSoleNonDefaultUserID(t *testing.T) {
+	database := openTestDB(t)
+	seedOtherUser(t, database)
+
+	repo := jobs.NewSQLiteRepository(database, newTestIDGenerator("ARTICLE001", "JOB001"))
+
+	result, err := repo.EnqueueURL(t.Context(), "https://example.com/article")
+
+	require.Error(t, err)
+	require.ErrorContains(t, err, "jobs: default user "+jobs.DefaultUserID+" is missing")
+	assert.Nil(t, result)
+	assertArticleCount(t, database, 0)
+	assertJobCount(t, database, 0)
+}
+
 func TestEnqueueURLLeavesTraceCarrierNullWhenContextHasSpan(t *testing.T) {
 	database := openTestDB(t)
 	seedUser(t, database)
@@ -232,6 +263,27 @@ func TestEnqueueURLLeavesTraceCarrierNullWhenContextHasSpan(t *testing.T) {
 	assert.False(t, tracestate.Valid)
 }
 
+func TestEnqueueURLSpanIncludesResolvedUserID(t *testing.T) {
+	database := openTestDB(t)
+	seedUser(t, database)
+
+	spanRecorder := tracetest.NewSpanRecorder()
+	tracerProvider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(spanRecorder))
+	previous := otel.GetTracerProvider()
+	otel.SetTracerProvider(tracerProvider)
+	t.Cleanup(func() {
+		otel.SetTracerProvider(previous)
+		require.NoError(t, tracerProvider.Shutdown(context.Background()))
+	})
+
+	repo := jobs.NewSQLiteRepository(database, newTestIDGenerator("ARTICLE001", "JOB001"))
+
+	_, err := repo.EnqueueURL(t.Context(), "https://example.com/article")
+	require.NoError(t, err)
+
+	requireUserAttribute(t, spanRecorder.Ended(), "worker.jobs.enqueue_url", jobs.DefaultUserID)
+}
+
 func TestEnqueueURLFailsClearlyWhenDefaultUserIsMissing(t *testing.T) {
 	database := openTestDB(t)
 	repo := jobs.NewSQLiteRepository(database, newTestIDGenerator("ARTICLE001", "JOB001"))
@@ -239,10 +291,24 @@ func TestEnqueueURLFailsClearlyWhenDefaultUserIsMissing(t *testing.T) {
 	result, err := repo.EnqueueURL(t.Context(), "https://example.com/article")
 
 	require.Error(t, err)
-	require.ErrorContains(t, err, "jobs: default user 01ASB2XFCZJY7WHZ2FNRTMQJCT is missing")
+	require.ErrorContains(t, err, "jobs: default user "+jobs.DefaultUserID+" is missing")
 	assert.Nil(t, result)
 	assertArticleCount(t, database, 0)
 	assertJobCount(t, database, 0)
+}
+
+func TestEnqueueURLUsesDefaultUserWhenMultipleUsersExist(t *testing.T) {
+	database := openTestDB(t)
+	seedUser(t, database)
+	seedOtherUser(t, database)
+	repo := jobs.NewSQLiteRepository(database, newTestIDGenerator("ARTICLE001", "JOB001"))
+
+	result, err := repo.EnqueueURL(t.Context(), "https://example.com/article")
+
+	require.NoError(t, err)
+	require.Equal(t, jobs.DefaultUserID, result.UserID)
+	assert.Equal(t, jobs.DefaultUserID, scalarString(t, database, `SELECT user_id FROM articles WHERE id = ?`, "ARTICLE001"))
+	assert.Equal(t, jobs.DefaultUserID, scalarString(t, database, `SELECT user_id FROM jobs WHERE id = ?`, "JOB001"))
 }
 
 func TestEnqueueURLRollsBackWhenJobIDGenerationFails(t *testing.T) {
@@ -297,7 +363,7 @@ func TestClaimQueuedParsesGatewayCreatedAtTimestamp(t *testing.T) {
 		`INSERT INTO jobs (id, user_id, article_id, type, status, created_at)
 		 VALUES (?, ?, ?, ?, 'queued', ?)`,
 		"JOB001",
-		"01ASB2XFCZJY7WHZ2FNRTMQJCT",
+		testUserID,
 		"ARTICLE001",
 		jobs.TypeArticleProcessing,
 		gatewayCreatedAt,
@@ -334,6 +400,24 @@ func assertJobCount(t *testing.T, database *sql.DB, expected int) {
 	err := database.QueryRow(`SELECT COUNT(*) FROM jobs`).Scan(&count)
 	require.NoError(t, err)
 	assert.Equal(t, expected, count)
+}
+
+func scalarString(t *testing.T, database *sql.DB, query string, args ...any) string {
+	t.Helper()
+
+	var value string
+	require.NoError(t, database.QueryRow(query, args...).Scan(&value))
+
+	return value
+}
+
+func scalarNullableString(t *testing.T, database *sql.DB, query string, args ...any) string {
+	t.Helper()
+
+	var value sql.NullString
+	require.NoError(t, database.QueryRow(query, args...).Scan(&value))
+
+	return value.String
 }
 
 func TestClaimQueuedReturnsErrNoRowsWhenNoJobExists(t *testing.T) {
@@ -438,7 +522,7 @@ func TestClaimQueuedPreservesTraceCarrierFields(t *testing.T) {
 		`INSERT INTO jobs (id, user_id, article_id, type, status, traceparent, tracestate, created_at)
 		 VALUES (?, ?, ?, ?, 'queued', ?, ?, ?)`,
 		"JOB001",
-		"01ASB2XFCZJY7WHZ2FNRTMQJCT",
+		testUserID,
 		"ARTICLE001",
 		jobs.TypeArticleProcessing,
 		traceparent,
@@ -458,6 +542,33 @@ func TestClaimQueuedPreservesTraceCarrierFields(t *testing.T) {
 	assert.Equal(t, tracestate, *claimed.TraceState)
 }
 
+func TestClaimQueuedSkipsJobWhenArticleOwnershipDoesNotMatch(t *testing.T) {
+	database := openTestDB(t)
+	seedUser(t, database)
+	seedOtherUser(t, database)
+
+	_, err := database.Exec(
+		`INSERT INTO articles (id, user_id, original_url, status, created_at)
+		 VALUES (?, ?, ?, 'queued', ?)`,
+		"ARTICLE001",
+		testOtherUserID,
+		"https://example.com/article",
+		time.Now().UTC().Format(time.RFC3339Nano),
+	)
+	require.NoError(t, err)
+
+	seedNonTelegramJob(t, database, "JOB001", "ARTICLE001")
+
+	repo := jobs.NewSQLiteRepository(database, newTestIDGenerator())
+
+	claimed, err := repo.ClaimQueued(t.Context())
+
+	require.ErrorIs(t, err, sql.ErrNoRows)
+	assert.Nil(t, claimed)
+	assert.Equal(t, jobs.StatusQueued, scalarString(t, database, `SELECT status FROM jobs WHERE id = ?`, "JOB001"))
+	assert.Equal(t, "queued", scalarString(t, database, `SELECT status FROM articles WHERE id = ?`, "ARTICLE001"))
+}
+
 func TestUpdateArticleTitlePersistsDiscoveredTitle(t *testing.T) {
 	database := openTestDB(t)
 	seedUser(t, database)
@@ -465,7 +576,7 @@ func TestUpdateArticleTitlePersistsDiscoveredTitle(t *testing.T) {
 
 	repo := jobs.NewSQLiteRepository(database, newTestIDGenerator())
 
-	err := repo.UpdateArticleTitle(t.Context(), "ARTICLE001", "Readable Article")
+	err := repo.UpdateArticleTitle(t.Context(), "ARTICLE001", testUserID, "Readable Article")
 	require.NoError(t, err)
 
 	var title sql.NullString
@@ -474,6 +585,36 @@ func TestUpdateArticleTitlePersistsDiscoveredTitle(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, title.Valid)
 	assert.Equal(t, "Readable Article", title.String)
+}
+
+func TestArticleMutationsFailSafelyWhenOwnershipDoesNotMatch(t *testing.T) {
+	database := openTestDB(t)
+	seedUser(t, database)
+	seedOtherUser(t, database)
+
+	_, err := database.Exec(
+		`INSERT INTO articles (id, user_id, original_url, status, created_at)
+		 VALUES (?, ?, ?, 'queued', ?)`,
+		"ARTICLE001",
+		testOtherUserID,
+		"https://example.com/article",
+		time.Now().UTC().Format(time.RFC3339Nano),
+	)
+	require.NoError(t, err)
+
+	repo := jobs.NewSQLiteRepository(database, newTestIDGenerator())
+
+	_, err = repo.ArticleURL(t.Context(), "ARTICLE001", testUserID)
+	require.ErrorIs(t, err, jobs.ErrOwnershipMismatch)
+
+	err = repo.UpdateCanonicalURL(t.Context(), "ARTICLE001", testUserID, "https://example.com/final")
+	require.ErrorIs(t, err, jobs.ErrOwnershipMismatch)
+
+	err = repo.UpdateArticleTitle(t.Context(), "ARTICLE001", testUserID, "Wrong Owner Title")
+	require.ErrorIs(t, err, jobs.ErrOwnershipMismatch)
+
+	assert.Empty(t, scalarNullableString(t, database, `SELECT canonical_url FROM articles WHERE id = ?`, "ARTICLE001"))
+	assert.Empty(t, scalarNullableString(t, database, `SELECT title FROM articles WHERE id = ?`, "ARTICLE001"))
 }
 
 func TestCompleteTerminalSuccessForTelegramJob(t *testing.T) {
@@ -778,4 +919,25 @@ func TestCompleteTerminalFailureForNonTelegramJobDoesNotCreateNotification(t *te
 	).Scan(&notificationCount)
 	require.NoError(t, err)
 	assert.Equal(t, 0, notificationCount)
+}
+
+func requireUserAttribute(t *testing.T, spans []sdktrace.ReadOnlySpan, spanName string, userID string) {
+	t.Helper()
+
+	for _, span := range spans {
+		if span.Name() != spanName {
+			continue
+		}
+
+		for _, attr := range span.Attributes() {
+			if attr.Key == attribute.Key("user_id") {
+				assert.Equal(t, userID, attr.Value.AsString())
+				return
+			}
+		}
+
+		t.Fatalf("span %q did not include user_id attribute", spanName)
+	}
+
+	t.Fatalf("span %q was not recorded", spanName)
 }

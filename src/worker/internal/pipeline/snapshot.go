@@ -95,7 +95,7 @@ func (p *SnapshotPipeline) ProcessOne(ctx context.Context) (bool, error) {
 		return false, fmt.Errorf("pipeline: claim queued job: %w", claimErr)
 	}
 
-	claimSpan.SetAttributes(observability.JobAttributes(job.ArticleID, job.ID)...)
+	claimSpan.SetAttributes(observability.JobUserAttributes(job.ArticleID, job.ID, job.UserID)...)
 	claimSpan.End()
 
 	ctx = p.continueJobTrace(ctx, job)
@@ -104,7 +104,7 @@ func (p *SnapshotPipeline) ProcessOne(ctx context.Context) (bool, error) {
 		ctx,
 		"worker.pipeline.process",
 		trace.WithSpanKind(trace.SpanKindConsumer),
-		trace.WithAttributes(observability.JobAttributes(job.ArticleID, job.ID)...),
+		trace.WithAttributes(observability.JobUserAttributes(job.ArticleID, job.ID, job.UserID)...),
 	)
 	defer processSpan.End()
 
@@ -115,11 +115,12 @@ func (p *SnapshotPipeline) ProcessOne(ctx context.Context) (bool, error) {
 		"pipeline: job claimed",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
+		slog.String("user_id", job.UserID),
 		slog.String("stage", "claim"),
 		slog.String("status", "claimed"),
 	)
 
-	articleURL, urlErr := p.repo.ArticleURL(ctx, job.ArticleID)
+	articleURL, urlErr := p.repo.ArticleURL(ctx, job.ArticleID, job.UserID)
 	if urlErr != nil {
 		processSpan.RecordError(urlErr)
 		processSpan.SetStatus(codes.Error, urlErr.Error())
@@ -134,6 +135,7 @@ func (p *SnapshotPipeline) ProcessOne(ctx context.Context) (bool, error) {
 		"pipeline: processing job",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
+		slog.String("user_id", job.UserID),
 		slog.String("url", articleURL),
 		slog.String("stage", "process"),
 		slog.String("status", "start"),
@@ -164,6 +166,7 @@ func (p *SnapshotPipeline) ProcessOne(ctx context.Context) (bool, error) {
 		"pipeline: job stages completed",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
+		slog.String("user_id", job.UserID),
 		slog.Duration("duration", duration),
 		slog.String("stage", "process"),
 		slog.String("status", "pipeline_done"),
@@ -200,7 +203,7 @@ func (p *SnapshotPipeline) persistFailure(
 		ctx,
 		"worker.pipeline.terminal_failure",
 		trace.WithAttributes(append(
-			observability.JobAttributes(job.ArticleID, job.ID),
+			observability.JobUserAttributes(job.ArticleID, job.ID, job.UserID),
 			attribute.String("url", articleURL),
 			attribute.String("arc_code", arc.CodeString(processingErr)),
 		)...),
@@ -216,6 +219,7 @@ func (p *SnapshotPipeline) persistFailure(
 		"pipeline: job failed",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
+		slog.String("user_id", job.UserID),
 		slog.String("url", articleURL),
 		slog.String("stage", "terminal_failure"),
 		slog.String("status", "failed"),
@@ -234,6 +238,7 @@ func (p *SnapshotPipeline) persistFailure(
 		"pipeline: terminal failure persistence started",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
+		slog.String("user_id", job.UserID),
 		slog.String("url", articleURL),
 		slog.String("stage", "terminal_failure"),
 		slog.String("status", "start"),
@@ -250,6 +255,7 @@ func (p *SnapshotPipeline) persistFailure(
 			"pipeline: terminal failure persistence failed",
 			slog.String("article_id", job.ArticleID),
 			slog.String("job_id", job.ID),
+			slog.String("user_id", job.UserID),
 			slog.String("url", articleURL),
 			slog.String("stage", "terminal_failure"),
 			slog.String("status", "terminal_persist_failed"),
@@ -265,6 +271,7 @@ func (p *SnapshotPipeline) persistFailure(
 		"pipeline: terminal failure persisted",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
+		slog.String("user_id", job.UserID),
 		slog.String("url", articleURL),
 		slog.String("stage", "terminal_failure"),
 		slog.String("status", "persisted"),
@@ -303,7 +310,7 @@ func (p *SnapshotPipeline) fetchHTML(ctx context.Context, job *jobs.Job, article
 		ctx,
 		"worker.pipeline.fetch",
 		trace.WithAttributes(append(
-			observability.JobAttributes(job.ArticleID, job.ID),
+			observability.JobUserAttributes(job.ArticleID, job.ID, job.UserID),
 			attribute.String("url", articleURL),
 		)...),
 	)
@@ -318,6 +325,7 @@ func (p *SnapshotPipeline) fetchHTML(ctx context.Context, job *jobs.Job, article
 		"pipeline: fetch started",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
+		slog.String("user_id", job.UserID),
 		slog.String("url", articleURL),
 		slog.String("stage", "fetch"),
 		slog.String("status", "start"),
@@ -331,6 +339,7 @@ func (p *SnapshotPipeline) fetchHTML(ctx context.Context, job *jobs.Job, article
 			"pipeline: fetch completed",
 			slog.String("article_id", job.ArticleID),
 			slog.String("job_id", job.ID),
+			slog.String("user_id", job.UserID),
 			slog.String("url", articleURL),
 			slog.String("final_url", result.FinalURL),
 			slog.String("stage", "fetch"),
@@ -347,6 +356,7 @@ func (p *SnapshotPipeline) fetchHTML(ctx context.Context, job *jobs.Job, article
 			"pipeline: fetch completed",
 			slog.String("article_id", job.ArticleID),
 			slog.String("job_id", job.ID),
+			slog.String("user_id", job.UserID),
 			slog.String("url", articleURL),
 			slog.String("stage", "fetch"),
 			slog.String("status", "failure"),
@@ -372,6 +382,7 @@ func (p *SnapshotPipeline) fetchHTML(ctx context.Context, job *jobs.Job, article
 		"pipeline: unexpected fetch error",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
+		slog.String("user_id", job.UserID),
 		slog.String("stage", "fetch"),
 		slog.String("status", "failure"),
 		slog.Duration("duration", time.Since(start)),
@@ -398,7 +409,7 @@ func (p *SnapshotPipeline) writeSnapshot(ctx context.Context, job *jobs.Job, res
 	ctx, span := observability.Tracer().Start(
 		ctx,
 		"worker.pipeline.snapshot_write",
-		trace.WithAttributes(observability.JobAttributes(job.ArticleID, job.ID)...),
+		trace.WithAttributes(observability.JobUserAttributes(job.ArticleID, job.ID, job.UserID)...),
 	)
 	defer func() {
 		observability.EndSpan(span, err)
@@ -411,6 +422,7 @@ func (p *SnapshotPipeline) writeSnapshot(ctx context.Context, job *jobs.Job, res
 		"pipeline: snapshot write started",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
+		slog.String("user_id", job.UserID),
 		slog.String("stage", "snapshot_write"),
 		slog.String("status", "start"),
 	)
@@ -422,6 +434,7 @@ func (p *SnapshotPipeline) writeSnapshot(ctx context.Context, job *jobs.Job, res
 			"pipeline: snapshot write failed",
 			slog.String("article_id", job.ArticleID),
 			slog.String("job_id", job.ID),
+			slog.String("user_id", job.UserID),
 			slog.String("stage", "snapshot_write"),
 			slog.String("status", "failure"),
 			slog.Duration("duration", time.Since(start)),
@@ -446,6 +459,7 @@ func (p *SnapshotPipeline) writeSnapshot(ctx context.Context, job *jobs.Job, res
 		"pipeline: snapshot written",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
+		slog.String("user_id", job.UserID),
 		slog.String("stage", "snapshot_write"),
 		slog.String("status", "success"),
 		slog.Duration("duration", time.Since(start)),
@@ -468,7 +482,7 @@ func (p *SnapshotPipeline) updateCanonicalURL(
 		ctx,
 		"worker.pipeline.canonical_url_update",
 		trace.WithAttributes(append(
-			observability.JobAttributes(job.ArticleID, job.ID),
+			observability.JobUserAttributes(job.ArticleID, job.ID, job.UserID),
 			attribute.String("url", articleURL),
 			attribute.String("final_url", finalURL),
 		)...),
@@ -484,19 +498,21 @@ func (p *SnapshotPipeline) updateCanonicalURL(
 		"pipeline: canonical URL update started",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
+		slog.String("user_id", job.UserID),
 		slog.String("url", articleURL),
 		slog.String("final_url", finalURL),
 		slog.String("stage", "canonical_url_update"),
 		slog.String("status", "start"),
 	)
 
-	canonicalErr := p.repo.UpdateCanonicalURL(ctx, job.ArticleID, finalURL)
+	canonicalErr := p.repo.UpdateCanonicalURL(ctx, job.ArticleID, job.UserID, finalURL)
 	if canonicalErr != nil {
 		p.logger.ErrorContext(
 			ctx,
 			"pipeline: canonical URL update failed",
 			slog.String("article_id", job.ArticleID),
 			slog.String("job_id", job.ID),
+			slog.String("user_id", job.UserID),
 			slog.String("final_url", finalURL),
 			slog.String("stage", "canonical_url_update"),
 			slog.String("status", "failure"),
@@ -522,6 +538,7 @@ func (p *SnapshotPipeline) updateCanonicalURL(
 		"pipeline: canonical URL updated",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
+		slog.String("user_id", job.UserID),
 		slog.String("url", articleURL),
 		slog.String("final_url", finalURL),
 		slog.String("stage", "canonical_url_update"),
@@ -541,7 +558,7 @@ func (p *SnapshotPipeline) invokeMarkdownHandoff(ctx context.Context, job *jobs.
 		ctx,
 		"worker.pipeline.markdown_handoff",
 		trace.WithAttributes(append(
-			observability.JobAttributes(job.ArticleID, job.ID),
+			observability.JobUserAttributes(job.ArticleID, job.ID, job.UserID),
 			attribute.String("url", finalURL),
 		)...),
 	)
@@ -572,6 +589,7 @@ func (p *SnapshotPipeline) invokeMarkdownHandoff(ctx context.Context, job *jobs.
 		"pipeline: unexpected markdown handoff error",
 		slog.String("article_id", job.ArticleID),
 		slog.String("job_id", job.ID),
+		slog.String("user_id", job.UserID),
 		slog.String("arc_code", arc.CodeString(arc.ErrUnknown)),
 		slog.Any("error", mdErr),
 	)
