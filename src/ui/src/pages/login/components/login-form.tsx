@@ -13,13 +13,11 @@ export function LoginForm({
 }: LoginFormProps) {
 	return (
 		<form className="login-panel" onSubmit={onSubmit}>
-			<h1 className="login-title">ARCHIVIST</h1>
 			<label className="field">
 				<span className="field-label">PASSWORD</span>
 				<textarea
 					aria-label="Password"
 					className="password-input"
-					placeholder="BEGIN KEY BLOCK..."
 					value={password}
 					onInput={(event) => {
 						onPasswordInput(event.currentTarget.value);

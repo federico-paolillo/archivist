@@ -24,7 +24,7 @@ Archivist needs a private, minimal UI for a single user to authenticate, inspect
 In scope:
 
 - Preact/Vite browser routes `/login`, `/login/failed`, `/articles`, and `/articles/<article_id>`.
-- Login page matching `docs/design/login.png` and `docs/design/DESIGN.md`.
+- Login page using the shared application header/main/footer layout while retaining the login form constraints from `docs/design/login.png` and `docs/design/DESIGN.md`.
 - Article master-detail page matching `docs/design/view.png` and `docs/design/DESIGN.md`.
 - Vite build-time API base path configuration through `VITE_API_BASE_PATH`, defaulting to `/api`.
 - Auth session checks, login, logout, article list/detail loading, original-link navigation, and delete confirmation.
@@ -52,13 +52,13 @@ Not included:
 ## Requirements
 
 - REQ-001: The UI must expose browser routes `/login`, `/login/failed`, `/articles`, and `/articles/<article_id>`.
-- REQ-002: Visual implementation must draw constraints from `docs/design/DESIGN.md`, `docs/design/login.png`, and `docs/design/view.png`.
+- REQ-002: Visual implementation must draw constraints from `docs/design/DESIGN.md`, `docs/design/login.png`, and `docs/design/view.png`; the login screenshot is superseded where it conflicts with the shared application header chrome.
 - REQ-003: UI surfaces must use the monochrome brutalist style: black backgrounds, stark white text, heavy borders, 0px radius, no shadows, no gradients, and no soft blur.
 - REQ-004: The UI API client must read `VITE_API_BASE_PATH` at build time and default to `/api` when it is unset.
 - REQ-005: The API base path must be normalized so calls do not produce double slashes, and all UI API calls must use same-origin `fetch` with credentials included.
 - REQ-006: Public deployment must reverse-proxy `${VITE_API_BASE_PATH}/*` to the Gateway's unprefixed route contracts.
 - REQ-007: The login page must be available at `/login`.
-- REQ-008: The login page must show only the product title, a large visible password textarea/control, and an `IDENTIFY` submit control, plus design footer chrome when implemented.
+- REQ-008: The login page must show the shared application header, the product title, a large visible password textarea/control, an `IDENTIFY` submit control, and the shared footer chrome.
 - REQ-009: The password control must support pasting the 2048-character secret and must not store the password in local storage, session storage, IndexedDB, cookies, or URL state. The control may display the pasted password text.
 - REQ-010: Login submit must call `POST ${apiBasePath}/login` with JSON `{ "password": string }`.
 - REQ-011: Successful login must navigate to `/articles`.
@@ -91,7 +91,10 @@ Not included:
 - REQ-038: Manual browser validation must capture `/login`, `/login/failed`, `/articles`, and `/articles/<article_id>` and compare them against `docs/design/DESIGN.md` plus the two screenshots.
 - REQ-039: On desktop and tablet article routes, the header and footer must be solid black, the article shell must remain viewport-framed without document scrolling, and the master and detail panes must scroll independently inside the shell.
 - REQ-040: On mobile article routes targeting a 430x960 CSS-pixel viewport, the master/detail view must stack vertically in normal document flow; the master article list must have a reasonable max height and scroll internally when needed, while the detail article content remains unbounded in page flow.
-- REQ-041: The article footer version label must stay on one line and truncate with an ellipsis when the configured version string is too long for the viewport.
+- REQ-041: The shared footer must keep a fixed 40px chrome-row height, and its version label must stay on one line and truncate with an ellipsis when the configured version string is too long for the viewport.
+- REQ-042: `/login`, `/articles`, and `/articles/<article_id>` must use a shared application layout containing header, main content, and footer regions.
+- REQ-043: `/login/failed` and transient blank auth/session-check states must not render the shared application layout and must remain blank black.
+- REQ-044: On mobile routes targeting a 430x960 CSS-pixel viewport, the shared header and footer must participate in normal document flow rather than sticky or fixed positioning, and the login form must not be vertically centered.
 
 ## Acceptance Criteria
 
@@ -105,11 +108,19 @@ Scenario: Login succeeds
   And navigates to /articles
   And does not persist the password in browser storage
 
+Scenario: Login uses shared layout
+  Given the browser is on /login
+  Then the shared Archivist header is visible
+  And the login form is visible in the main content region
+  And the shared footer shows the configured version label
+  And no authenticated user menu is visible
+
 Scenario: Login fails silently
   Given the browser is on /login
   When the login endpoint returns 401
   Then the UI navigates to /login/failed
   And the page is blank and black
+  And the shared header and footer are not rendered
 
 Scenario: Session expires
   Given the browser is on /articles
@@ -121,6 +132,7 @@ Scenario: Article route without an id
   When the user opens /articles
   Then the master list is visible
   And the detail pane is blank and black
+  And the shared header and footer are visible
 
 Scenario: Selecting an article
   Given the browser is authenticated
@@ -224,7 +236,7 @@ Depends on:
 - `authn` for `POST /login`, `POST /logout`, `GET /auth/session`, cookie authentication, and `401` behavior.
 - `ui-endpoints` for article list/detail/delete contracts.
 - `docs/design/DESIGN.md`
-- `docs/design/login.png`
+- `docs/design/login.png`, superseded only for the intentionally added shared header chrome
 - `docs/design/view.png`
 
 Implementation agents should use `.agents/skills/archivist-ui/SKILL.md` for UI coding guidance. The skill is not a feature dependency or rebuild source of truth.
@@ -240,10 +252,12 @@ Impacts:
 - Browser routes and Gateway API routes intentionally overlap in path names. The browser UI uses `/articles` as a page route, while API calls use the configured API base path, default `/api`.
 - Do not add `/api` prefixes to Gateway route contracts. The reverse proxy owns mapping public `/api/*` requests to Gateway unprefixed routes.
 - `docs/design/DESIGN.md` and the screenshots under `docs/design/` are canonical design inputs for this feature.
+- `/login`, `/articles`, and `/articles/<article_id>` use shared application chrome with header, main content, and footer regions. `/login/failed` and transient blank auth-check states intentionally do not.
 - Implement the visible browser UI as the first screen for its routes. Do not replace it with a landing page.
 - The login password is a pasted 2048-character bearer secret; the browser control may be a visible textarea rather than a masked input, but the value must remain transient.
+- Mobile login uses normal page flow and must not vertically center the login form.
 - Article routes use a viewport-framed shell on desktop/tablet with independently scrollable master and detail panes. Mobile uses stacked document flow with a capped, internally scrollable master list and unbounded detail content.
-- The article footer may truncate long version labels, including full commit hashes, with CSS-only ellipsis.
+- The shared footer has a fixed 40px visual height even when route content is short. It may truncate long version labels, including full commit hashes, with CSS-only ellipsis.
 - Do not implement Retry until a future feature defines a backend retry/requeue contract.
 - Markdown rendering must treat article content as untrusted input.
 

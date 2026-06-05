@@ -15,7 +15,7 @@ This file is the feature-level implementation control board for the final Preact
 ## Task DAG
 
 ```text
-UI-001 -> UI-002 -> UI-003 -> UI-004
+UI-001 -> UI-002 -> UI-003 -> UI-004 -> UI-005
 AUTHN-004 -> UI-002
 UIEND-002 -> UI-003
 UIEND-003 -> UI-003
@@ -41,6 +41,10 @@ UIEND-003 -> UI-003
 
 - `UI-004` runs final automated and browser validation against the feature spec and design assets.
 
+### Phase 5: Shared Layout Refactor
+
+- `UI-005` extracts shared application chrome so login and article routes use a consistent header, main content, and footer layout.
+
 ---
 
 ## Tasks
@@ -50,7 +54,8 @@ UIEND-003 -> UI-003
 | `UI-001` | Create canonical UI artifacts | done | - | `UI-002` | no | - |
 | `UI-002` | UI routing, design system, API base config, and auth shell | done | `UI-001`, `AUTHN-004` | `UI-003` | no | `plans/UI-002-ui-routing-design-system-api-base-auth-shell.execplan.md` (completed) |
 | `UI-003` | Article master-detail view and delete workflow | done | `UI-002`, `UIEND-002`, `UIEND-003` | `UI-004` | no | `plans/UI-003-article-master-detail-and-delete-workflow.execplan.md` (completed) |
-| `UI-004` | Final UI validation pass | done | `UI-003` | - | no | - |
+| `UI-004` | Final UI validation pass | done | `UI-003` | `UI-005` | no | - |
+| `UI-005` | Shared app layout refactor | done | `UI-004` | - | no | - |
 
 ---
 
@@ -60,6 +65,7 @@ UIEND-003 -> UI-003
 - `UI-002` must wait for `AUTHN-004` because it consumes the validated auth endpoint and client contract.
 - `UI-003` must wait for `UIEND-002` and `UIEND-003` because it consumes the article read/delete contracts.
 - `UI-004` runs after the UI is feature-complete.
+- `UI-005` runs after final UI validation because it is a scoped post-validation refactor of shared chrome, not a new API capability.
 
 ---
 
@@ -79,7 +85,7 @@ UIEND-003 -> UI-003
 1. Run frontend format, lint, build, and tests.
 2. Run automated UI tests for auth, API base, routing, article states, and delete modal behavior.
 3. Run browser validation for `/login`, `/login/failed`, `/articles`, and `/articles/<article_id>`.
-4. Compare browser captures against `docs/design/DESIGN.md`, `docs/design/login.png`, and `docs/design/view.png`.
+4. Compare browser captures against `docs/design/DESIGN.md`, `docs/design/login.png`, and `docs/design/view.png`, with the login screenshot superseded for the intentionally added shared header chrome.
 
 Validation commands:
 

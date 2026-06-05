@@ -1,3 +1,4 @@
+import { AppLayout } from "@archivist/components/app-layout.tsx";
 import type { ApiClient } from "@archivist/deps/api-client.ts";
 import { ArticleDetailPane } from "@archivist/pages/articles/components/article-detail-pane.tsx";
 import { ArticleMasterList } from "@archivist/pages/articles/components/article-master-list.tsx";
@@ -27,7 +28,7 @@ export function ArticleShell({
 	selectedArticleId,
 }: ArticleShellProps) {
 	const location = useLocation();
-	const shellRef = useRef<HTMLElement>(null);
+	const shellRef = useRef<HTMLDivElement>(null);
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
 	const { articles, findArticle, isListLoading, listError, removeArticle } =
 		useArticleList({ api, onAuthExpired });
@@ -87,11 +88,9 @@ export function ArticleShell({
 	}
 
 	return (
-		<main className="article-shell" ref={shellRef} tabIndex={-1}>
-			<header className="top-bar">
-				<a className="brand-link" href="/articles">
-					Archivist
-				</a>
+		<AppLayout
+			className="article-shell"
+			headerEnd={
 				<UserMenu
 					isOpen={isMenuOpen}
 					onLogout={onLogout}
@@ -99,7 +98,11 @@ export function ArticleShell({
 						setIsMenuOpen((isOpen) => !isOpen);
 					}}
 				/>
-			</header>
+			}
+			mainClassName="article-main"
+			rootRef={shellRef}
+			rootTabIndex={-1}
+		>
 			<section className="article-workspace" aria-label="Articles">
 				<ArticleMasterList
 					articles={articles}
@@ -115,9 +118,6 @@ export function ArticleShell({
 					onForceDelete={openForceDeleteModal}
 				/>
 			</section>
-			<footer className="article-footer">
-				VERSION: {import.meta.env.VITE_VERSION_LABEL}
-			</footer>
 			{isDeleteModalOpen ? (
 				<DeleteModal
 					isDeleting={isDeleting}
@@ -132,6 +132,6 @@ export function ArticleShell({
 					onConfirm={confirmForceDelete}
 				/>
 			) : null}
-		</main>
+		</AppLayout>
 	);
 }

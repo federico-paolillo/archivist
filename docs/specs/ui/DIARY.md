@@ -339,3 +339,76 @@ Follow-ups:
 Canonical Updates:
 - `docs/specs/ui/SPEC.md`
 - `docs/specs/ui/tasks/UI-003-article-master-detail-and-delete-workflow.md`
+
+## 2026-06-05 - Shared App Layout Refactor
+
+Status:
+- completed
+
+Summary:
+- Added a shared application layout for `/login`, `/articles`, and `/articles/<article_id>` with common header, main content, and footer regions.
+- Kept `/login/failed` and transient blank auth-check states outside the shared layout so they remain blank black.
+- Changed the login visual baseline intentionally so it uses the same visible header/footer frame as article routes.
+
+Changes:
+- Added reusable `AppLayout` under `src/ui/src/components/`.
+- Moved article header/footer chrome out of the article shell and into the shared layout while preserving the focusable `.article-shell` root.
+- Rendered `/login` inside the shared layout and replaced the hard-coded CSS pseudo-footer with the configured `VITE_VERSION_LABEL` footer.
+- Preserved mobile article normal-flow behavior and changed mobile login so the form is not vertically centered.
+- Added frontend tests for login shared chrome, absent login user menu, blank failed-login chrome, and article shared chrome.
+
+Decisions:
+- Shared layout means the same visible header/footer frame, not identical header actions.
+- The login route renders no user menu because no authenticated session controls exist there.
+- The canonical login screenshot remains a form/content reference but is superseded for the intentionally added shared header chrome.
+
+Validation:
+- `cd src/ui && npm run format`: passed.
+- `cd src/ui && npm run lint`: passed.
+- `cd src/ui && npm run build`: passed.
+- `cd src/ui && npm run test`: passed, 2 test files and 29 tests.
+- Browser validation used the built UI with a temporary same-origin mock API and `VITE_VERSION_LABEL=browser-check`.
+- Desktop `/login`, `/login/failed`, `/articles`, and `/articles/01HREADY000000000000000000` passed shared chrome, blank failure, footer, and desktop scroll checks.
+- Mobile 430x960 `/login` showed static header/footer in normal flow and a login form top at 120px, confirming it was not vertically centered.
+- Mobile 430x960 `/articles/01HREADY000000000000000000` showed static header/footer in normal flow, document scrolling, visible detail overflow, and a 384px master-list max height.
+
+Follow-ups:
+- None.
+
+Canonical Updates:
+- `docs/specs/ui/SPEC.md`
+- `docs/specs/ui/PLAN.md`
+- `docs/specs/ui/tasks/UI-005-shared-app-layout-refactor.md`
+
+## 2026-06-05 - Shared Footer Height Correction
+
+Status:
+- completed
+
+Summary:
+- Corrected mobile shared layout sizing so the footer row remains a fixed 40px visual chrome element on short routes such as `/login`.
+- Preserved normal-flow, non-sticky mobile header/footer behavior for login and article routes.
+
+Changes:
+- Changed the mobile shared layout from block flow to a flex column so the main region absorbs short-page slack.
+- Set the shared footer to an explicit 40px height and flex basis with ellipsis behavior preserved.
+- Adjusted login tests to match the current login form shape while keeping shared layout coverage.
+
+Decisions:
+- Fixed footer sizing means the footer element remains 40px high; it does not become sticky or fixed.
+- On short mobile routes, the main region may expand to push the footer to the viewport bottom, but login content remains top-flow aligned.
+
+Validation:
+- `cd src/ui && npm run format`: passed.
+- `cd src/ui && npm run lint`: passed.
+- `cd src/ui && npm run build`: passed.
+- `cd src/ui && npm run test`: passed.
+- Browser validation for 430x960 `/login` confirmed the footer computed height was 40px, position was static, and the footer bottom aligned with the viewport bottom.
+- Browser validation for 430x960 `/articles/01HREADY000000000000000000` confirmed document scrolling remained enabled, header/footer stayed static, and detail content remained in normal page flow.
+
+Follow-ups:
+- None.
+
+Canonical Updates:
+- `docs/specs/ui/SPEC.md`
+- `docs/specs/ui/tasks/UI-005-shared-app-layout-refactor.md`

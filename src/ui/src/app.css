@@ -56,38 +56,29 @@
 		color: #000000;
 	}
 
-	.login-page {
-		position: relative;
+	.app-layout {
 		display: grid;
+		height: 100vh;
+		height: 100svh;
+		height: 100dvh;
 		min-height: 100vh;
+		min-height: 100svh;
+		min-height: 100dvh;
+		grid-template-rows: 80px minmax(0, 1fr) 40px;
+		overflow: hidden;
+		background: #000000;
+		color: #ffffff;
+	}
+
+	.app-main {
+		min-height: 0;
+	}
+
+	.login-page {
+		display: grid;
 		place-items: center;
 		padding: 32px;
 		background: #000000;
-	}
-
-	.login-page::before {
-		position: fixed;
-		right: 0;
-		bottom: 38px;
-		left: 0;
-		height: 2px;
-		background: #ffffff;
-		content: "";
-	}
-
-	.login-page::after {
-		position: fixed;
-		right: 0;
-		bottom: 15px;
-		left: 0;
-		color: #8e9192;
-		content: "VERSION: 7F8A2C1_STABLE";
-		font-family: "Space Grotesk", Arial, Helvetica, sans-serif;
-		font-size: 12px;
-		font-weight: 700;
-		letter-spacing: 0.1em;
-		line-height: 1;
-		text-align: center;
 	}
 
 	.login-panel {
@@ -213,20 +204,6 @@
 		color: #000000;
 	}
 
-	.article-shell {
-		display: grid;
-		height: 100vh;
-		height: 100svh;
-		height: 100dvh;
-		min-height: 100vh;
-		min-height: 100svh;
-		min-height: 100dvh;
-		grid-template-rows: 80px minmax(0, 1fr) 40px;
-		overflow: hidden;
-		background: #000000;
-		color: #ffffff;
-	}
-
 	.top-bar {
 		display: flex;
 		align-items: stretch;
@@ -315,11 +292,11 @@
 
 	.article-workspace {
 		display: grid;
+		height: 100%;
 		min-height: 0;
 		grid-template-columns: minmax(440px, 532px) minmax(0, 1fr);
 		overflow: hidden;
 		background: #000000;
-		border-bottom: 2px solid #ffffff;
 	}
 
 	.article-master {
@@ -574,15 +551,19 @@
 		animation: spin 0.8s steps(8) infinite;
 	}
 
-	.article-footer {
+	.app-footer {
 		display: block;
 		width: 100%;
+		height: 40px;
+		min-height: 40px;
 		min-width: 0;
+		flex: 0 0 40px;
 		overflow: hidden;
+		border-top: 2px solid #ffffff;
 		padding: 0 16px;
 		background: #000000;
 		color: #8e9192;
-		line-height: 40px;
+		line-height: 38px;
 		text-align: center;
 		text-overflow: ellipsis;
 		white-space: nowrap;
@@ -650,18 +631,25 @@
 
 @media (max-width: 720px) {
 	@layer components {
-		.login-page {
-			place-items: end stretch;
-			padding: 24px;
-		}
-
-		.article-shell {
-			display: block;
+		.app-layout {
+			display: flex;
+			flex-direction: column;
 			height: auto;
 			min-height: 100vh;
 			min-height: 100svh;
 			min-height: 100dvh;
 			overflow: visible;
+		}
+
+		.app-main {
+			flex: 1 0 auto;
+			min-height: 0;
+			overflow: visible;
+		}
+
+		.login-page {
+			display: block;
+			padding: 48px 24px 80px;
 		}
 
 		.top-bar {
@@ -675,6 +663,7 @@
 
 		.article-workspace {
 			display: block;
+			height: auto;
 			min-height: 0;
 			grid-template-columns: 1fr;
 			overflow: visible;

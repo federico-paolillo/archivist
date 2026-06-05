@@ -1,3 +1,4 @@
+import { AppLayout } from "@archivist/components/app-layout.tsx";
 import type { Deps } from "@archivist/deps.ts";
 import { LoginForm } from "@archivist/pages/login/components/login-form.tsx";
 import { useEffect, useState } from "preact/hooks";
@@ -29,14 +30,14 @@ export function LoginPage({ deps }: LoginPageProps) {
 	}
 
 	return (
-		<main className="login-page">
+		<AppLayout mainClassName="login-page">
 			<LoginForm
 				isSubmitting={isSubmitting}
 				onPasswordInput={setPassword}
 				onSubmit={submitLogin}
 				password={password}
 			/>
-		</main>
+		</AppLayout>
 	);
 }
 

@@ -9,7 +9,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { render } from "preact";
 import { act } from "preact/test-utils";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 function makeTestDeps(overrides: Partial<Deps["api"]> = {}): Deps {
 	return {
@@ -187,14 +187,28 @@ function installIndexedDbGuard() {
 	return indexedDb;
 }
 
+beforeEach(() => {
+	vi.stubEnv("VITE_VERSION_LABEL", "test-version");
+});
+
 afterEach(() => {
 	render(null, document.body);
 	document.body.replaceChildren();
 	window.history.replaceState(null, "", "/");
 	vi.restoreAllMocks();
+	vi.unstubAllEnvs();
 });
 
 describe("auth routes", () => {
+	it("renders login inside the shared app layout without authenticated controls", () => {
+		mountAt("/login", makeTestDeps());
+
+		expect(screen.getByRole("link", { name: "Archivist" })).not.toBeNull();
+		expect(screen.getByLabelText("Password")).not.toBeNull();
+		expect(screen.getByText("VERSION: test-version")).not.toBeNull();
+		expect(screen.queryByRole("button", { name: "User menu" })).toBeNull();
+	});
+
 	it("navigates to /articles after successful login", async () => {
 		const deps = makeTestDeps({
 			login: vi.fn(async () => true),
@@ -226,7 +240,6 @@ describe("auth routes", () => {
 
 		mountAt("/login", deps);
 
-		expect(screen.getByPlaceholderText("BEGIN KEY BLOCK...")).not.toBeNull();
 		await user.click(screen.getByLabelText("Password"));
 		await user.paste(secret);
 		await user.click(screen.getByRole("button", { name: "IDENTIFY" }));
@@ -263,6 +276,7 @@ describe("auth routes", () => {
 		});
 		expect(document.body.textContent).toBe("");
 		expect(document.querySelector(".blank-page")).not.toBeNull();
+		expect(document.querySelector(".app-layout")).toBeNull();
 	});
 
 	it("renders /login/failed as a blank black page", async () => {
@@ -270,6 +284,7 @@ describe("auth routes", () => {
 
 		expect(document.body.textContent).toBe("");
 		expect(document.querySelector(".blank-page")).not.toBeNull();
+		expect(document.querySelector(".app-layout")).toBeNull();
 	});
 
 	it("redirects article routes to /login on session 401", async () => {
@@ -336,6 +351,9 @@ describe("article routes", () => {
 		mountAt("/articles", deps);
 
 		expect(await screen.findByText(readyArticle.title ?? "")).not.toBeNull();
+		expect(screen.getByRole("link", { name: "Archivist" })).not.toBeNull();
+		expect(screen.getByRole("button", { name: "User menu" })).not.toBeNull();
+		expect(screen.getByText("VERSION: test-version")).not.toBeNull();
 		const blankDetail = document.querySelector(".article-detail-blank");
 		expect(blankDetail).not.toBeNull();
 		expect(blankDetail?.textContent).toBe("");
