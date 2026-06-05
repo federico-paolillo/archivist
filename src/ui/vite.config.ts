@@ -13,6 +13,7 @@ const preactCompatClient = fileURLToPath(
 
 export default defineConfig({
 	plugins: [preact(), tailwindcss()],
+	publicDir: 'public/',
 	test: {
 		environment: "jsdom",
 		environmentOptions: {
