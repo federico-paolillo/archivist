@@ -18,24 +18,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-// SummaryHandoff is called after content.md promotion.
-type SummaryHandoff interface {
-	Summarize(ctx context.Context, job *jobs.Job, canonicalURL string) error
-}
-
-// SummaryHandoffFunc adapts functions to SummaryHandoff.
-type SummaryHandoffFunc func(ctx context.Context, job *jobs.Job, canonicalURL string) error
-
-// Summarize implements SummaryHandoff.
-func (f SummaryHandoffFunc) Summarize(ctx context.Context, job *jobs.Job, canonicalURL string) error {
-	return f(ctx, job, canonicalURL)
-}
-
-// NoOpSummaryHandoff preserves isolated Markdown-stage tests.
-var NoOpSummaryHandoff SummaryHandoff = SummaryHandoffFunc(func(_ context.Context, _ *jobs.Job, _ string) error {
-	return nil
-})
-
 // SummaryGenerationHandoff runs summarization, writes summary.md, and commits
 // terminal success only after the summary artifact has been promoted.
 type SummaryGenerationHandoff struct {
