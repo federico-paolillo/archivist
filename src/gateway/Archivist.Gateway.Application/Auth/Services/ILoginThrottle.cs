@@ -17,7 +17,7 @@ public interface ILoginThrottle
     void RecordFailure(string sourceIp);
 
     /// <summary>
-    /// Resets the per-IP and global counters for the given source IP after a successful login.
+    /// Resets the per-IP counter for the given source IP after a successful login.
     /// </summary>
     void RecordSuccess(string sourceIp);
 }

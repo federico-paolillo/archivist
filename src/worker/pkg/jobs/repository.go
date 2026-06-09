@@ -55,6 +55,11 @@ type Repository interface {
 	// All three writes (article, job, notification) happen in one transaction.
 	CompleteTerminal(ctx context.Context, job *Job, outcome TerminalOutcome) error
 
+	// CompleteJobFailure atomically fails only the job row and inserts one
+	// pending notification row when the job has Telegram origin metadata. It is
+	// used for corrupt work where mutating the referenced article is unsafe.
+	CompleteJobFailure(ctx context.Context, job *Job, errorMessage string) error
+
 	// ArticleURL returns the original_url for an article owned by userID.
 	ArticleURL(ctx context.Context, articleID string, userID string) (string, error)
 
@@ -201,7 +206,6 @@ func (r *SQLiteRepository) ClaimQueued(ctx context.Context) (job *Job, err error
 		        SELECT 1
 		        FROM   articles
 		        WHERE  articles.id = jobs.article_id
-		        AND    articles.user_id = jobs.user_id
 		    )
 		    ORDER  BY created_at ASC
 		    LIMIT  1
@@ -288,6 +292,55 @@ func (r *SQLiteRepository) CompleteTerminal(ctx context.Context, job *Job, outco
 	err = tx.Commit()
 	if err != nil {
 		return fmt.Errorf("jobs: failed to commit terminal transaction: %w", err)
+	}
+
+	return nil
+}
+
+// CompleteJobFailure persists a job-only terminal failure without mutating the article.
+//
+//nolint:nonamedreturns,spancheck // Deferred span completion records the returned error.
+func (r *SQLiteRepository) CompleteJobFailure(ctx context.Context, job *Job, errorMessage string) (err error) {
+	ctx, span := observability.Tracer().Start(
+		ctx,
+		"worker.jobs.complete_job_failure",
+		trace.WithAttributes(observability.JobUserAttributes(job.ArticleID, job.ID, job.UserID)...),
+	)
+	defer func() {
+		observability.EndSpan(span, err)
+	}()
+
+	span.SetStatus(codes.Error, errorMessage)
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("jobs: failed to begin job failure transaction: %w", err)
+	}
+
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	now := time.Now().UTC()
+	expiresAt := now.Add(14 * 24 * time.Hour)
+
+	err = applyJobTerminal(ctx, tx, job, TerminalOutcome{Success: false, ErrorMessage: errorMessage}, now, expiresAt)
+	if err != nil {
+		return err
+	}
+
+	if job.HasTelegramOrigin() {
+		err = r.insertPendingNotification(ctx, tx, job, now)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("jobs: failed to commit job failure transaction: %w", err)
 	}
 
 	return nil

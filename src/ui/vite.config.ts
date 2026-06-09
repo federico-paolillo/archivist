@@ -1,7 +1,7 @@
-import { defineConfig } from "vitest/config";
+import { fileURLToPath } from "node:url";
 import preact from "@preact/preset-vite";
 import tailwindcss from "@tailwindcss/vite";
-import { fileURLToPath } from "node:url";
+import { defineConfig } from "vitest/config";
 
 const preactCompat = fileURLToPath(
 	new URL("./node_modules/preact/compat", import.meta.url),
@@ -13,7 +13,7 @@ const preactCompatClient = fileURLToPath(
 
 export default defineConfig({
 	plugins: [preact(), tailwindcss()],
-	publicDir: 'public/',
+	publicDir: "public/",
 	test: {
 		setupFiles: ["./src/test-setup.ts"],
 		environment: "jsdom",

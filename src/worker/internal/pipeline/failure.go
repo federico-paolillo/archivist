@@ -105,3 +105,55 @@ func (p *SnapshotPipeline) persistFailure(
 
 	return nil
 }
+
+func (p *SnapshotPipeline) persistOwnershipMismatch(
+	ctx context.Context,
+	job *jobs.Job,
+	ownershipErr error,
+	duration time.Duration,
+) (bool, error) {
+	errorMessage := arc.Format(arc.CodeUnknownProcessingFailure)
+
+	p.logger.ErrorContext(
+		ctx,
+		"pipeline: corrupt job ownership mismatch",
+		slog.String("article_id", job.ArticleID),
+		slog.String("job_id", job.ID),
+		slog.String("user_id", job.UserID),
+		slog.String("stage", "claim"),
+		slog.String("status", "corrupt"),
+		slog.Duration("duration", duration),
+		slog.String("arc_code", string(arc.CodeUnknownProcessingFailure)),
+		slog.Any("error", ownershipErr),
+	)
+
+	err := p.repo.CompleteJobFailure(ctx, job, errorMessage)
+	if err != nil {
+		p.logger.ErrorContext(
+			ctx,
+			"pipeline: corrupt job failure persistence failed",
+			slog.String("article_id", job.ArticleID),
+			slog.String("job_id", job.ID),
+			slog.String("user_id", job.UserID),
+			slog.String("stage", "terminal_failure"),
+			slog.String("status", "terminal_persist_failed"),
+			slog.String("arc_code", string(arc.CodeUnknownProcessingFailure)),
+			slog.Any("error", err),
+		)
+
+		return false, fmt.Errorf("pipeline: persist ownership mismatch for job %s: %w", job.ID, err)
+	}
+
+	p.logger.InfoContext(
+		ctx,
+		"pipeline: corrupt job failure persisted",
+		slog.String("article_id", job.ArticleID),
+		slog.String("job_id", job.ID),
+		slog.String("user_id", job.UserID),
+		slog.String("stage", "terminal_failure"),
+		slog.String("status", "persisted"),
+		slog.String("arc_code", string(arc.CodeUnknownProcessingFailure)),
+	)
+
+	return true, nil
+}

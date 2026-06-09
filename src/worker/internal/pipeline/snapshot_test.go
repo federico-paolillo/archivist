@@ -302,7 +302,7 @@ func TestSnapshotSSRFPolicyBlockPersistsARC017(t *testing.T) {
 	assert.Equal(t, 1, scalarInt(t, database, `SELECT COUNT(*) FROM notifications WHERE job_id = ? AND status = 'pending'`, jobID))
 }
 
-func TestSnapshotDoesNotProcessJobWhenArticleOwnershipDoesNotMatch(t *testing.T) {
+func TestSnapshotReportsProcessedAndFailsJobWhenArticleOwnershipDoesNotMatch(t *testing.T) {
 	database := openTestDB(t)
 	seedUser(t, database)
 	seedOtherUser(t, database)
@@ -327,12 +327,14 @@ func TestSnapshotDoesNotProcessJobWhenArticleOwnershipDoesNotMatch(t *testing.T)
 
 	processed, err := p.ProcessOne(t.Context())
 	require.NoError(t, err)
-	require.False(t, processed)
+	require.True(t, processed)
 
 	assert.Equal(t, "queued", scalarString(t, database, `SELECT status FROM articles WHERE id = ?`, articleID))
-	assert.Equal(t, jobs.StatusQueued, scalarString(t, database, `SELECT status FROM jobs WHERE id = ?`, jobID))
+	assert.Empty(t, scalarNullableString(t, database, `SELECT error_message FROM articles WHERE id = ?`, articleID))
+	assert.Equal(t, jobs.StatusFailed, scalarString(t, database, `SELECT status FROM jobs WHERE id = ?`, jobID))
+	assert.Equal(t, "[ARC-999] Archivist could not process the URL.", scalarNullableString(t, database, `SELECT error_message FROM jobs WHERE id = ?`, jobID))
 	assert.Empty(t, scalarNullableString(t, database, `SELECT canonical_url FROM articles WHERE id = ?`, articleID))
-	assert.Equal(t, 0, scalarInt(t, database, `SELECT COUNT(*) FROM notifications WHERE job_id = ?`, jobID))
+	assert.Equal(t, 1, scalarInt(t, database, `SELECT COUNT(*) FROM notifications WHERE job_id = ? AND status = 'pending'`, jobID))
 }
 
 // TestSnapshotNonHTMLFailureMapsToARC005 verifies non-HTML content type maps to ARC-005.
@@ -640,6 +642,10 @@ func (r *claimBeforeURLLoadRepo) ClaimQueued(context.Context) (*jobs.Job, error)
 }
 
 func (r *claimBeforeURLLoadRepo) CompleteTerminal(context.Context, *jobs.Job, jobs.TerminalOutcome) error {
+	return nil
+}
+
+func (r *claimBeforeURLLoadRepo) CompleteJobFailure(context.Context, *jobs.Job, string) error {
 	return nil
 }
 

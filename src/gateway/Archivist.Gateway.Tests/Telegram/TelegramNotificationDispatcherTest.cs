@@ -316,7 +316,8 @@ public sealed class TelegramNotificationDispatcherTest
             await WriteSummaryAsync(dataDirectory, ArticleId, "summary from disk");
 
             var reader = CreateReader(dataDirectory);
-            var summary = await reader.ReadSummaryMarkdownAsync(ArticleId, CancellationToken.None);
+            using var summaryReader = await reader.OpenSummaryMarkdownAsync(ArticleId, CancellationToken.None);
+            var summary = await summaryReader.ReadToEndAsync(CancellationToken.None);
 
             Assert.Equal("summary from disk", summary);
         }
@@ -334,9 +335,11 @@ public sealed class TelegramNotificationDispatcherTest
             .Select(method => method.Name)
             .ToArray();
 
-        Assert.Contains(nameof(IArticleArtifactReader.ReadSummaryMarkdownAsync), methodNames);
+        Assert.Contains(nameof(IArticleArtifactReader.OpenSummaryMarkdownAsync), methodNames);
+        Assert.Contains(nameof(IArticleArtifactReader.OpenContentMarkdownAsync), methodNames);
         Assert.DoesNotContain(methodNames, name =>
             name.Contains("Write", StringComparison.OrdinalIgnoreCase) ||
+            name.Contains("ReadAll", StringComparison.OrdinalIgnoreCase) ||
             name.Contains("Create", StringComparison.OrdinalIgnoreCase) ||
             name.Contains("Rename", StringComparison.OrdinalIgnoreCase) ||
             name.Contains("Delete", StringComparison.OrdinalIgnoreCase));

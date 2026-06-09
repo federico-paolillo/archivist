@@ -42,7 +42,7 @@ const readyArticle: ArticleDetail = {
 	createdAt: "2026-05-06T12:00:00Z",
 	canForceDelete: false,
 	summaryMarkdown:
-		"Recent seismic sensors registered **anomalous** vibrations. <img src=x onerror=alert(1)> [bad](javascript:alert(1)) [good](https://example.com/good)",
+		"Recent seismic sensors registered **anomalous** vibrations. ![track](https://tracker.example/pixel.png) <img src=x onerror=alert(1)> [bad](javascript:alert(1)) [good](https://example.com/good)",
 	contentMarkdown:
 		"## Sensor Data Acquisition\n\n<script>alert(1)</script>\n\nData was collected from nodes S4-01 through S4-15.",
 };
@@ -503,8 +503,13 @@ describe("article routes", () => {
 
 		const renderedGoodLink = screen.getByRole("link", { name: "good" });
 		expect(renderedGoodLink.getAttribute("rel")).toBe("noopener noreferrer");
+		expect(document.body.textContent).toContain("![track]");
+		expect(screen.queryByRole("link", { name: "track" })).toBeNull();
 		expect(document.querySelector("script")).toBeNull();
 		expect(document.querySelector("img")).toBeNull();
+		expect(
+			document.querySelector('a[href="https://tracker.example/pixel.png"]'),
+		).toBeNull();
 		expect(document.querySelector('a[href^="javascript:"]')).toBeNull();
 	});
 
@@ -595,6 +600,20 @@ describe("article routes", () => {
 
 		await waitForMasterListArticle(readyArticle.title);
 		const deleteButton = await screen.findByRole("button", { name: "Delete" });
+		await user.click(deleteButton);
+		expect(screen.getByText("Are you sure?")).not.toBeNull();
+		await waitFor(() => {
+			expect(document.activeElement).toBe(
+				screen.getByRole("button", { name: "Yes" }),
+			);
+		});
+		await user.keyboard("{Escape}");
+		expect(deps.api.deleteArticle).not.toHaveBeenCalled();
+		expect(window.location.pathname).toBe(`/articles/${readyArticle.id}`);
+		await waitFor(() => {
+			expect(screen.queryByText("Are you sure?")).toBeNull();
+		});
+
 		await user.click(deleteButton);
 		expect(screen.getByText("Are you sure?")).not.toBeNull();
 		await waitFor(() => {
@@ -693,7 +712,25 @@ describe("article routes", () => {
 		});
 		await user.click(forceDeleteButton);
 		expect(screen.getByText("Force delete this article?")).not.toBeNull();
-		const dialog = screen.getByRole("dialog", {
+		let dialog = screen.getByRole("dialog", {
+			name: "Force delete this article?",
+		});
+		await waitFor(() => {
+			expect(document.activeElement).toBe(
+				within(dialog).getByRole("button", { name: "Force Delete" }),
+			);
+		});
+		await user.keyboard("{Escape}");
+		expect(deps.api.forceDeleteArticle).not.toHaveBeenCalled();
+		expect(window.location.pathname).toBe(
+			`/articles/${forceDeletableArticle.id}`,
+		);
+		await waitFor(() => {
+			expect(screen.queryByText("Force delete this article?")).toBeNull();
+		});
+
+		await user.click(forceDeleteButton);
+		dialog = screen.getByRole("dialog", {
 			name: "Force delete this article?",
 		});
 		await waitFor(() => {

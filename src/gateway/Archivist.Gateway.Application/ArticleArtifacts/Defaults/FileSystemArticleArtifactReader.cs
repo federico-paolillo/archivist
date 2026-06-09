@@ -6,13 +6,13 @@ namespace Archivist.Gateway.Application.ArticleArtifacts.Defaults;
 public sealed class FileSystemArticleArtifactReader(ArticleArtifactPaths paths) : IArticleArtifactReader
 {
     /// <inheritdoc />
-    public async Task<string> ReadContentMarkdownAsync(string articleId, CancellationToken cancellationToken)
+    public Task<TextReader> OpenContentMarkdownAsync(string articleId, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         try
         {
-            return await File
-                .ReadAllTextAsync(paths.ContentMarkdown(articleId), cancellationToken)
-                .ConfigureAwait(false);
+            return Task.FromResult<TextReader>(OpenReader(paths.ContentMarkdown(articleId)));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
         {
@@ -23,19 +23,42 @@ public sealed class FileSystemArticleArtifactReader(ArticleArtifactPaths paths) 
     }
 
     /// <inheritdoc />
-    public async Task<string> ReadSummaryMarkdownAsync(string articleId, CancellationToken cancellationToken)
+    public Task<TextReader> OpenSummaryMarkdownAsync(string articleId, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         try
         {
-            return await File
-                .ReadAllTextAsync(paths.SummaryMarkdown(articleId), cancellationToken)
-                .ConfigureAwait(false);
+            return Task.FromResult<TextReader>(OpenReader(paths.SummaryMarkdown(articleId)));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
         {
             throw new ArticleArtifactReadException(
                 $"Summary artifact for article {articleId} is missing or unreadable.",
                 ex);
+        }
+    }
+
+    private static StreamReader OpenReader(string path)
+    {
+        var stream = new FileStream(
+            path,
+            new FileStreamOptions
+            {
+                Mode = FileMode.Open,
+                Access = FileAccess.Read,
+                Share = FileShare.ReadWrite | FileShare.Delete,
+                Options = FileOptions.Asynchronous | FileOptions.SequentialScan,
+            });
+
+        try
+        {
+            return new StreamReader(stream);
+        }
+        catch
+        {
+            stream.Dispose();
+            throw;
         }
     }
 }

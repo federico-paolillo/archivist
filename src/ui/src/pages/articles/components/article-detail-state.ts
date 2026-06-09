@@ -4,7 +4,7 @@ export type DetailState =
 	| { kind: "idle" }
 	| { kind: "loading" }
 	| {
-			article?: ArticleMetadata | ArticleDetail;
+			article?: ArticleMetadata | ArticleDetail | undefined;
 			kind: "error";
 			message: string;
 	  }

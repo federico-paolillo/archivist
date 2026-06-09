@@ -189,7 +189,7 @@ public sealed partial class TelegramWebhookHandler(
     {
         var trimmed = text.Trim();
 
-        if (trimmed.Contains(' ') || trimmed.Contains('\n') || trimmed.Contains('\r'))
+        if (trimmed.Any(char.IsWhiteSpace))
         {
             url = null;
             return false;

@@ -96,13 +96,13 @@ public sealed class EfArticleQueryService(
 
         var summaryMarkdown = await ReadArtifactAsync(
                 article,
-                artifactReader.ReadSummaryMarkdownAsync,
+                artifactReader.OpenSummaryMarkdownAsync,
                 cancellationToken)
             .ConfigureAwait(false);
 
         var contentMarkdown = await ReadArtifactAsync(
                 article,
-                artifactReader.ReadContentMarkdownAsync,
+                artifactReader.OpenContentMarkdownAsync,
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -153,14 +153,15 @@ public sealed class EfArticleQueryService(
 
     private async Task<string?> ReadArtifactAsync(
         ArticleEntity article,
-        Func<string, CancellationToken, Task<string>> read,
+        Func<string, CancellationToken, Task<TextReader>> open,
         CancellationToken cancellationToken)
     {
         try
         {
-            return await read(article.Id, cancellationToken).ConfigureAwait(false);
+            using var reader = await open(article.Id, cancellationToken).ConfigureAwait(false);
+            return await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
         }
-        catch (ArticleArtifactReadException)
+        catch (Exception ex) when (ex is ArticleArtifactReadException or IOException or UnauthorizedAccessException)
         {
             return null;
         }

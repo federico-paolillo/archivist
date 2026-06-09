@@ -86,6 +86,10 @@ func (r *fakeJobsRepository) CompleteTerminal(_ context.Context, _ *jobs.Job, _ 
 	return errors.New("fake jobs repository does not complete jobs")
 }
 
+func (r *fakeJobsRepository) CompleteJobFailure(_ context.Context, _ *jobs.Job, _ string) error {
+	return errors.New("fake jobs repository does not complete job failures")
+}
+
 func (r *fakeJobsRepository) ArticleURL(_ context.Context, _ string, _ string) (string, error) {
 	return "", errors.New("fake jobs repository does not load article URLs")
 }

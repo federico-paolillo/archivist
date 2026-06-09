@@ -4,7 +4,7 @@ import type { DetailState } from "@archivist/pages/articles/components/article-d
 import { LoadedArticleDetail } from "@archivist/pages/articles/components/loaded-article-detail.tsx";
 
 interface ArticleDetailPaneProps {
-	article?: ArticleMetadata | ArticleDetail;
+	article?: ArticleMetadata | ArticleDetail | undefined;
 	detailState: DetailState;
 	onDelete: () => void;
 	onForceDelete: () => void;

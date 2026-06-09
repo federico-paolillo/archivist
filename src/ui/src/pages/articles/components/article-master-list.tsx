@@ -9,7 +9,7 @@ interface ArticleMasterListProps {
 	error: string | null;
 	isLoading: boolean;
 	onSelect: (articleId: string) => void;
-	selectedArticleId?: string;
+	selectedArticleId?: string | undefined;
 }
 
 export function ArticleMasterList({

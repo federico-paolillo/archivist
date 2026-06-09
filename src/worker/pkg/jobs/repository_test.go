@@ -420,6 +420,15 @@ func scalarNullableString(t *testing.T, database *sql.DB, query string, args ...
 	return value.String
 }
 
+func scalarInt(t *testing.T, database *sql.DB, query string, args ...any) int {
+	t.Helper()
+
+	var value int
+	require.NoError(t, database.QueryRow(query, args...).Scan(&value))
+
+	return value
+}
+
 func TestClaimQueuedReturnsErrNoRowsWhenNoJobExists(t *testing.T) {
 	database := openTestDB(t)
 	seedUser(t, database)
@@ -542,7 +551,7 @@ func TestClaimQueuedPreservesTraceCarrierFields(t *testing.T) {
 	assert.Equal(t, tracestate, *claimed.TraceState)
 }
 
-func TestClaimQueuedSkipsJobWhenArticleOwnershipDoesNotMatch(t *testing.T) {
+func TestClaimQueuedClaimsJobWhenArticleOwnershipDoesNotMatch(t *testing.T) {
 	database := openTestDB(t)
 	seedUser(t, database)
 	seedOtherUser(t, database)
@@ -563,9 +572,11 @@ func TestClaimQueuedSkipsJobWhenArticleOwnershipDoesNotMatch(t *testing.T) {
 
 	claimed, err := repo.ClaimQueued(t.Context())
 
-	require.ErrorIs(t, err, sql.ErrNoRows)
-	assert.Nil(t, claimed)
-	assert.Equal(t, jobs.StatusQueued, scalarString(t, database, `SELECT status FROM jobs WHERE id = ?`, "JOB001"))
+	require.NoError(t, err)
+	require.NotNil(t, claimed)
+	assert.Equal(t, "JOB001", claimed.ID)
+	assert.Equal(t, testUserID, claimed.UserID)
+	assert.Equal(t, jobs.StatusRunning, scalarString(t, database, `SELECT status FROM jobs WHERE id = ?`, "JOB001"))
 	assert.Equal(t, "queued", scalarString(t, database, `SELECT status FROM articles WHERE id = ?`, "ARTICLE001"))
 }
 
@@ -919,6 +930,41 @@ func TestCompleteTerminalFailureForNonTelegramJobDoesNotCreateNotification(t *te
 	).Scan(&notificationCount)
 	require.NoError(t, err)
 	assert.Equal(t, 0, notificationCount)
+}
+
+func TestCompleteJobFailureDoesNotMutateMismatchedArticle(t *testing.T) {
+	database := openTestDB(t)
+	seedUser(t, database)
+	seedOtherUser(t, database)
+
+	_, err := database.Exec(
+		`INSERT INTO articles (id, user_id, original_url, status, created_at)
+		 VALUES (?, ?, ?, 'queued', ?)`,
+		"ARTICLE001",
+		testOtherUserID,
+		"https://example.com/article",
+		time.Now().UTC().Format(time.RFC3339Nano),
+	)
+	require.NoError(t, err)
+
+	seedTelegramJob(t, database, "JOB001", "ARTICLE001")
+
+	const notificationID = "01ASB2XFCZJY7WHZ2FNRTMQJCD"
+	const errorText = "[ARC-999] Archivist could not process the URL."
+
+	repo := jobs.NewSQLiteRepository(database, newTestIDGenerator(notificationID))
+
+	claimed, err := repo.ClaimQueued(t.Context())
+	require.NoError(t, err)
+
+	err = repo.CompleteJobFailure(t.Context(), claimed, errorText)
+	require.NoError(t, err)
+
+	assert.Equal(t, "queued", scalarString(t, database, `SELECT status FROM articles WHERE id = ?`, "ARTICLE001"))
+	assert.Empty(t, scalarNullableString(t, database, `SELECT error_message FROM articles WHERE id = ?`, "ARTICLE001"))
+	assert.Equal(t, jobs.StatusFailed, scalarString(t, database, `SELECT status FROM jobs WHERE id = ?`, "JOB001"))
+	assert.Equal(t, errorText, scalarNullableString(t, database, `SELECT error_message FROM jobs WHERE id = ?`, "JOB001"))
+	assert.Equal(t, 1, scalarInt(t, database, `SELECT COUNT(*) FROM notifications WHERE job_id = ? AND status = 'pending'`, "JOB001"))
 }
 
 func requireUserAttribute(t *testing.T, spans []sdktrace.ReadOnlySpan, spanName string, userID string) {

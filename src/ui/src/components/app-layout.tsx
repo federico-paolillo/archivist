@@ -5,8 +5,8 @@ interface AppLayoutProps {
 	className?: string;
 	headerEnd?: ComponentChildren;
 	mainClassName?: string;
-	rootRef?: Ref<HTMLDivElement>;
-	rootTabIndex?: number;
+	rootRef?: Ref<HTMLDivElement> | undefined;
+	rootTabIndex?: number | undefined;
 }
 
 function classNames(...names: Array<string | undefined>) {
@@ -24,8 +24,8 @@ export function AppLayout({
 	return (
 		<div
 			className={classNames("app-layout", className)}
-			ref={rootRef}
-			tabIndex={rootTabIndex}
+			{...(rootRef ? { ref: rootRef } : {})}
+			{...(rootTabIndex !== undefined ? { tabIndex: rootTabIndex } : {})}
 		>
 			<header className="top-bar">
 				<a className="brand-link" href="/articles">

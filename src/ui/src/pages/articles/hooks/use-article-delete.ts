@@ -7,16 +7,16 @@ import { errorMessage } from "@archivist/pages/articles/components/article-view-
 import { useCallback, useEffect, useState } from "preact/hooks";
 
 interface UseArticleDeleteProps {
-	actionArticle?: ArticleMetadata | ArticleDetail;
+	actionArticle?: ArticleMetadata | ArticleDetail | undefined;
 	api: ApiClient;
 	clearDetail: () => void;
 	focusShell: () => void;
 	navigateToArticles: () => void;
 	onAuthExpired: () => void;
 	removeArticle: (articleId: string) => void;
-	selectedArticleId?: string;
+	selectedArticleId?: string | undefined;
 	showDetailError: (props: {
-		article?: ArticleMetadata | ArticleDetail;
+		article?: ArticleMetadata | ArticleDetail | undefined;
 		message: string;
 	}) => void;
 }

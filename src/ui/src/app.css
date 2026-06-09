@@ -24,8 +24,12 @@
 
 	body {
 		min-height: 100vh;
-		min-height: 100svh;
-		min-height: 100dvh;
+	}
+
+	@supports (min-height: 100dvh) {
+		body {
+			min-height: 100dvh;
+		}
 	}
 
 	button,
@@ -59,15 +63,18 @@
 	.app-layout {
 		display: grid;
 		height: 100vh;
-		height: 100svh;
-		height: 100dvh;
 		min-height: 100vh;
-		min-height: 100svh;
-		min-height: 100dvh;
 		grid-template-rows: 80px minmax(0, 1fr) 40px;
 		overflow: hidden;
 		background: #000000;
 		color: #ffffff;
+	}
+
+	@supports (height: 100dvh) {
+		.app-layout {
+			height: 100dvh;
+			min-height: 100dvh;
+		}
 	}
 
 	.app-main {
@@ -92,7 +99,7 @@
 		margin: 0;
 		color: #ffffff;
 		font-family: "Space Grotesk", Arial, Helvetica, sans-serif;
-		font-size: clamp(56px, 5vw, 80px);
+		font-size: 72px;
 		font-weight: 700;
 		letter-spacing: 0;
 		line-height: 0.9;
@@ -123,7 +130,7 @@
 		background: #000000;
 		color: #ffffff;
 		font-family: "Space Grotesk", Arial, Helvetica, sans-serif;
-		font-size: clamp(28px, 6vw, 56px);
+		font-size: 48px;
 		font-weight: 700;
 		letter-spacing: 0;
 		line-height: 1;
@@ -374,7 +381,7 @@
 	.article-row-title {
 		color: inherit;
 		font-family: "Space Grotesk", Arial, Helvetica, sans-serif;
-		font-size: clamp(28px, 3.2vw, 40px);
+		font-size: 36px;
 		font-weight: 700;
 		letter-spacing: 0;
 		line-height: 1.15;
@@ -438,7 +445,7 @@
 		margin: 0;
 		color: #ffffff;
 		font-family: "Space Grotesk", Arial, Helvetica, sans-serif;
-		font-size: clamp(56px, 7vw, 86px);
+		font-size: 80px;
 		font-weight: 700;
 		letter-spacing: 0;
 		line-height: 0.96;
@@ -532,7 +539,7 @@
 		padding: 32px;
 		color: #ffffff;
 		font-family: "Space Grotesk", Arial, Helvetica, sans-serif;
-		font-size: clamp(28px, 5vw, 64px);
+		font-size: 56px;
 		font-weight: 700;
 		letter-spacing: 0;
 		line-height: 1;
@@ -624,7 +631,7 @@
 
 		.detail-hero h1 {
 			max-width: 100%;
-			font-size: clamp(44px, 6vw, 70px);
+			font-size: 64px;
 		}
 	}
 }
@@ -636,9 +643,13 @@
 			flex-direction: column;
 			height: auto;
 			min-height: 100vh;
-			min-height: 100svh;
-			min-height: 100dvh;
 			overflow: visible;
+		}
+
+		@supports (min-height: 100dvh) {
+			.app-layout {
+				min-height: 100dvh;
+			}
 		}
 
 		.app-main {
@@ -650,6 +661,14 @@
 		.login-page {
 			display: block;
 			padding: 48px 24px 80px;
+		}
+
+		.login-title {
+			font-size: 56px;
+		}
+
+		.password-input {
+			font-size: 32px;
 		}
 
 		.top-bar {
@@ -718,6 +737,7 @@
 			position: static;
 			min-height: 420px;
 			padding: 24px 18px;
+			font-size: 36px;
 		}
 
 		.detail-hero {

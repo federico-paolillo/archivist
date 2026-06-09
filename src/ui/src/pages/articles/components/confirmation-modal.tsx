@@ -20,6 +20,13 @@ export function ConfirmationModal({
 	titleId,
 }: ConfirmationModalProps) {
 	const modalRef = useRef<HTMLDivElement>(null);
+	const isDeletingRef = useRef(isDeleting);
+	const onCancelRef = useRef(onCancel);
+
+	useEffect(() => {
+		isDeletingRef.current = isDeleting;
+		onCancelRef.current = onCancel;
+	});
 
 	useEffect(() => {
 		const previouslyFocused =
@@ -36,6 +43,14 @@ export function ConfirmationModal({
 		initialFocus.focus();
 
 		function handleKeyDown(event: KeyboardEvent) {
+			if (event.key === "Escape") {
+				if (!isDeletingRef.current) {
+					event.preventDefault();
+					onCancelRef.current();
+				}
+				return;
+			}
+
 			if (event.key !== "Tab" || !modal) {
 				return;
 			}
@@ -50,6 +65,9 @@ export function ConfirmationModal({
 
 			const firstElement = focusableElements[0];
 			const lastElement = focusableElements[focusableElements.length - 1];
+			if (!firstElement || !lastElement) {
+				return;
+			}
 			const activeElement = document.activeElement;
 
 			if (!modal.contains(activeElement)) {

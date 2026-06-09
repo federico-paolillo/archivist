@@ -25,10 +25,21 @@ markdownRenderer.renderer.rules.link_open = (
 	self: Renderer,
 ) => {
 	const token = tokens[index];
+	if (!token) {
+		return "";
+	}
+
 	token.attrSet("target", "_blank");
 	token.attrSet("rel", "noopener noreferrer");
 
 	return defaultLinkOpen(tokens, index, options, env, self);
+};
+
+markdownRenderer.renderer.rules.image = (tokens: Token[], index: number) => {
+	const token = tokens[index];
+	const altText = token?.content.trim() || "image";
+
+	return `<span class="markdown-image-placeholder">${escapeHtml(`![${altText}]`)}</span>`;
 };
 
 export function MarkdownContent({ markdown }: MarkdownContentProps) {
@@ -39,4 +50,13 @@ export function MarkdownContent({ markdown }: MarkdownContentProps) {
 			dangerouslySetInnerHTML={{ __html: markdownRenderer.render(markdown) }}
 		/>
 	);
+}
+
+function escapeHtml(value: string) {
+	return value
+		.replaceAll("&", "&amp;")
+		.replaceAll("<", "&lt;")
+		.replaceAll(">", "&gt;")
+		.replaceAll('"', "&quot;")
+		.replaceAll("'", "&#39;");
 }

@@ -96,6 +96,10 @@ func (p *SnapshotPipeline) ProcessOne(ctx context.Context) (bool, error) {
 		processSpan.RecordError(urlErr)
 		processSpan.SetStatus(codes.Error, urlErr.Error())
 
+		if errors.Is(urlErr, jobs.ErrOwnershipMismatch) {
+			return p.persistOwnershipMismatch(ctx, job, urlErr, time.Since(start))
+		}
+
 		return false, fmt.Errorf("pipeline: load article URL for %s: %w", job.ArticleID, urlErr)
 	}
 

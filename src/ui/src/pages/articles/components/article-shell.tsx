@@ -18,7 +18,7 @@ interface ArticleShellProps {
 	api: ApiClient;
 	onAuthExpired: () => void;
 	onLogout: () => void;
-	selectedArticleId?: string;
+	selectedArticleId?: string | undefined;
 }
 
 export function ArticleShell({

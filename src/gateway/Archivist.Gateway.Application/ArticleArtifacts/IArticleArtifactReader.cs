@@ -6,12 +6,12 @@ namespace Archivist.Gateway.Application.ArticleArtifacts;
 public interface IArticleArtifactReader
 {
     /// <summary>
-    /// Reads the extracted Markdown content artifact for an article.
+    /// Opens the extracted Markdown content artifact for an article.
     /// </summary>
-    Task<string> ReadContentMarkdownAsync(string articleId, CancellationToken cancellationToken);
+    Task<TextReader> OpenContentMarkdownAsync(string articleId, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Reads the final v0 summary Markdown artifact for an article.
+    /// Opens the final v0 summary Markdown artifact for an article.
     /// </summary>
-    Task<string> ReadSummaryMarkdownAsync(string articleId, CancellationToken cancellationToken);
+    Task<TextReader> OpenSummaryMarkdownAsync(string articleId, CancellationToken cancellationToken);
 }

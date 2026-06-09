@@ -4,7 +4,7 @@ import { ArticleShell } from "@archivist/pages/articles/components/article-shell
 import { useLocation } from "preact-iso";
 
 interface ArticlesPageProps {
-	articleId?: string;
+	articleId?: string | undefined;
 	deps: Deps;
 }
 

@@ -19,6 +19,9 @@
 		"noEmit": true,
 		"jsx": "react-jsx",
 		"jsxImportSource": "preact",
+		"strict": true,
+		"exactOptionalPropertyTypes": true,
+		"noUncheckedIndexedAccess": true,
 		/* Linting */
 		"noUnusedLocals": true,
 		"noUnusedParameters": true,

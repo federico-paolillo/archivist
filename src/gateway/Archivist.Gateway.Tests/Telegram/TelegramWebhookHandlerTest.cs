@@ -92,6 +92,35 @@ public sealed class TelegramWebhookHandlerTest
         Assert.Equal(MappedUserId, command.UserId);
     }
 
+    [Theory]
+    [InlineData("https://example.com/article\u00A0extra")]
+    [InlineData("https://example.com/article\u2003extra")]
+    [InlineData("https://example.com/article\t extra")]
+    public async Task HandleAsync_AuthorizedUrlWithInternalWhitespace_ReturnsInvalidUrlAndSendsInvalidReply(
+        string messageText)
+    {
+        var repo = new FakeTelegramIngestionRepository();
+        var client = new FakeTelegramClient();
+        var handler = CreateHandler(repo, client);
+
+        var result = await handler.HandleAsync(
+            new TelegramWebhookCommand(
+                WebhookSecret,
+                UpdateId: 5,
+                SenderUserId: MappedTelegramUserId,
+                ChatId: ChatId,
+                MessageId: MessageId,
+                MessageText: messageText),
+            CancellationToken.None);
+
+        Assert.Equal(TelegramWebhookOutcome.InvalidUrl, result.Outcome);
+        Assert.False(repo.WasCalled);
+        var reply = Assert.Single(client.SentReplies);
+        Assert.Equal(ChatId, reply.ChatId);
+        Assert.Equal(MessageId, reply.ReplyToMessageId);
+        Assert.Equal("Nope, you must send only an URL", reply.Text);
+    }
+
     [Fact]
     public async Task HandleAsync_UnmappedSender_ReturnsUnauthorizedWithNoSideEffectsOrReply()
     {

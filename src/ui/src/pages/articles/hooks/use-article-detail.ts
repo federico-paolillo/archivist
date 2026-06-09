@@ -11,11 +11,11 @@ interface UseArticleDetailProps {
 	api: ApiClient;
 	findArticle: (articleId: string) => ArticleMetadata | undefined;
 	onAuthExpired: () => void;
-	selectedArticleId?: string;
+	selectedArticleId?: string | undefined;
 }
 
 interface ShowDetailErrorProps {
-	article?: ArticleMetadata | ArticleDetail;
+	article?: ArticleMetadata | ArticleDetail | undefined;
 	message: string;
 }
 

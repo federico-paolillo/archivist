@@ -82,11 +82,12 @@ public sealed partial class TelegramNotificationDispatcher(
         string summary;
         try
         {
-            summary = await artifactReader
-                .ReadSummaryMarkdownAsync(notification.ArticleId, cancellationToken)
+            using var reader = await artifactReader
+                .OpenSummaryMarkdownAsync(notification.ArticleId, cancellationToken)
                 .ConfigureAwait(false);
+            summary = await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
         }
-        catch (ArticleArtifactReadException ex)
+        catch (Exception ex) when (ex is ArticleArtifactReadException or IOException or UnauthorizedAccessException)
         {
             const string artifactError = "Summary artifact missing or unreadable.";
             var failedAt = timeProvider.GetUtcNow();
