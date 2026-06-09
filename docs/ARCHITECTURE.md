@@ -250,6 +250,8 @@ The v0 topology does not target high scalability, multi-region deployment, or re
 
 GitHub Actions is the canonical repository automation surface. CI runs on pushes to `main` and must fail when Gateway, Worker, UI, or Snapshotter build, lint, formatting, type-checking, or test validation fails. Coverage upload is deferred until the component test commands emit coverage reports.
 
+Gateway validation uses the exact .NET SDK pinned by `src/gateway/global.json`. The Gateway container build stage must use the matching `mcr.microsoft.com/dotnet/sdk` image tag so local, CI, and release builds use the same SDK feature band.
+
 CD is a manually dispatched release workflow. It checks out the requested release ref, validates the same component gates as CI, builds and pushes multi-architecture `linux/amd64` and `linux/arm64` images for Gateway, Worker, UI, and Snapshotter to GitHub Container Registry, emits GitHub artifact attestations for each pushed image, tags the resolved release commit, and opens a draft GitHub release. The UI image build receives the resolved release commit SHA through the `VERSION_LABEL` Docker build argument.
 
 `docker-compose.yaml` is the development Compose file and keeps local `build:` entries. Production releases are generated from the repository source file `docker-compose.prod.yaml`, which has no `build:` entries and receives Gateway, Worker, UI, and Snapshotter images through `ARCHIVIST_GATEWAY_IMAGE`, `ARCHIVIST_WORKER_IMAGE`, `ARCHIVIST_UI_IMAGE`, and `ARCHIVIST_SNAPSHOTTER_IMAGE`. The CD workflow generates a release package under `release/compose/`, validates the packaged production Compose model with Docker Compose, and publishes it as a compressed deployment artifact attached to both the workflow run and the draft GitHub release. The package contents are `docker-compose.yml`, `.env`, digest-pinned `.env.images`, `rp.Caddyfile`, and `otelcol-config.yaml`. Operators deploy with the packaged runtime `.env` first and the release-provided `.env.images` file second so release image pins override accidental local image values.
@@ -289,7 +291,7 @@ http://:65000 {
 }
 ```
 
-`X-Forwarded-Proto` must be the literal value `https`. Using Caddy's `{scheme}` would forward `http` in this topology and make Gateway reject HTTPS-required auth flows. `GATEWAY_PUBLIC_HOSTS` must match the public hostname supplied through the forwarded host context.
+`X-Forwarded-Proto` must be the literal value `https`. Using Caddy's `{scheme}` would forward `http` in this topology and make Gateway reject HTTPS-required auth flows. `GATEWAY_PUBLIC_HOSTS` must match the public hostname supplied through the forwarded host context. Gateway trusts forwarded headers because only the reverse proxy is supposed to reach it on the Docker internal network; this is a documented deployment invariant rather than a static source-IP allowlist because the upstream load balancer may use dynamic source IPs.
 
 If a future deployment sends TLS all the way to Caddy, then Caddy becomes the TLS endpoint and must be configured with a real certificate strategy. That alternate topology must be documented before use.
 
@@ -307,7 +309,7 @@ Security boundaries:
 - `AUTH_BOOTSTRAP_PASSWORD` is a one-time secret used only to initialize `users.password_hash` when missing.
 - Browser auth uses an opaque server-issued session id in `__Host-app-auth`, with `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/`, no `Domain`, browser-session cookie lifetime, and 24-hour server-side absolute expiry.
 - UI/API auth HTTPS decisions use the effective public request context after trusted forwarded-header processing.
-- Gateway must not be exposed directly to the public Internet while trusting forwarded headers.
+- Gateway must not be exposed directly to the public Internet while trusting forwarded headers. If it is exposed directly, clients may spoof `X-Forwarded-Proto` or `X-Forwarded-Host`, which can make Gateway evaluate auth HTTPS and host decisions using attacker-supplied public context.
 - Gateway auth integrates with ASP.NET Core through a custom `"app-cookie"` authentication handler registered by `AddAppCookie()`.
 - v0 stores auth sessions in memory behind `ISessionStore`; gateway restart invalidates existing auth sessions by design.
 - Multi-replica UI/API auth requires a shared `ISessionStore`, with Redis preferred, and shared login throttling state.

@@ -18,9 +18,7 @@ func TestEnqueueCommandCreatesQueuedNonTelegramJob(t *testing.T) {
 	application, cfg := newProcessTestApp(t)
 	seedProcessUser(t, application.DB)
 
-	withArgs(t, "archivist-worker", "enqueue", "https://example.com/article")
-
-	err := CliProgram(t.Context(), application, cfg)
+	err := runCLIProgram(t.Context(), application, cfg, []string{"archivist-worker", "enqueue", "https://example.com/article"})
 	require.NoError(t, err)
 
 	var (
@@ -113,9 +111,7 @@ func TestEnqueueCommandRejectsInvalidArguments(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			application, cfg := newProcessTestApp(t)
 			seedProcessUser(t, application.DB)
-			withArgs(t, tt.args...)
-
-			err := CliProgram(t.Context(), application, cfg)
+			err := runCLIProgram(t.Context(), application, cfg, tt.args)
 
 			require.Error(t, err)
 			assert.ErrorContains(t, err, tt.want)
@@ -139,13 +135,11 @@ func TestEnqueueCommandCreatedJobCanBeProcessed(t *testing.T) {
 	defer srv.Close()
 	installProcessTestPipeline(t, application, srv.Listener.Addr().String())
 
-	withArgs(t, "archivist-worker", "enqueue", "https://article.example/article")
-	require.NoError(t, CliProgram(t.Context(), application, cfg))
+	require.NoError(t, runCLIProgram(t.Context(), application, cfg, []string{"archivist-worker", "enqueue", "https://article.example/article"}))
 
 	articleID := scalarString(t, application.DB, `SELECT id FROM articles LIMIT 1`)
 
-	withArgs(t, "archivist-worker", "process", "--once")
-	require.NoError(t, CliProgram(t.Context(), application, cfg))
+	require.NoError(t, runCLIProgram(t.Context(), application, cfg, []string{"archivist-worker", "process", "--once"}))
 
 	snapshot, err := application.ArtifactStore.OpenSnapshot(articleID)
 	require.NoError(t, err)
@@ -166,9 +160,7 @@ func TestEnqueueCommandCreatedJobCanBeProcessed(t *testing.T) {
 
 func TestEnqueueCommandFailsWhenDefaultUserIsMissing(t *testing.T) {
 	application, cfg := newProcessTestApp(t)
-	withArgs(t, "archivist-worker", "enqueue", "https://example.com/article")
-
-	err := CliProgram(t.Context(), application, cfg)
+	err := runCLIProgram(t.Context(), application, cfg, []string{"archivist-worker", "enqueue", "https://example.com/article"})
 
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "default user "+jobs.DefaultUserID+" is missing")

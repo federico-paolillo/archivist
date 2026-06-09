@@ -28,27 +28,30 @@ export function ArticleMasterList({
 			{!isLoading && !error && articles.length === 0 ? (
 				<p className="master-message">No articles.</p>
 			) : null}
-			{articles.map((article) => (
-				<button
-					className={
-						article.id === selectedArticleId
-							? "article-row article-row-selected"
-							: "article-row"
-					}
-					key={article.id}
-					type="button"
-					onClick={() => {
-						onSelect(article.id);
-					}}
-				>
-					<span className="article-row-id">ID: {article.id}</span>
-					<span className="article-row-title">{articleTitle(article)}</span>
-					<span className="article-row-url">
-						{articleSourceUrl(article) || "No source URL"}
-					</span>
-					<span className="article-row-status">{article.status}</span>
-				</button>
-			))}
+			{articles.map((article) => {
+				const isSelected = article.id === selectedArticleId;
+
+				return (
+					<button
+						aria-pressed={isSelected}
+						className={
+							isSelected ? "article-row article-row-selected" : "article-row"
+						}
+						key={article.id}
+						type="button"
+						onClick={() => {
+							onSelect(article.id);
+						}}
+					>
+						<span className="article-row-id">ID: {article.id}</span>
+						<span className="article-row-title">{articleTitle(article)}</span>
+						<span className="article-row-url">
+							{articleSourceUrl(article) || "No source URL"}
+						</span>
+						<span className="article-row-status">{article.status}</span>
+					</button>
+				);
+			})}
 		</aside>
 	);
 }

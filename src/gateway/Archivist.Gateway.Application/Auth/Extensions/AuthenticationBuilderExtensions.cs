@@ -16,14 +16,12 @@ public static class AuthenticationBuilderExtensions
     /// Default cookie name: <c>"__Host-app-auth"</c>.
     /// Default session lifetime: 24 hours.
     /// </summary>
-    public static AuthenticationBuilder AddAppCookie(
-        this AuthenticationBuilder builder,
-        Action<AppCookieSettings>? configure = null)
+    public static AuthenticationBuilder AddAppCookie(this AuthenticationBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
 
-        return builder.AddScheme<AppCookieSettings, AppCookieAuthenticationHandler>(
+        return builder.AddScheme<AuthenticationSchemeOptions, AppCookieAuthenticationHandler>(
             AppCookieDefaults.AuthenticationScheme,
-            configure);
+            configureOptions: null);
     }
 }

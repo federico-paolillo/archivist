@@ -340,3 +340,23 @@ Follow-ups:
 
 Canonical Updates:
 - `docs/DESIGN.md` — DSGN-015 now uses `AppCookieSettings`.
+
+## 2026-06-06 — AUTHN-007 done
+
+- **Task:** AUTHN-007 Auth review hardening
+- **Status outcome:** done
+- **Summary:** Added Gateway app-cookie options validation for the canonical `__Host-app-auth` cookie name and 24-hour session lifetime. Preserved the forwarded-header implementation model and promoted the private reverse-proxy invariant to canonical docs and README deployment warnings.
+- **Decisions made:** Auth cookie name and session lifetime remain canonical constants, even though the options type remains for ASP.NET Core integration. Forwarded-header trust remains deployment-scoped rather than static-IP-scoped because the operator-controlled VPS can sit behind a load balancer with dynamic source IPs.
+- **Validation performed:** Gateway `dotnet format`, `dotnet build`, and `dotnet test` could not run because `dotnet` is unavailable in this environment. Gateway worker reported `git diff --check -- src/gateway` passed.
+- **Follow-ups:** Run Gateway validation in an environment with the .NET SDK installed.
+- **Canonical documents updated:** `SPEC.md`, `PLAN.md`, `tasks/AUTHN-007-auth-review-hardening.md`, `docs/DESIGN.md`, `docs/ARCHITECTURE.md`, and `README.md`.
+
+## 2026-06-06 — AUTHN-007 app-cookie settings correction
+
+- **Task:** AUTHN-007 Auth review hardening
+- **Status outcome:** done
+- **Summary:** Removed the `AppCookieSettings` options type and related validation surface. Gateway auth now consumes `AppCookieDefaults.CookieName` and `AppCookieDefaults.SessionLifetime` directly in the authentication handler and login/logout endpoints.
+- **Decisions made:** Because the cookie name and session lifetime are canonical invariants, they are not configuration. Configuration keys such as `AppCookie:CookieName` and `AppCookie:SessionLifetime` must have no effect.
+- **Validation performed:** `dotnet format`; `dotnet build`; `dotnet test`.
+- **Follow-ups:** None.
+- **Canonical documents updated:** `SPEC.md`, `tasks/AUTHN-007-auth-review-hardening.md`, and `docs/DESIGN.md`.

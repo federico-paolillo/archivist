@@ -15,7 +15,7 @@ This file is the feature-level implementation control board for the v0 UI/API au
 ## Task DAG
 
 ```text
-AUTHN-001 -> AUTHN-002 -> AUTHN-003 -> AUTHN-004 -> AUTHN-006 -> AUTHN-005
+AUTHN-001 -> AUTHN-002 -> AUTHN-003 -> AUTHN-004 -> AUTHN-006 -> AUTHN-005 -> AUTHN-007
 ```
 
 ---
@@ -51,7 +51,8 @@ AUTHN-001 -> AUTHN-002 -> AUTHN-003 -> AUTHN-004 -> AUTHN-006 -> AUTHN-005
 | `AUTHN-003` | Gateway opaque session cookie authentication | done | `AUTHN-002` | `AUTHN-004`, `UIEND-002`, `UIEND-003` | no | `plans/AUTHN-003-gateway-cookie-authentication.execplan.md` (completed) |
 | `AUTHN-004` | Protect UI API and validate auth client contract | done | `AUTHN-003` | `AUTHN-006`, `UI-002` | no | - |
 | `AUTHN-006` | Reverse-proxy forwarded headers and effective HTTPS auth | done | `AUTHN-004` | `AUTHN-005` | no | `plans/AUTHN-006-reverse-proxy-forwarded-headers.execplan.md` (completed) |
-| `AUTHN-005` | Security validation pass | done | `AUTHN-006` | - | no | - |
+| `AUTHN-005` | Security validation pass | done | `AUTHN-006` | `AUTHN-007` | no | - |
+| `AUTHN-007` | Auth review hardening | done | `AUTHN-005` | - | no | - |
 
 ---
 
@@ -70,7 +71,7 @@ AUTHN-001 -> AUTHN-002 -> AUTHN-003 -> AUTHN-004 -> AUTHN-006 -> AUTHN-005
 
 - `users.password_hash` Argon2id PHC storage.
 - `ISessionStore` and `SessionEntry`.
-- `AppCookieAuthenticationHandler`, `AppCookieSettings`, and `AddAppCookie()`.
+- `AppCookieAuthenticationHandler`, `AppCookieDefaults`, and `AddAppCookie()`.
 - `POST /login`, `POST /logout`, and `GET /auth/session`.
 - Cookie name and attributes for `__Host-app-auth`.
 - 32-byte base64url opaque session id generation and 24-hour server-side absolute expiry.

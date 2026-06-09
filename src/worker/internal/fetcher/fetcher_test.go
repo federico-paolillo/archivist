@@ -44,7 +44,7 @@ func TestFetchSuccessWithRedirect(t *testing.T) {
 	}))
 	defer finalServer.Close()
 
-	f := fetcher.New(req.NewClient())
+	f := fetcher.New(newFetcherTestClient())
 
 	result, err := f.Fetch(t.Context(), redirectServer.URL)
 
@@ -63,7 +63,7 @@ func TestFetchHTMLSuccess(t *testing.T) {
 	}))
 	defer server.Close()
 
-	f := fetcher.New(req.NewClient())
+	f := fetcher.New(newFetcherTestClient())
 
 	result, err := f.Fetch(t.Context(), server.URL)
 
@@ -80,7 +80,7 @@ func TestFetchXHTMLSuccess(t *testing.T) {
 	}))
 	defer server.Close()
 
-	f := fetcher.New(req.NewClient())
+	f := fetcher.New(newFetcherTestClient())
 
 	result, err := f.Fetch(t.Context(), server.URL)
 
@@ -94,7 +94,7 @@ func TestFetch401ReturnsARC002(t *testing.T) {
 	}))
 	defer server.Close()
 
-	f := fetcher.New(req.NewClient())
+	f := fetcher.New(newFetcherTestClient())
 
 	_, err := f.Fetch(t.Context(), server.URL)
 
@@ -108,7 +108,7 @@ func TestFetch403ReturnsARC002(t *testing.T) {
 	}))
 	defer server.Close()
 
-	f := fetcher.New(req.NewClient())
+	f := fetcher.New(newFetcherTestClient())
 
 	_, err := f.Fetch(t.Context(), server.URL)
 
@@ -122,7 +122,7 @@ func TestFetch404ReturnsARC003(t *testing.T) {
 	}))
 	defer server.Close()
 
-	f := fetcher.New(req.NewClient())
+	f := fetcher.New(newFetcherTestClient())
 
 	_, err := f.Fetch(t.Context(), server.URL)
 
@@ -136,7 +136,7 @@ func TestFetch410ReturnsARC004(t *testing.T) {
 	}))
 	defer server.Close()
 
-	f := fetcher.New(req.NewClient())
+	f := fetcher.New(newFetcherTestClient())
 
 	_, err := f.Fetch(t.Context(), server.URL)
 
@@ -152,7 +152,7 @@ func TestFetchNonHTMLContentTypeReturnsARC005(t *testing.T) {
 	}))
 	defer server.Close()
 
-	f := fetcher.New(req.NewClient())
+	f := fetcher.New(newFetcherTestClient())
 
 	_, err := f.Fetch(t.Context(), server.URL)
 
@@ -187,7 +187,7 @@ func TestFetchOversizedBodyReturnsARC006(t *testing.T) {
 	}))
 	defer server.Close()
 
-	f := fetcher.New(req.NewClient())
+	f := fetcher.New(newFetcherTestClient())
 
 	_, err := f.Fetch(t.Context(), server.URL)
 
@@ -203,7 +203,7 @@ func TestFetchTimeoutReturnsARC004(t *testing.T) {
 	}))
 	defer server.Close()
 
-	f := fetcher.New(req.NewClient())
+	f := fetcher.New(newFetcherTestClient())
 
 	ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
 	defer cancel()
@@ -216,7 +216,7 @@ func TestFetchTimeoutReturnsARC004(t *testing.T) {
 }
 
 func TestFetchFTPSchemeReturnsARC001(t *testing.T) {
-	f := fetcher.New(req.NewClient())
+	f := fetcher.New(newFetcherTestClient())
 
 	_, err := f.Fetch(t.Context(), "ftp://example.com/file.txt")
 
@@ -225,7 +225,7 @@ func TestFetchFTPSchemeReturnsARC001(t *testing.T) {
 }
 
 func TestFetchFileSchemeReturnsARC001(t *testing.T) {
-	f := fetcher.New(req.NewClient())
+	f := fetcher.New(newFetcherTestClient())
 
 	_, err := f.Fetch(t.Context(), "file:///etc/passwd")
 
@@ -234,7 +234,7 @@ func TestFetchFileSchemeReturnsARC001(t *testing.T) {
 }
 
 func TestFetchEmptySchemeReturnsARC001(t *testing.T) {
-	f := fetcher.New(req.NewClient())
+	f := fetcher.New(newFetcherTestClient())
 
 	_, err := f.Fetch(t.Context(), "not-a-url")
 
@@ -248,7 +248,7 @@ func TestFetch5xxReturnsARC004(t *testing.T) {
 	}))
 	defer server.Close()
 
-	f := fetcher.New(req.NewClient())
+	f := fetcher.New(newFetcherTestClient())
 
 	_, err := f.Fetch(t.Context(), server.URL)
 
@@ -342,6 +342,28 @@ func TestFetchWithSSRFGuardRejectsRedirectToPrivateResolvedTarget(t *testing.T) 
 	require.ErrorIs(t, err, arc.ErrSSRFDetected)
 }
 
+func TestFetchWithSSRFGuardIgnoresAmbientProxyEnv(t *testing.T) {
+	t.Setenv("HTTP_PROXY", "http://127.0.0.1:9")
+	t.Setenv("HTTPS_PROXY", "http://127.0.0.1:9")
+	t.Setenv("http_proxy", "http://127.0.0.1:9")
+	t.Setenv("https_proxy", "http://127.0.0.1:9")
+
+	server := newGuardedTLSServer(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(minimalHTML))
+	}))
+
+	result, err := server.fetcher.Fetch(t.Context(), "https://article.example/article")
+
+	require.NoError(t, err)
+	require.Equal(t, []byte(minimalHTML), result.Body)
+}
+
+func newFetcherTestClient() *req.Client {
+	return req.NewClient().SetProxy(nil)
+}
+
 func assertFetcherError(t *testing.T, err error, op string, statusCode int) *fetcher.FetcherError {
 	t.Helper()
 
@@ -373,6 +395,7 @@ func newGuardedTLSServer(t *testing.T, handler http.Handler) *guardedTLSServer {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	guard := ssrf.New(logger, ssrf.WithResolver(resolver), ssrf.WithDialer(dialer))
 	client := req.NewClient().
+		SetProxy(nil).
 		EnableInsecureSkipVerify().
 		OnBeforeRequest(guard.RequestMiddleware()).
 		SetRedirectPolicy(guard.RedirectPolicy()).

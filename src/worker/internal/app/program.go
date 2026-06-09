@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"time"
 
 	pkgapp "codeberg.org/federico-paolillo/archivist/pkg/app"
 	"codeberg.org/federico-paolillo/archivist/pkg/app/config"
@@ -27,8 +28,29 @@ func globalFlags() []cli.Flag {
 	}
 }
 
-func CliProgram(ctx context.Context, a *pkgapp.App, cfg *config.Root) error {
-	cmd := &cli.Command{
+type processCommandOptions struct {
+	Once      bool
+	IdleSleep time.Duration
+}
+
+func runEnqueueCommand(ctx context.Context, a *pkgapp.App, args []string) error {
+	if len(args) != 1 {
+		return fmt.Errorf("enqueue: expected exactly one URL argument, got %d", len(args))
+	}
+
+	return enqueue(ctx, a, args[0])
+}
+
+func runProcessCommand(ctx context.Context, a *pkgapp.App, opts processCommandOptions) error {
+	return process(ctx, a, opts.Once, opts.IdleSleep)
+}
+
+func runVersionCommand(ctx context.Context, a *pkgapp.App) error {
+	return version(ctx, a)
+}
+
+func newCLICommand(a *pkgapp.App, cfg *config.Root) *cli.Command {
+	return &cli.Command{
 		Name:  "archivist-worker",
 		Usage: "Injests web-pages sent to the Archivist Telegram bot",
 		Flags: globalFlags(),
@@ -43,11 +65,7 @@ func CliProgram(ctx context.Context, a *pkgapp.App, cfg *config.Root) error {
 				Usage:     "Enqueue an article URL for processing",
 				ArgsUsage: "<url>",
 				Action: func(ctx context.Context, cmd *cli.Command) error {
-					if cmd.NArg() != 1 {
-						return fmt.Errorf("enqueue: expected exactly one URL argument, got %d", cmd.NArg())
-					}
-
-					return enqueue(ctx, a, cmd.Args().First())
+					return runEnqueueCommand(ctx, a, cmd.Args().Slice())
 				},
 			},
 			{
@@ -65,23 +83,34 @@ func CliProgram(ctx context.Context, a *pkgapp.App, cfg *config.Root) error {
 					},
 				},
 				Action: func(ctx context.Context, cmd *cli.Command) error {
-					return process(ctx, a, cmd.Bool("once"), cmd.Duration("idle-sleep"))
+					return runProcessCommand(ctx, a, processCommandOptions{
+						Once:      cmd.Bool("once"),
+						IdleSleep: cmd.Duration("idle-sleep"),
+					})
 				},
 			},
 			{
 				Name:  "version",
 				Usage: "Dummy command. Prints the Go version",
-				Action: func(ctx context.Context, cmd *cli.Command) error {
-					return version(ctx, a)
+				Action: func(ctx context.Context, _ *cli.Command) error {
+					return runVersionCommand(ctx, a)
 				},
 			},
 		},
 	}
+}
 
-	err := cmd.Run(ctx, os.Args)
+func runCLIProgram(ctx context.Context, a *pkgapp.App, cfg *config.Root, args []string) error {
+	cmd := newCLICommand(a, cfg)
+
+	err := cmd.Run(ctx, args)
 	if err != nil {
 		return fmt.Errorf("cli: %w", err)
 	}
 
 	return nil
+}
+
+func CliProgram(ctx context.Context, a *pkgapp.App, cfg *config.Root) error {
+	return runCLIProgram(ctx, a, cfg, os.Args)
 }

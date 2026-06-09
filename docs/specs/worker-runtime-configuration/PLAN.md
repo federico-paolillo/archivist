@@ -13,7 +13,7 @@ Correct Worker runtime configuration binding so canonical deployment keys config
 ## Task DAG
 
 ```text
-WCFG-001 -> WCFG-002
+WCFG-001 -> WCFG-002 -> WCFG-003
 ```
 
 ## Tasks
@@ -21,7 +21,8 @@ WCFG-001 -> WCFG-002
 | ID | Task | Status | Depends On | Blocks | Parallel | ExecPlan |
 |---|---|---|---|---|---|---|
 | `WCFG-001` | Canonical Worker config loading | done | - | `SUMGEN-002`, `SUMGEN-004` | no | `plans/WCFG-001-canonical-worker-config-loading.execplan.md` |
-| `WCFG-002` | Non-Optional Worker Composition | done | `WCFG-001` | `SUMGEN-002`, `SUMGEN-004` | no | `plans/WCFG-002-non-optional-worker-composition.execplan.md` |
+| `WCFG-002` | Non-Optional Worker Composition | done | `WCFG-001` | `WCFG-003`, `SUMGEN-002`, `SUMGEN-004` | no | `plans/WCFG-002-non-optional-worker-composition.execplan.md` |
+| `WCFG-003` | CLI command wrapper hardening | done | `WCFG-002` | - | no | - |
 
 ## Blocking Interfaces or Schemas
 

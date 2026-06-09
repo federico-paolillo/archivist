@@ -230,3 +230,13 @@ Follow-ups:
 
 Canonical Updates:
 - None; historical diary entry only.
+
+## 2026-06-06 — UIEND-004 done
+
+- **Task:** UIEND-004 Delete review hardening
+- **Status outcome:** done
+- **Summary:** Normal delete now normalizes valid ULID route values before service calls. The known SQLite/filesystem delete atomicity limitation was documented as a v0 design decision and artifact contract note.
+- **Decisions made:** v0 keeps the current transaction-before-artifact-cleanup ordering and documents the rare artifact-deleted/commit-failed repair case instead of adding repair queues, tombstones, or cleanup jobs.
+- **Validation performed:** `git diff --check`; `cd src/gateway && dotnet format --verify-no-changes`; `cd src/gateway && dotnet build`; `cd src/gateway && dotnet test` passed with 197 tests.
+- **Follow-ups:** None.
+- **Canonical documents updated:** `SPEC.md`, `PLAN.md`, `tasks/UIEND-004-delete-review-hardening.md`, `docs/DESIGN.md`, `docs/ARTIFACTS.md`, and `docs/specs/job-recovery/SPEC.md`.

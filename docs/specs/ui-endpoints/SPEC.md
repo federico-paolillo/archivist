@@ -76,7 +76,8 @@ Not included:
 - REQ-023: `DELETE /articles/{id}` must enforce same-origin unsafe-method protection.
 - REQ-024: JSON response bodies must use lower-camel property names.
 - REQ-025: Delete and worker job claim must serialize through SQLite write transactions. Delete must recheck associated job status inside the delete transaction, and worker claim must not claim jobs whose article row has been deleted.
-- REQ-026: Article endpoint logs and spans must attach `user_id` when the authenticated session user id is available.
+- REQ-026: `DELETE /articles/{id}` must normalize valid ULID route values before querying or deleting so normal delete, detail, and force-delete route semantics agree for canonical and non-canonical casing.
+- REQ-027: Article endpoint logs and spans must attach `user_id` when the authenticated session user id is available.
 
 ## Acceptance Criteria
 

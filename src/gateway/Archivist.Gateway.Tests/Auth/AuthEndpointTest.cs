@@ -147,6 +147,29 @@ public sealed class AuthEndpointTest(ITestOutputHelper testOutputHelper) : Integ
         Assert.DoesNotContain("Max-Age=", setCookie, StringComparison.OrdinalIgnoreCase);
     }
 
+
+    [Fact]
+    public async Task PostLogin_AppCookieConfigurationDrift_StillUsesCanonicalCookieAndSessionLifetime()
+    {
+        var (sessionStore, _, fakeTime) = SetupSuccessEnvironment(
+            extraConfiguration: new Dictionary<string, string?>
+            {
+                ["AppCookie:CookieName"] = "app-auth",
+                ["AppCookie:SessionLifetime"] = "12:00:00",
+            });
+
+        var response = await SendLoginWithOrigin(ValidPassword());
+        var setCookie = GetAuthCookieHeader(response);
+        var sessionId = ExtractCookieValue(setCookie);
+
+        var entry = await sessionStore.GetAsync(sessionId);
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.NotNull(setCookie);
+        Assert.NotNull(entry);
+        Assert.Equal(fakeTime.GetUtcNow() + AppCookieDefaults.SessionLifetime, entry.AbsoluteExpiresAt);
+    }
+
     [Fact]
     public async Task PostLogin_ValidPassword_CreatesSessionForPasswordStoreUser()
     {
@@ -630,7 +653,8 @@ public sealed class AuthEndpointTest(ITestOutputHelper testOutputHelper) : Integ
         Action<IServiceCollection>? configureServices = null,
         string publicHosts = PublicHost,
         IReadOnlyList<PasswordCredential>? passwordCredentials = null,
-        IPasswordHasher? passwordHasherOverride = null)
+        IPasswordHasher? passwordHasherOverride = null,
+        Dictionary<string, string?>? extraConfiguration = null)
     {
         var fakeTime = new FakeTimeProvider();
         var sessionStore = new InMemorySessionStore(fakeTime);
@@ -656,7 +680,8 @@ public sealed class AuthEndpointTest(ITestOutputHelper testOutputHelper) : Integ
                 cfg.AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["GATEWAY_PUBLIC_HOSTS"] = publicHosts,
-                }));
+                })
+                .AddInMemoryCollection(extraConfiguration ?? []));
 
         return (sessionStore, passwordStore, fakeTime);
     }

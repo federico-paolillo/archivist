@@ -68,9 +68,11 @@ Not included:
 - REQ-015: `/articles` and `/articles/<article_id>` must share one authenticated master-detail application shell.
 - REQ-016: The articles shell must include a top title bar with `Archivist` on the left and a user icon on the right.
 - REQ-017: Clicking the user icon must open a menu containing only `Logout`.
+- REQ-017A: The user icon menu may use simple disclosure/popover semantics with native buttons. It must not declare ARIA menu roles unless the full keyboard and focus-management pattern is implemented.
 - REQ-018: Logout must call `POST ${apiBasePath}/logout`; success or `401` must navigate to `/login`.
 - REQ-019: The master pane must load article metadata from `GET ${apiBasePath}/articles` and render ledger-like article rows.
 - REQ-020: Clicking an article row must update the URL to `/articles/<article_id>` and show a design-compatible loading spinner in the detail pane while detail loading is in progress.
+- REQ-020A: The selected article row must expose a minimal programmatic selected state, such as `aria-pressed` on the row button, in addition to visual styling.
 - REQ-021: When no `<article_id>` is present, the detail pane must be blank and black.
 - REQ-022: Detail loading must call `GET ${apiBasePath}/articles/{id}`.
 - REQ-023: A failed detail load must show the error message in red, centered in the detail pane.

@@ -85,6 +85,7 @@ Not included:
 - REQ-018: The Worker executable must expose an explicit `process` command that runs the processing pipeline, validates the snapshot pipeline is configured, and supports a one-shot mode for executable-surface validation.
 - REQ-019: The Worker SSRF policy must reject userinfo, empty hosts, invalid hostnames, all IP literals, single-label hosts, localhost names, Docker-internal names, cloud metadata hostnames, and private or special resolved IP ranges. DNS parse or resolution failures map to `ARC-001`; SSRF policy blocks map to `ARC-017`.
 - REQ-020: HTTP statuses other than `401`, `403`, and `404` that prevent fetching the article, including non-specialized 4xx statuses such as `410 Gone`, must map to `ARC-004`.
+- REQ-021: Worker article-fetching HTTP clients must ignore ambient proxy environment variables such as `HTTP_PROXY`, `HTTPS_PROXY`, and `NO_PROXY`. The SSRF guard validates the article URL, redirects, DNS results, and direct dial target; proxy-mediated article fetching is out of scope until a future canonical SSRF-safe proxy mode is designed.
 
 ## Acceptance Criteria
 
@@ -245,6 +246,7 @@ Impacts:
 - Persisted article errors must not expose low-level transport, filesystem, library, or stack details.
 - The Worker must not fetch non-HTTPS schemes.
 - The Worker must reject SSRF-suspicious URL targets with `ARC-017`.
+- The Worker must not let host-level proxy environment variables alter article fetch routing, because the Worker is the SSRF boundary.
 
 ## Observability / Logging Notes
 

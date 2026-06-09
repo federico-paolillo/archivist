@@ -412,3 +412,13 @@ Follow-ups:
 Canonical Updates:
 - `docs/specs/ui/SPEC.md`
 - `docs/specs/ui/tasks/UI-005-shared-app-layout-refactor.md`
+
+## 2026-06-06 — UI-006 done
+
+- **Task:** UI-006 Review accessibility and test hardening
+- **Status outcome:** done
+- **Summary:** UI tests now unmount actual Preact roots and use a Vitest setup shim for `window.scrollTo`. Article rows expose minimal selected state with `aria-pressed`, and the user menu uses simple disclosure/popover semantics instead of partial ARIA menu roles.
+- **Decisions made:** For v0 personal-use UI, minimal standards-compliant accessibility semantics are preferred over heavyweight ARIA roles unless the full keyboard/focus-management pattern is implemented.
+- **Validation performed:** `npm run format`; `npm run lint`; `npm run build`; `npm run test`.
+- **Follow-ups:** None.
+- **Canonical documents updated:** `SPEC.md`, `PLAN.md`, and `tasks/UI-006-review-accessibility-and-test-hardening.md`. Repo-local UI skill guidance was updated to reflect the minimal-accessibility rule.

@@ -45,9 +45,6 @@ public static class ServiceCollectionExtensions
         // Register TimeProvider for InMemorySessionStore and other consumers.
         services.AddSingleton(TimeProvider.System);
 
-        services.AddOptions<AppCookieSettings>().BindConfiguration(AppCookieSettings.Section);
-        services.AddOptions<AppCookieSettings>(AppCookieDefaults.AuthenticationScheme).BindConfiguration(AppCookieSettings.Section);
-
         services
             .AddAuthentication(AppCookieDefaults.AuthenticationScheme)
             .AddAppCookie();
@@ -56,4 +53,5 @@ public static class ServiceCollectionExtensions
 
         return services;
     }
+
 }

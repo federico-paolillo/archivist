@@ -22,7 +22,7 @@ UIEND-001 -> UIEND-002
 
 AUTHN-003 -> UIEND-003
 TELING-001 -> UIEND-003
-UIEND-001 -> UIEND-003
+UIEND-001 -> UIEND-003 -> UIEND-004
 ```
 
 ---
@@ -46,7 +46,8 @@ UIEND-001 -> UIEND-003
 |---|---|---|---|---|---|---|
 | `UIEND-001` | Create canonical artifacts | done | - | `UIEND-002`, `UIEND-003` | no | - |
 | `UIEND-002` | Gateway article read API | done | `UIEND-001`, `AUTHN-003`, `TELING-001`, `SUMGEN-005` | `UI-003` | no | `plans/UIEND-002-gateway-article-read-api.execplan.md` |
-| `UIEND-003` | Gateway article delete API | done | `UIEND-001`, `AUTHN-003`, `TELING-001` | `UI-003` | no | `plans/UIEND-003-gateway-article-delete-api.execplan.md` |
+| `UIEND-003` | Gateway article delete API | done | `UIEND-001`, `AUTHN-003`, `TELING-001` | `UI-003`, `UIEND-004` | no | `plans/UIEND-003-gateway-article-delete-api.execplan.md` |
+| `UIEND-004` | Delete review hardening | done | `UIEND-003` | - | no | - |
 
 ---
 

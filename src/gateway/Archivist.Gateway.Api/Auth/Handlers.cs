@@ -6,7 +6,6 @@ using Archivist.Gateway.Application.Auth.Services;
 using Archivist.Gateway.Application.Observability;
 
 using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.Extensions.Options;
 
 namespace Archivist.Gateway.Api.Auth;
 
@@ -28,12 +27,9 @@ internal static class Handlers
         IPasswordValidator passwordValidator,
         ISessionStore sessionStore,
         ILoginThrottle loginThrottle,
-        IOptions<AppCookieSettings> cookieOptionsAccessor,
         TimeProvider timeProvider,
         CancellationToken ct)
     {
-        var cookieOptions = cookieOptionsAccessor.Value;
-
         if (!context.Request.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase))
         {
             return TypedResults.Forbid();
@@ -81,7 +77,7 @@ internal static class Handlers
         }
 
         // Successful login — rotate session if an existing valid session is present.
-        var existingSessionId = context.Request.Cookies[cookieOptions.CookieName];
+        var existingSessionId = context.Request.Cookies[AppCookieDefaults.CookieName];
         if (!string.IsNullOrEmpty(existingSessionId))
         {
             await sessionStore.RemoveAsync(existingSessionId, ct);
@@ -98,7 +94,7 @@ internal static class Handlers
         var entry = new SessionEntry(
             UserId: matchedCredential.UserId,
             CreatedAt: now,
-            AbsoluteExpiresAt: now.Add(cookieOptions.SessionLifetime));
+            AbsoluteExpiresAt: now.Add(AppCookieDefaults.SessionLifetime));
 
         await sessionStore.SetAsync(newSessionId, entry, ct);
         System.Diagnostics.Activity.Current?.SetTag(ArchivistTelemetry.UserId, matchedCredential.UserId);
@@ -109,7 +105,7 @@ internal static class Handlers
         // __Host- prefix requires: Secure, Path=/, no Domain.
         // REQ-011: no Expires or Max-Age on login.
         context.Response.Cookies.Append(
-            cookieOptions.CookieName,
+            AppCookieDefaults.CookieName,
             newSessionId,
             new CookieOptions
             {
@@ -130,11 +126,9 @@ internal static class Handlers
     public static async Task<NoContent> PostLogout(
         HttpContext context,
         ISessionStore sessionStore,
-        IOptions<AppCookieSettings> cookieOptionsAccessor,
         CancellationToken ct)
     {
-        var cookieOptions = cookieOptionsAccessor.Value;
-        var sessionId = context.Request.Cookies[cookieOptions.CookieName];
+        var sessionId = context.Request.Cookies[AppCookieDefaults.CookieName];
 
         if (!string.IsNullOrEmpty(sessionId))
         {
@@ -143,7 +137,7 @@ internal static class Handlers
 
         // Always clear the cookie with Max-Age=0.
         context.Response.Cookies.Append(
-            cookieOptions.CookieName,
+            AppCookieDefaults.CookieName,
             string.Empty,
             new CookieOptions
             {

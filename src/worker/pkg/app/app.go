@@ -181,6 +181,7 @@ func applyProcessingServices(
 func createHTTPClient(logger *slog.Logger) (*ssrf.Guard, *req.Client) {
 	ssrfGuard := ssrf.New(logger)
 	httpClient := req.NewClient().
+		SetProxy(nil).
 		OnBeforeRequest(ssrfGuard.RequestMiddleware()).
 		WrapRoundTripFunc(observability.ReqRoundTripWrapper()).
 		SetRedirectPolicy(ssrfGuard.RedirectPolicy()).

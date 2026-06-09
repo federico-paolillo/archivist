@@ -15,7 +15,6 @@ public static class Settings
     /// </summary>
     public const string AppSettingsFile = "appsettings.json";
 
-    public const string AppCookieSection = "AppCookie";
     public const string TelegramSection = "Telegram";
 
     public const string DataDirectoryKey = "DATA_DIR";

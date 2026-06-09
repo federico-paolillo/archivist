@@ -59,9 +59,7 @@ func TestProcessCommandOnceProcessesQueuedJob(t *testing.T) {
 	seedProcessArticle(t, application.DB, "https://article.example/article")
 	seedProcessJob(t, application.DB)
 
-	withArgs(t, "archivist-worker", "process", "--once")
-
-	err := CliProgram(t.Context(), application, cfg)
+	err := runCLIProgram(t.Context(), application, cfg, []string{"archivist-worker", "process", "--once"})
 	require.NoError(t, err)
 
 	snapshot, openErr := application.ArtifactStore.OpenSnapshot(processTestArticleID)
@@ -94,6 +92,7 @@ func installProcessTestPipeline(t *testing.T, application *pkgapp.App, serverAdd
 	dialer := processTestDialer{targetAddress: serverAddress}
 	guard := ssrf.New(logger, ssrf.WithResolver(resolver), ssrf.WithDialer(dialer))
 	client := req.NewClient().
+		SetProxy(nil).
 		EnableInsecureSkipVerify().
 		OnBeforeRequest(guard.RequestMiddleware()).
 		SetRedirectPolicy(guard.RedirectPolicy()).

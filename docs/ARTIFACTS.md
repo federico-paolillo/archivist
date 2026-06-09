@@ -47,6 +47,12 @@ The artifact access layer is operation-first. It exposes per-artifact `Open<Arti
 - Do not add artifact path columns to SQLite unless a future canonical spec changes this convention.
 - Delete or cleanup behavior that removes article state must remove the article artifact directory through the same deterministic root.
 
+## Delete Consistency Limit
+
+Gateway hard delete removes SQLite rows and the deterministic article artifact directory under `DATA_DIR`. SQLite transactions cannot include filesystem deletion. Normal delete and force delete keep SQLite deletes inside a write transaction, perform artifact directory cleanup before commit, and roll back the SQLite deletes if artifact cleanup fails.
+
+If artifact cleanup succeeds but the later SQLite commit fails, rollback cannot restore the deleted artifact directory. Archivist accepts this rare v0 cross-resource atomicity limitation. Operators repair that state by deleting the now-artifactless article state through an operational SQLite fix, or by restoring `{DATA_DIR}/articles/{article_id}` from a Snapshotter/object-storage backup before retrying.
+
 ## Rebuild Notes
 
 - Rebuilds must derive artifact paths from `DATA_DIR`, `articles/`, `article_id`, and the stable artifact filenames above.

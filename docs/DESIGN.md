@@ -211,11 +211,11 @@ The gateway stores authoritative session state server-side as `sessionId -> { us
 
 Cookie attributes are fixed: `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/`, no `Domain`, and the `__Host-` prefix. Cookie values are never logged and must be redacted from request and response logging middleware.
 
-Authentication integrates with the normal ASP.NET Core authentication pipeline through a custom `IAuthenticationHandler`, or `AuthenticationHandler<AppCookieSettings>`, registered by `AddAppCookie()` on `AuthenticationBuilder`. The default scheme and authentication type are `"app-cookie"`. On success, the handler sets `HttpContext.User` to a minimal `ClaimsPrincipal` containing only `ClaimTypes.NameIdentifier` with the authenticated session's user id.
+Authentication integrates with the normal ASP.NET Core authentication pipeline through a custom `IAuthenticationHandler`, or `AuthenticationHandler<AuthenticationSchemeOptions>`, registered by `AddAppCookie()` on `AuthenticationBuilder`. The default scheme and authentication type are `"app-cookie"`. On success, the handler sets `HttpContext.User` to a minimal `ClaimsPrincipal` containing only `ClaimTypes.NameIdentifier` with the authenticated session's user id.
 
 `POST /login` accepts the password in the request body and rejects non-`POST`, non-same-origin, or requests whose effective public scheme is not `https`. The effective public scheme is `HttpRequest.Scheme` after trusted forwarded-header processing. Login throttling is applied per IP and globally before Argon2id verification so throttling cannot become a CPU amplification vector. Gateway loads every user row with a non-empty Argon2id PHC `password_hash`, verifies the submitted password against every candidate, and treats the login as successful only when exactly one candidate verifies. Multiple password-bearing rows are valid. Zero matches and duplicate matches fail closed with `401`; the response does not disclose whether users exist, hashes exist, no hash matched, or multiple hashes matched. Successful verification always rotates the session: if the request carries an existing valid cookie, the old session-store entry is removed; a fresh 32-byte session id is generated; `{ userId, createdAt = now, absoluteExpiresAt = now + 24h }` is inserted for the matching user id; `__Host-app-auth` is set with the fixed cookie attributes; and the endpoint returns `204 No Content`. The endpoint must not log the password, session id, cookie value, or `Set-Cookie` header.
 
-Gateway runs privately behind the trusted Docker reverse proxy in the primary deployment topology. Public TLS termination occurs upstream of Caddy, Caddy forwards plaintext HTTP to Gateway on the Docker internal network, and Gateway must process forwarded headers before authentication and authorization. Gateway must not be exposed directly to the public Internet while trusting forwarded headers.
+Gateway runs privately behind the trusted Docker reverse proxy in the primary deployment topology. Public TLS termination occurs upstream of Caddy, Caddy forwards plaintext HTTP to Gateway on the Docker internal network, and Gateway must process forwarded headers before authentication and authorization. Gateway must not be exposed directly to the public Internet while trusting forwarded headers. The production VPS is operator-controlled and may sit behind a load balancer with dynamic source IPs, so v0 deliberately documents the private-network invariant instead of requiring static trusted-proxy IP configuration.
 
 `POST /logout` reads the cookie and removes the matching session-store entry when present. It always emits `Set-Cookie: __Host-app-auth=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0` and returns `204 No Content`, regardless of whether the cookie or store entry existed. Clearing only the cookie leaves server-side state alive until expiry; clearing only the store entry leaves the browser sending a dead cookie until replacement. Both actions are required.
 
@@ -242,12 +242,10 @@ public sealed record SessionEntry(
 The registration surface is:
 
 ```csharp
-public static AuthenticationBuilder AddAppCookie(
-    this AuthenticationBuilder builder,
-    Action<AppCookieSettings>? configure = null);
+public static AuthenticationBuilder AddAppCookie(this AuthenticationBuilder builder);
 ```
 
-`AppCookieSettings` exposes at minimum `CookieName`, default `"__Host-app-auth"`, and `SessionLifetime`, default `TimeSpan.FromHours(24)`. The session store is resolved from dependency injection.
+There is no app-cookie settings object for the canonical cookie name or session lifetime. Gateway code consumes `AppCookieDefaults.CookieName` and `AppCookieDefaults.SessionLifetime` directly in the authentication handler and login/logout endpoints. Configuration values such as `AppCookie:CookieName` or `AppCookie:SessionLifetime` must not alter auth behavior. The session store is resolved from dependency injection.
 
 ```csharp
 services.AddSingleton<ISessionStore, InMemorySessionStore>();
@@ -307,3 +305,15 @@ Do not add sliding expiry, refresh tokens, multiple concurrent sessions per user
 **Decision:** Gateway, Worker, and Snapshotter emit traces and logs through OpenTelemetry SDKs to a private official OpenTelemetry Collector Contrib service. Application telemetry is always configured in Compose; no application-side trace/log exporter disable switches are part of the deployment contract. Application SDKs export traces always-on; sampling is performed by the Collector with tail sampling that keeps all error traces and 10% of non-error traces. Gateway-to-Worker asynchronous propagation uses W3C Trace Context stored on queued jobs as `traceparent` and `tracestate`. Applications use .NET `Activity`, Go/Python OpenTelemetry SDKs, and standard W3C propagators before custom code. Collector runtime outages must not stop core application behavior.
 
 **Consequences:** The SQLite job schema gains nullable carrier fields. The deployment topology gains a private Collector and a development-only Grafana LGTM service. Logs include `trace_id` and `span_id` when emitted inside a span. High-cardinality values such as `article_id`, `job_id`, URLs, and provider request IDs remain searchable trace/log attributes and must not be promoted to Loki labels or metric labels.
+
+
+### DSGN-020: Gateway Delete Accepts A Documented SQLite/Filesystem Atomicity Limit
+
+**Date:** 2026-06-06
+**Status:** accepted
+
+**Context:** Gateway hard delete removes SQLite rows and the deterministic article artifact directory under `DATA_DIR`. SQLite transactions cannot include filesystem deletion. The existing v0 ordering rechecks ownership and job state inside a SQLite write transaction, deletes associated notification/job/article rows, deletes the artifact directory, then commits the SQLite transaction. This preserves database state when artifact cleanup fails, but if artifact cleanup succeeds and the later SQLite commit fails, rollback cannot restore the deleted artifacts.
+
+**Decision:** Archivist accepts this rare cross-resource atomicity limitation for v0 instead of adding repair queues, tombstones, or a new cleanup service. Normal delete and force delete keep the transaction-before-artifact-cleanup ordering so artifact cleanup failures leave SQLite state intact and the user can retry. If artifact cleanup succeeds but the commit fails, the operator repairs the inconsistent article by deleting the now-artifactless article state through an operational SQLite fix or by restoring `{DATA_DIR}/articles/{article_id}` from a Snapshotter/object-storage backup before retrying. This known limitation must remain visible in canonical docs and deployment guidance.
+
+**Consequences:** The implementation stays small and does not add schema or queue complexity. Successful API responses still mean both SQLite state and artifact directory were removed. Operators that require strict cross-resource atomicity need a future feature that introduces durable cleanup state, a repair command, or a storage design where article state and artifacts can be committed atomically.

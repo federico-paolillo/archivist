@@ -41,8 +41,8 @@ func (f MarkdownHandoffFunc) Handoff(ctx context.Context, job *jobs.Job, canonic
 	return f(ctx, job, canonicalURL)
 }
 
-// NoOpMarkdownHandoff is the placeholder for the Markdown extraction stage.
-// MDEXT-005 replaces this with the real extraction pipeline.
+// NoOpMarkdownHandoff is a test and isolated-stage helper for callers that
+// exercise snapshot behavior without running Markdown extraction.
 var NoOpMarkdownHandoff MarkdownHandoff = MarkdownHandoffFunc(func(_ context.Context, _ *jobs.Job, _ string) error {
 	return nil
 })

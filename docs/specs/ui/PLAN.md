@@ -15,7 +15,7 @@ This file is the feature-level implementation control board for the final Preact
 ## Task DAG
 
 ```text
-UI-001 -> UI-002 -> UI-003 -> UI-004 -> UI-005
+UI-001 -> UI-002 -> UI-003 -> UI-004 -> UI-005 -> UI-006
 AUTHN-004 -> UI-002
 UIEND-002 -> UI-003
 UIEND-003 -> UI-003
@@ -55,7 +55,8 @@ UIEND-003 -> UI-003
 | `UI-002` | UI routing, design system, API base config, and auth shell | done | `UI-001`, `AUTHN-004` | `UI-003` | no | `plans/UI-002-ui-routing-design-system-api-base-auth-shell.execplan.md` (completed) |
 | `UI-003` | Article master-detail view and delete workflow | done | `UI-002`, `UIEND-002`, `UIEND-003` | `UI-004` | no | `plans/UI-003-article-master-detail-and-delete-workflow.execplan.md` (completed) |
 | `UI-004` | Final UI validation pass | done | `UI-003` | `UI-005` | no | - |
-| `UI-005` | Shared app layout refactor | done | `UI-004` | - | no | - |
+| `UI-005` | Shared app layout refactor | done | `UI-004` | `UI-006` | no | - |
+| `UI-006` | Review accessibility and test hardening | done | `UI-005` | - | no | - |
 
 ---
 

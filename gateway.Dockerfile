@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM mcr.microsoft.com/dotnet/sdk:10.0.202 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0.300 AS build
 
 ARG TARGETARCH
 

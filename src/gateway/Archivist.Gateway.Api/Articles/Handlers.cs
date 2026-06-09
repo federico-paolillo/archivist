@@ -91,7 +91,7 @@ internal static class Handlers
         IArticleDeleteService deleteService,
         CancellationToken ct)
     {
-        if (!Ulid.TryParse(id, out _))
+        if (!TryNormalizeUlid(id, out var articleId))
         {
             return TypedResults.BadRequest(new ErrorResponse("Malformed article id."));
         }
@@ -102,7 +102,7 @@ internal static class Handlers
             return TypedResults.NotFound(new ErrorResponse("Article not found."));
         }
 
-        var result = await deleteService.DeleteAsync(id, userId, ct).ConfigureAwait(false);
+        var result = await deleteService.DeleteAsync(articleId, userId, ct).ConfigureAwait(false);
 
         return result switch
         {

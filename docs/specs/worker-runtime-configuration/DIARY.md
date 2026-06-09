@@ -105,3 +105,13 @@ Follow-ups:
 
 Canonical Updates:
 - None. Existing `docs/conventions/WORKER.md` composition-root and HTTP client rules already require this behavior.
+
+## 2026-06-06 — WCFG-003 done
+
+- **Task:** WCFG-003 CLI command wrapper hardening
+- **Status outcome:** done
+- **Summary:** Refactored Worker CLI registration so `urfave/cli` actions delegate to command wrappers with plain typed inputs while preserving command behavior and error text.
+- **Decisions made:** `CliProgram` remains the executable registration layer; command validation belongs in command-named wrapper functions that can be exercised without mutating process arguments.
+- **Validation performed:** `go test ./...`; `go tool lefthook run build --command gobuild`; `go tool lefthook run format --command golangci`; `go tool lefthook run lint --command golangci`; `go tool lefthook run test --command gotest`.
+- **Follow-ups:** None.
+- **Canonical documents updated:** `PLAN.md` and `tasks/WCFG-003-cli-command-wrapper-hardening.md`.

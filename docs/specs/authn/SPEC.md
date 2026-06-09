@@ -72,9 +72,10 @@ Not included:
 - REQ-012: The auth cookie must be `HttpOnly`, `Secure`, `SameSite=Strict`, use `Path=/`, and omit `Domain`.
 - REQ-013: `ISessionStore` must map `sessionId` to `{ userId, createdAt, absoluteExpiresAt }`.
 - REQ-014: Session expiry must be absolute and server-side enforced at 24 hours from issue.
+- REQ-014A: The auth cookie name `__Host-app-auth` and 24-hour server-side session lifetime are canonical constants. Gateway must consume `AppCookieDefaults` directly; configuration values that attempt to change them must have no effect unless a future spec promotes those values to configurable deployment behavior.
 - REQ-015: The v0 `ISessionStore` implementation must be in-memory and may use `ConcurrentDictionary<string, SessionEntry>`.
 - REQ-016: Gateway restart invalidates existing v0 sessions by wiping the in-memory store.
-- REQ-017: Gateway auth must integrate with ASP.NET Core through a custom `IAuthenticationHandler`, or `AuthenticationHandler<AppCookieSettings>`, registered by `AddAppCookie()`.
+- REQ-017: Gateway auth must integrate with ASP.NET Core through a custom `IAuthenticationHandler`, or `AuthenticationHandler<AuthenticationSchemeOptions>`, registered by `AddAppCookie()`.
 - REQ-018: The auth scheme and authentication type must be `"app-cookie"`.
 - REQ-019: Authenticated requests must receive a minimal `ClaimsPrincipal` containing only `ClaimTypes.NameIdentifier` with the user id.
 - REQ-020: The handler must not issue, clear, rotate, or refresh cookies.
@@ -242,13 +243,10 @@ The v0 implementation is in-memory and may use `ConcurrentDictionary<string, Ses
 - `AddAppCookie()`
   - Registers the custom auth handler in the standard ASP.NET Core authentication pipeline.
   - Default scheme name: `"app-cookie"`.
-  - Default cookie name: `"__Host-app-auth"`.
-  - Default session lifetime: `TimeSpan.FromHours(24)`.
+  - Cookie name and session lifetime are not configurable through the auth scheme options; consumers use `AppCookieDefaults.CookieName` and `AppCookieDefaults.SessionLifetime` directly.
 
 ```csharp
-public static AuthenticationBuilder AddAppCookie(
-    this AuthenticationBuilder builder,
-    Action<AppCookieSettings>? configure = null);
+public static AuthenticationBuilder AddAppCookie(this AuthenticationBuilder builder);
 ```
 
 Wire-up:

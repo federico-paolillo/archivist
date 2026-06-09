@@ -59,6 +59,27 @@ public sealed class ArticleDeleteEndpointTest(ITestOutputHelper testOutputHelper
     }
 
     [Fact]
+    public async Task DeleteArticle_LowercaseId_NormalizesBeforeDeletingRowsAndArtifacts()
+    {
+        var env = PrepareArticleEnvironment();
+        var articleId = "01H0000000000000000000000G";
+        var jobId = "01H0000000000000000000000H";
+
+        await SeedArticleAsync(env.SqlitePath, articleId, PersonalUserId, PersistenceConstants.ArticleReady, jobId, PersistenceConstants.JobSucceeded, addNotification: false);
+        var artifactFile = CreateArtifact(env.DataDirectory, articleId);
+
+        using var http = CreateHttpClient();
+        var response = await SendDeleteAsync(http, articleId.ToLowerInvariant());
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.False(Directory.Exists(Path.GetDirectoryName(artifactFile)));
+
+        await using var db = CreateDb(env.SqlitePath);
+        Assert.Equal(0, await db.Articles.CountAsync());
+        Assert.Equal(0, await db.Jobs.CountAsync());
+    }
+
+    [Fact]
     public async Task DeleteArticle_RunningJob_Returns409AndLeavesState()
     {
         var env = PrepareArticleEnvironment();

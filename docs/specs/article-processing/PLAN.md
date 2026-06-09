@@ -22,7 +22,7 @@ ARTPROC-003 -> ARTPROC-004
 ARTPROC-004 -> ARTPROC-005
 ARTPROC-005 -> ARTPROC-006
 ARTPROC-005 -> ARTPROC-007
-ARTPROC-007 -> ARTPROC-008
+ARTPROC-007 -> ARTPROC-008 -> ARTPROC-009
 ARTPROC-005 -> MDEXT-005
 ```
 
@@ -68,7 +68,8 @@ TELING-004 -> ARTPROC-006
 | `ARTPROC-005` | Worker snapshot pipeline orchestration | done | `ARTPROC-004`, `TELING-001`, `TELING-003` | `ARTPROC-006`, `ARTPROC-007`, `MDEXT-005` | no | `plans/ARTPROC-005-worker-snapshot-pipeline-orchestration.execplan.md` |
 | `ARTPROC-006` | Gateway snapshot success notification bridge | skipped | `ARTPROC-005`, `TELING-004` | - | no | - |
 | `ARTPROC-007` | Worker executable processing command | done | `ARTPROC-005` | - | no | `plans/ARTPROC-007-worker-executable-processing-command.execplan.md` |
-| `ARTPROC-008` | Worker SSRF fetch policy | done | `ARTPROC-007` | - | no | `plans/ARTPROC-008-worker-ssrf-fetch-policy.execplan.md` |
+| `ARTPROC-008` | Worker SSRF fetch policy | done | `ARTPROC-007` | `ARTPROC-009` | no | `plans/ARTPROC-008-worker-ssrf-fetch-policy.execplan.md` |
+| `ARTPROC-009` | Worker SSRF proxy hardening | done | `ARTPROC-008` | - | no | - |
 
 ---
 
@@ -80,6 +81,7 @@ TELING-004 -> ARTPROC-006
 - `ARTPROC-006` is skipped when downstream pipeline stages are planned before snapshot-only notification work, because `SUMGEN-005` owns the final success notification contract.
 - `ARTPROC-007` must run after `ARTPROC-005` because the executable command invokes the composed snapshot pipeline.
 - `ARTPROC-008` is a corrective hardening task after executable processing is in place; it changes shared Worker outbound HTTP wiring and must not run concurrently with other Worker HTTP-client or fetcher changes.
+- `ARTPROC-009` follows `ARTPROC-008` and closes the ambient-proxy SSRF hardening review finding; it must not run concurrently with other Worker HTTP-client or fetcher changes.
 - Worker repository, SQLite terminal-transition code, and Gateway dispatcher behavior must not be modified concurrently by multiple tasks.
 
 ---

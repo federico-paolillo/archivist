@@ -669,3 +669,13 @@ Follow-ups:
 Canonical Updates:
 - `docs/specs/article-processing/SPEC.md` — promoted non-specialized HTTP status mapping to `ARC-004`.
 - `docs/specs/article-processing/tasks/ARTPROC-004-worker-url-resolver-and-html-fetcher.md` — added the representative `410` acceptance case.
+
+## 2026-06-06 — ARTPROC-009 done
+
+- **Task:** ARTPROC-009 Worker SSRF proxy hardening
+- **Status outcome:** done
+- **Summary:** Configured Worker article HTTP clients and guarded tests to ignore ambient proxy environment variables so SSRF validation remains direct and hermetic. Reworded the stale `NoOpMarkdownHandoff` comment to describe test/isolated-stage use.
+- **Decisions made:** Worker article fetching ignores host-level proxy variables in v0. SSRF-safe proxy support is out of scope until a future canonical design exists.
+- **Validation performed:** `go test ./...`; `go tool lefthook run build --command gobuild`; `go tool lefthook run format --command golangci`; `go tool lefthook run lint --command golangci`; `go tool lefthook run test --command gotest`.
+- **Follow-ups:** None.
+- **Canonical documents updated:** `SPEC.md`, `PLAN.md`, and `tasks/ARTPROC-009-worker-ssrf-proxy-hardening.md`.

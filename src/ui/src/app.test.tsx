@@ -100,13 +100,31 @@ const articleDetails: Record<string, ArticleDetail> = {
 	[forceDeletableArticle.id]: forceDeletableArticle,
 };
 
-function deferred<T>() {
+const mountedRoots = new Set<HTMLElement>();
+const pendingDeferredCleanups = new Set<() => void>();
+
+function deferred<T>(cleanupValue: T) {
+	let isSettled = false;
 	let resolve!: (value: T) => void;
 	let reject!: (error: unknown) => void;
+	const cleanup = () => {
+		if (!isSettled) {
+			resolve(cleanupValue);
+		}
+	};
 	const promise = new Promise<T>((promiseResolve, promiseReject) => {
-		resolve = promiseResolve;
-		reject = promiseReject;
+		resolve = (value) => {
+			isSettled = true;
+			pendingDeferredCleanups.delete(cleanup);
+			promiseResolve(value);
+		};
+		reject = (error) => {
+			isSettled = true;
+			pendingDeferredCleanups.delete(cleanup);
+			promiseReject(error);
+		};
 	});
+	pendingDeferredCleanups.add(cleanup);
 
 	return { promise, reject, resolve };
 }
@@ -115,6 +133,7 @@ function mountAt(path: string, deps: Deps) {
 	window.history.replaceState(null, "", path);
 	const root = document.createElement("div");
 	document.body.appendChild(root);
+	mountedRoots.add(root);
 
 	act(() => {
 		render(<App deps={deps} />, root);
@@ -191,8 +210,19 @@ beforeEach(() => {
 	vi.stubEnv("VITE_VERSION_LABEL", "test-version");
 });
 
-afterEach(() => {
-	render(null, document.body);
+afterEach(async () => {
+	for (const cleanup of Array.from(pendingDeferredCleanups)) {
+		cleanup();
+	}
+
+	await act(async () => {
+		await Promise.resolve();
+	});
+
+	for (const root of mountedRoots) {
+		render(null, root);
+	}
+	mountedRoots.clear();
 	document.body.replaceChildren();
 	window.history.replaceState(null, "", "/");
 	vi.restoreAllMocks();
@@ -342,8 +372,32 @@ describe("auth routes", () => {
 		});
 		expect(deps.api.logout).toHaveBeenCalledTimes(1);
 	});
-});
 
+	it("exposes the user menu as a simple disclosure", async () => {
+		const deps = makeTestDeps({
+			getSession: vi.fn(async () => true),
+		});
+		const user = userEvent.setup();
+
+		mountAt("/articles", deps);
+
+		const menuButton = await screen.findByRole("button", {
+			expanded: false,
+			name: "User menu",
+		});
+		const panelId = menuButton.getAttribute("aria-controls");
+
+		expect(panelId).toBeTruthy();
+		expect(screen.queryByRole("menu")).toBeNull();
+
+		await user.click(menuButton);
+
+		expect(menuButton.getAttribute("aria-expanded")).toBe("true");
+		expect(document.getElementById(panelId ?? "")).not.toBeNull();
+		expect(screen.getByRole("button", { name: "Logout" })).not.toBeNull();
+		expect(screen.queryByRole("menu")).toBeNull();
+	});
+});
 describe("article routes", () => {
 	it("renders /articles with a master list and blank detail pane", async () => {
 		const deps = makeTestDeps();
@@ -360,8 +414,27 @@ describe("article routes", () => {
 		expect(deps.api.getArticle).not.toHaveBeenCalled();
 	});
 
+	it("marks the selected article row with pressed semantics", async () => {
+		const deps = makeTestDeps();
+
+		mountAt(`/articles/${readyArticle.id}`, deps);
+
+		expect(
+			await screen.findByRole("button", {
+				name: new RegExp(readyArticle.title ?? ""),
+				pressed: true,
+			}),
+		).not.toBeNull();
+		expect(
+			screen.getByRole("button", {
+				name: new RegExp(queuedArticle.title ?? ""),
+				pressed: false,
+			}),
+		).not.toBeNull();
+	});
+
 	it("navigates immediately when selecting a row and shows detail loading", async () => {
-		const detail = deferred<ArticleDetail>();
+		const detail = deferred<ArticleDetail>(readyArticle);
 		const deps = makeTestDeps({
 			getArticle: vi.fn(async () => detail.promise),
 		});
@@ -383,7 +456,7 @@ describe("article routes", () => {
 	});
 
 	it("keeps the detail pane blank when a pending detail resolves after returning to /articles", async () => {
-		const detail = deferred<ArticleDetail>();
+		const detail = deferred<ArticleDetail>(readyArticle);
 		const deps = makeTestDeps({
 			getArticle: vi.fn(async () => detail.promise),
 		});

@@ -40,6 +40,7 @@ func TestNewAppReturnsApp(t *testing.T) {
 	assert.Equal(t, 20*time.Second, application.HTTPClient.GetClient().Timeout)
 	assert.NotNil(t, application.HTTPClient.GetClient().CheckRedirect)
 	assert.NotNil(t, application.HTTPClient.GetTransport().DialContext)
+	assert.Nil(t, application.HTTPClient.GetTransport().Proxy)
 	assert.True(t, reflect.ValueOf(application.HTTPClient.GetTransport()).Elem().FieldByName("t3").IsNil())
 	require.NotNil(t, application.LocalMarkdown)
 	require.NotNil(t, application.JinaMarkdown)
@@ -56,6 +57,22 @@ func TestNewAppReturnsApp(t *testing.T) {
 	require.IsType(t, &pipeline.SummaryGenerationHandoff{}, application.SummaryHandoff)
 	require.NotNil(t, application.MarkdownHandoff)
 	require.IsType(t, &pipeline.MarkdownExtractionHandoff{}, application.MarkdownHandoff)
+}
+
+func TestNewAppHTTPClientIgnoresAmbientProxyEnv(t *testing.T) {
+	t.Setenv("HTTP_PROXY", "http://127.0.0.1:9")
+	t.Setenv("HTTPS_PROXY", "http://127.0.0.1:9")
+	t.Setenv("http_proxy", "http://127.0.0.1:9")
+	t.Setenv("https_proxy", "http://127.0.0.1:9")
+
+	application, err := app.NewApp(slogt.New(t), new(slog.LevelVar), newValidConfig(t))
+	require.NoError(t, err)
+	require.NotNil(t, application)
+	t.Cleanup(func() {
+		require.NoError(t, application.Close())
+	})
+
+	assert.Nil(t, application.HTTPClient.GetTransport().Proxy)
 }
 
 func TestNewAppRejectsNilConfig(t *testing.T) {

@@ -64,6 +64,7 @@ Not included:
 - REQ-008: A running job is stale when `started_at <= now - 2 hours`.
 - REQ-009: A running job with `started_at IS NULL` is stale for force-delete recovery.
 - REQ-010: Successful force delete must remove the article row, associated jobs, associated notifications, and `{DATA_DIR}/articles/{article_id}`.
+- REQ-010A: Force delete shares the Gateway delete cross-resource consistency limitation documented in `docs/DESIGN.md`: SQLite state and filesystem artifacts cannot be rolled back atomically together after artifact cleanup has succeeded.
 - REQ-011: Missing artifact directories must not fail force deletion.
 - REQ-012: Artifact cleanup failures must return `500 Internal Server Error` and leave database state intact.
 - REQ-013: Force delete must use a SQLite write transaction and recheck ownership and running-job staleness inside the transaction.

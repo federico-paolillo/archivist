@@ -16,18 +16,16 @@ namespace Archivist.Gateway.Application.Auth.Services.Defaults;
 /// The handler does not issue, clear, rotate, or refresh cookies.
 /// </summary>
 public sealed class AppCookieAuthenticationHandler(
-    IOptionsMonitor<AppCookieSettings> options,
+    IOptionsMonitor<AuthenticationSchemeOptions> options,
     ILoggerFactory logger,
     UrlEncoder encoder,
     ISessionStore sessionStore,
     TimeProvider timeProvider
-) : AuthenticationHandler<AppCookieSettings>(options, logger, encoder)
+) : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 {
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        var cookieName = Options.CookieName;
-
-        if (!Request.Cookies.TryGetValue(cookieName, out var sessionId) || string.IsNullOrEmpty(sessionId))
+        if (!Request.Cookies.TryGetValue(AppCookieDefaults.CookieName, out var sessionId) || string.IsNullOrEmpty(sessionId))
         {
             return AuthenticateResult.NoResult();
         }

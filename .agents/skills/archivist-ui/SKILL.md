@@ -55,6 +55,7 @@ Load canonical docs by task trigger:
 - Put shared component utility classes in `@layer components` in `app.css`.
 - Reuse existing classes such as `btn-primary`, `btn-secondary`, `btn-outline`, and `input-field`.
 - Preserve semantic HTML, accessible names, keyboard behavior, focus states, and responsive layout.
+- For v0 personal-use UI fixes, prefer minimal standards-compliant accessibility semantics that match existing interactions over heavyweight ARIA patterns. Do not declare ARIA roles such as `menu`, `listbox`, or `grid` unless the full keyboard and focus-management pattern is implemented.
 
 ## API, Auth, And Markdown
 

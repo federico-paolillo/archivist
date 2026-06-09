@@ -152,6 +152,12 @@ ARCHIVIST_OTEL_TAIL_SAMPLING_DECISION_WAIT=10s
 
 `OTEL_EXPORTER_OTLP_ENDPOINT` is the application SDK endpoint. It points to Archivist's private Collector. `ARCHIVIST_OTEL_EXPORTER_OTLP_ENDPOINT` is the Collector exporter endpoint. In local development it points to Grafana LGTM. Compose does not expose application-side trace/log exporter disable switches; telemetry is always configured.
 
+### Production reverse-proxy security warning
+
+The production Gateway trusts `X-Forwarded-Proto`, `X-Forwarded-Host`, and related forwarded headers because Archivist is designed to run on an operator-controlled VPS where only ingress Caddy publishes the public application port and Gateway is reachable only on the private Docker network. This is intentional for deployments behind load balancers with dynamic source IPs, where static trusted-proxy IP configuration is brittle.
+
+**Do not publish Gateway directly to the Internet.** If Gateway is exposed directly while it trusts forwarded headers, a client can send spoofed forwarded values. What might happen: Gateway could evaluate login HTTPS checks, public host checks, URL generation, or audit context using attacker-supplied scheme/host data instead of the real connection context. Keep only ingress Caddy publicly reachable, keep Gateway private, and make Caddy overwrite forwarded headers before proxying `/api/*`.
+
 ## Production OTEL Deployment
 
 Production releases package `docker-compose.yml`, `.env`, `.env.images`, `rp.Caddyfile`, and `otelcol-config.yaml`. Operators deploy the packaged `.env` first and `.env.images` second so release image pins win.

@@ -15,6 +15,7 @@ export default defineConfig({
 	plugins: [preact(), tailwindcss()],
 	publicDir: 'public/',
 	test: {
+		setupFiles: ["./src/test-setup.ts"],
 		environment: "jsdom",
 		environmentOptions: {
 			jsdom: {

@@ -10,4 +10,7 @@ public static class AppCookieDefaults
 
     /// <summary>The default cookie name used for browser session auth.</summary>
     public const string CookieName = "__Host-app-auth";
+
+    /// <summary>The fixed absolute lifetime for issued browser sessions.</summary>
+    public static readonly TimeSpan SessionLifetime = TimeSpan.FromHours(24);
 }
