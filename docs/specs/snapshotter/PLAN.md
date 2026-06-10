@@ -111,8 +111,8 @@ cd src/snapshotter && uv run ruff check .
 cd src/snapshotter && uv run ty check .
 cd src/snapshotter && uv run pytest
 docker buildx build --file snapshotter.Dockerfile --platform linux/amd64 --load --tag archivist-snapshotter:test .
-docker compose config --quiet
-docker compose --env-file release/compose/.env --env-file release/compose/.env.images -f release/compose/docker-compose.yml config --quiet
+docker compose --env-file .env.local.example -f docker-compose.yaml -f docker-compose.local.yaml config --quiet
+docker compose --env-file release/compose/.env --env-file release/compose/.env.images -f release/compose/docker-compose.yaml -f release/compose/docker-compose.prod.yaml config --quiet
 git diff --check
 ```
 

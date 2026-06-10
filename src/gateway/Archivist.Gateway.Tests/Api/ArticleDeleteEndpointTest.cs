@@ -1,6 +1,7 @@
 namespace Archivist.Gateway.Tests.Api;
 
 using System.Data.Common;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Net;
@@ -88,10 +89,12 @@ public sealed class ArticleDeleteEndpointTest(ITestOutputHelper testOutputHelper
         await SeedArticleAsync(env.SqlitePath, articleId, PersonalUserId, PersistenceConstants.ArticleQueued, "01H00000000000000000000003", PersistenceConstants.JobRunning, addNotification: false);
         CreateArtifact(env.DataDirectory, articleId);
 
+        using var recorder = new GatewayActivityRecorder();
         using var http = CreateHttpClient();
         var response = await SendDeleteAsync(http, articleId);
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.NotEqual(ActivityStatusCode.Error, SingleActivity(recorder, "gateway.articles.delete").Status);
         Assert.True(Directory.Exists(Path.Combine(env.DataDirectory, "articles", articleId)));
 
         await using var db = CreateDb(env.SqlitePath);
@@ -413,10 +416,12 @@ public sealed class ArticleDeleteEndpointTest(ITestOutputHelper testOutputHelper
 
         await SeedArticleAsync(env.SqlitePath, articleId, PersonalUserId, PersistenceConstants.ArticleQueued, "01H00000000000000000000009", PersistenceConstants.JobQueued, addNotification: true);
 
+        using var recorder = new GatewayActivityRecorder();
         using var http = CreateHttpClient();
         var response = await SendDeleteAsync(http, articleId);
 
         Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.Equal(ActivityStatusCode.Error, SingleActivity(recorder, "gateway.articles.delete").Status);
 
         await using var db = CreateDb(env.SqlitePath);
         Assert.Equal(1, await db.Articles.CountAsync());
@@ -713,6 +718,9 @@ public sealed class ArticleDeleteEndpointTest(ITestOutputHelper testOutputHelper
         AddTrustedForwardedHeaders(request);
         return await http.SendAsync(request);
     }
+
+    private static Activity SingleActivity(GatewayActivityRecorder recorder, string name) =>
+        Assert.Single(recorder.Ended, activity => activity.OperationName == name);
 
     private static HttpRequestMessage CreateDeleteRequest(string articleId, string origin)
     {

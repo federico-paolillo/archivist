@@ -270,7 +270,6 @@ Notifications are gateway delivery records. They do not copy article IDs, Telegr
   - `DATA_DIR`
   - `SQLITE_PATH`
   - `Telegram:BotToken`
-  - `Telegram:AllowedUserId` as the current bootstrap seed for `users.telegram_user_id`, not as runtime webhook authorization
   - `Telegram:WebhookSecret`
   - Gateway reads these hierarchical keys from configuration sections or `ARCHIVIST_`-prefixed environment variables, for example `ARCHIVIST_Telegram__BotToken` and `ARCHIVIST_Telegram__WebhookSecret`.
 

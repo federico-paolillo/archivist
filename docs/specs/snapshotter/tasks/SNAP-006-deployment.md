@@ -40,7 +40,7 @@ Scenario: Snapshotter is deployable in Compose
 
 ```bash
 docker buildx build --file snapshotter.Dockerfile --platform linux/amd64 --load --tag archivist-snapshotter:test .
-docker compose config --quiet
+docker compose --env-file .env.local.example -f docker-compose.yaml -f docker-compose.local.yaml config --quiet
 ```
 
 ## Required Context

@@ -1,5 +1,6 @@
 namespace Archivist.Gateway.Tests.Api;
 
+using System.Diagnostics;
 using System.Net;
 using System.Text.Json;
 
@@ -144,10 +145,12 @@ public sealed class ArticleReadEndpointTest(ITestOutputHelper testOutputHelper) 
         var articleId = "01H00000000000000000000000";
         await SeedArticlesAsync(env.SqlitePath, new List<string> { articleId }, OtherUserId, PersistenceConstants.ArticleReady);
 
+        using var recorder = new GatewayActivityRecorder();
         using var http = CreateAuthenticatedHttpClient();
         var response = await http.GetAsync($"/articles/{articleId}");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.NotEqual(ActivityStatusCode.Error, SingleActivity(recorder, "gateway.articles.detail").Status);
     }
 
     [Fact]
@@ -179,10 +182,12 @@ public sealed class ArticleReadEndpointTest(ITestOutputHelper testOutputHelper) 
         await SeedArticlesAsync(env.SqlitePath, new List<string> { articleId }, PersonalUserId, PersistenceConstants.ArticleReady);
         WriteArtifacts(env.DataDirectory, articleId, summaryMarkdown: "Summary text", contentMarkdown: null);
 
+        using var recorder = new GatewayActivityRecorder();
         using var http = CreateAuthenticatedHttpClient();
         var response = await http.GetAsync($"/articles/{articleId}");
 
         Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.Equal(ActivityStatusCode.Error, SingleActivity(recorder, "gateway.articles.detail").Status);
     }
 
     [Theory]
@@ -312,6 +317,9 @@ public sealed class ArticleReadEndpointTest(ITestOutputHelper testOutputHelper) 
             .EnumerateArray()
             .Select(item => item.GetProperty("id").GetString() ?? string.Empty)
             .ToList();
+
+    private static Activity SingleActivity(GatewayActivityRecorder recorder, string name) =>
+        Assert.Single(recorder.Ended, activity => activity.OperationName == name);
 
     private static List<string> CreateArticleIds(int count) =>
         Enumerable.Range(0, count)

@@ -249,7 +249,8 @@ jobs:
           docker compose
           --env-file release/compose/.env
           --env-file release/compose/.env.images
-          -f release/compose/docker-compose.yml
+          -f release/compose/docker-compose.yaml
+          -f release/compose/docker-compose.prod.yaml
           config --quiet
 
       - name: Show production Compose images
@@ -257,7 +258,8 @@ jobs:
           docker compose
           --env-file release/compose/.env
           --env-file release/compose/.env.images
-          -f release/compose/docker-compose.yml
+          -f release/compose/docker-compose.yaml
+          -f release/compose/docker-compose.prod.yaml
           config --images
 
       - name: Upload production Compose workflow artifact

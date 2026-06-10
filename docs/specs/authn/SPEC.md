@@ -95,7 +95,7 @@ Not included:
 - REQ-034: Forwarded host values must be constrained by `GATEWAY_PUBLIC_HOSTS`.
 - REQ-035: Same-origin checks for unsafe methods must compare post-forwarding scheme, host, and effective port.
 - REQ-036: Authentication bootstrap must set the personal row's `telegram_user_id` to the fixed Telegram sender id `1559957191` when the row has no Telegram sender mapping, and must preserve an existing non-null `telegram_user_id`.
-- REQ-037: Authentication bootstrap must not read `settings.PersonalTelegramUserId`, `Telegram:AllowedUserId`, or any equivalent deployment setting to seed the personal Telegram sender mapping.
+- REQ-037: Authentication bootstrap must not read deployment-configured Telegram sender allowlists or personal sender settings to seed the personal Telegram sender mapping.
 - REQ-038: Successful login must load every user row with a non-empty Argon2id PHC `password_hash`, verify the submitted password against every candidate, and issue the session for the matched row's `id` only when exactly one candidate matches.
 - REQ-039: Multiple password-bearing user rows are valid.
 - REQ-040: Login must fail closed when no password-bearing row exists, when no candidate hash matches, or when more than one candidate hash matches the submitted password.

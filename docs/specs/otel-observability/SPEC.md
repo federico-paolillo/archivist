@@ -64,6 +64,8 @@ Not included:
 - REQ-012: Compose must always configure application traces and logs; application-side trace/log exporter disable switches are not part of the deployment contract.
 - REQ-013: Gateway and Worker must attach `user_id` to logs and spans when the Archivist user has been resolved.
 - REQ-014: Snapshotter must not attach `user_id`.
+- REQ-015: Gateway must selectively log security-relevant HTTP `401`/`403` responses and operational `5xx` responses without enabling broad request logging; routine unauthenticated `GET /auth/session` probes are excluded.
+- REQ-016: Gateway must mark `5xx` request activities and caught operational failures that return `5xx` as `ERROR` so Collector tail sampling retains those traces.
 
 ## Acceptance Criteria
 
@@ -112,7 +114,7 @@ Telemetry must redact secrets and avoid content payloads. High-cardinality domai
 
 ## Observability / Logging Notes
 
-Gateway, Worker, and Snapshotter retain stdout logging behavior. OTLP logs are additive. Trace correlation fields are added to logs when a current span exists.
+Gateway, Worker, and Snapshotter retain stdout logging behavior. OTLP logs are additive. Trace correlation fields are added to logs when a current span exists. Gateway does not emit broad request logs; it emits selective HTTP failure logs for security-relevant `401`/`403` responses and operational `5xx` responses.
 
 ## Related Documents
 

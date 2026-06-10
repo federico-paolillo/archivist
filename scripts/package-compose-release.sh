@@ -20,7 +20,8 @@ package_file="release/archivist-compose-${version}.tar.gz"
 rm -rf release
 mkdir -p "${package_dir}"
 
-cp docker-compose.prod.yaml "${package_dir}/docker-compose.yml"
+cp docker-compose.yaml "${package_dir}/"
+cp docker-compose.prod.yaml "${package_dir}/"
 cp .env.example "${package_dir}/.env"
 cp otelcol-config.yaml "${package_dir}/"
 cp rp.Caddyfile "${package_dir}/"

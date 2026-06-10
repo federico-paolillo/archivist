@@ -42,7 +42,6 @@ Set Telegram configuration only when testing webhook ingestion:
 
 ```bash
 export ARCHIVIST_Telegram__BotToken="<telegram-bot-token>"
-export ARCHIVIST_Telegram__AllowedUserId="<telegram-user-id>"
 export ARCHIVIST_Telegram__WebhookSecret="<telegram-webhook-secret>"
 ```
 
@@ -129,21 +128,25 @@ Open `https://localhost:8443` and temporarily trust the local certificate when t
 
 The Compose stack runs Gateway, Worker, UI, Snapshotter, a private OpenTelemetry Collector, and, in development only, Grafana LGTM for manual OTEL validation.
 
-Create `.env` from `.env.example` and fill every `<specify>` value. For local OTEL validation set the Collector exporter endpoint to the local LGTM container:
+Compose uses a shared base file plus small overlays. `docker-compose.yaml` contains the common service topology. `docker-compose.local.yaml` adds local builds, static local defaults, env-file-backed secrets and external target selectors, and the development-only Grafana LGTM service.
+
+Create `.env.local` from `.env.local.example`, fill the required secrets and external target values, then start the local stack. Static local defaults such as `/data/archive.db`, `/data`, local ports, model defaults, and the local Collector endpoint live in `docker-compose.local.yaml`.
 
 ```bash
-cp .env.example .env
-docker compose --env-file .env up --build
+cp .env.local.example .env.local
+docker compose --env-file .env.local -f docker-compose.yaml -f docker-compose.local.yaml up --build
 ```
 
-Set `ARCHIVIST_OTEL_EXPORTER_OTLP_ENDPOINT=http://lgtm:4318` in `.env` for local validation. Grafana is available at `http://localhost:40300` by default. Login with username `admin` and password `admin`. Override the host port with `ARCHIVIST_GRAFANA_PORT` when needed.
+Local Compose may call production Telegram, LLM, S3-compatible Object Storage, or OTEL backends if you copy production values into `.env.local`. This is intentional for realistic local validation.
+
+For local OTEL validation, the local Collector exports to the Grafana LGTM container. Grafana is available at `http://localhost:40300`. Login with username `admin` and password `admin`.
 
 Relevant local OTEL variables:
 
 ```bash
 OTEL_EXPORTER_OTLP_ENDPOINT=http://otelcol:4318
 
-ARCHIVIST_OTEL_COLLECTOR_IMAGE=otel/opentelemetry-collector-contrib:0.150.0
+ARCHIVIST_OTEL_COLLECTOR_IMAGE=otel/opentelemetry-collector-contrib:0.153.0
 ARCHIVIST_OTEL_EXPORTER_OTLP_ENDPOINT=http://lgtm:4318
 ARCHIVIST_OTEL_EXPORTER_OTLP_AUTHORIZATION=
 ARCHIVIST_OTEL_TAIL_SAMPLING_PERCENTAGE=10
@@ -160,11 +163,18 @@ The production Gateway trusts `X-Forwarded-Proto`, `X-Forwarded-Host`, and relat
 
 ## Production OTEL Deployment
 
-Production releases package `docker-compose.yml`, `.env`, `.env.images`, `rp.Caddyfile`, and `otelcol-config.yaml`. Operators deploy the packaged `.env` first and `.env.images` second so release image pins win.
+Production releases package `docker-compose.yaml`, `docker-compose.prod.yaml`, `.env`, `.env.images`, `rp.Caddyfile`, and `otelcol-config.yaml`. The packaged `.env` is copied from `.env.example` and is the production variable reference. Fill every `<specify>` value before deployment. Production Compose has no default fallbacks: required variables must be set and non-empty, while optional variables listed with empty values may remain empty.
+
+Deploy with the packaged `.env` first and `.env.images` second so release image pins win:
+
+```bash
+docker compose --env-file .env --env-file .env.images -f docker-compose.yaml -f docker-compose.prod.yaml up -d
+```
 
 The production stack includes the private Archivist Collector but does not include Grafana LGTM. Configure the Collector exporter for your Grafana-compatible OTLP backend:
 
 ```bash
+ARCHIVIST_OTEL_COLLECTOR_IMAGE=otel/opentelemetry-collector-contrib:0.153.0
 ARCHIVIST_OTEL_EXPORTER_OTLP_ENDPOINT=<grafana-compatible-otlp-http-endpoint>
 ARCHIVIST_OTEL_EXPORTER_OTLP_AUTHORIZATION=<authorization-header-value>
 ARCHIVIST_OTEL_TAIL_SAMPLING_PERCENTAGE=10
@@ -175,10 +185,11 @@ Keep Collector OTLP receiver ports private on the Docker network. Do not publish
 
 The Collector tail-samples traces:
 
-- all traces with error status are retained;
+- all traces with at least one span status of `ERROR` are retained;
 - 10% of non-error traces are retained.
 
 Applications export traces with always-on SDK sampling so the Collector can make the sampling decision after seeing trace outcomes.
+Gateway emits selective HTTP failure logs for security-relevant `401`/`403` responses and operational `5xx` responses, while suppressing routine unauthenticated `GET /auth/session` probes and successful request noise.
 
 Collector runtime outages must not stop Gateway, Worker, or Snapshotter core behavior. Standard OTEL exporters may drop telemetry after bounded retries/timeouts while the application continues. Invalid telemetry configuration may still fail startup.
 

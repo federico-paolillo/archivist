@@ -1,5 +1,7 @@
 namespace Archivist.Gateway.Tests.Telegram;
 
+using System.Diagnostics;
+
 using Archivist.Gateway.Application.ArticleArtifacts;
 using Archivist.Gateway.Application.ArticleArtifacts.Defaults;
 using Archivist.Gateway.Application.Persistence;
@@ -105,9 +107,11 @@ public sealed class TelegramNotificationDispatcherTest
             var client = new FakeTelegramClient();
             var dispatcher = CreateDispatcher(db.Context, client, CreateReader(dataDirectory));
 
+            using var recorder = new GatewayActivityRecorder();
             await dispatcher.DispatchPendingAsync(CancellationToken.None);
 
             Assert.Empty(client.SentReplies);
+            Assert.Equal(ActivityStatusCode.Error, SingleActivity(recorder, "gateway.telegram.notification_dispatch").Status);
 
             var notification = await db.Notifications.SingleAsync(CancellationToken.None);
             Assert.Equal(PersistenceConstants.NotificationFailed, notification.Status);
@@ -231,7 +235,10 @@ public sealed class TelegramNotificationDispatcherTest
         var client = new FakeTelegramClient(failSend: true);
         var dispatcher = CreateDispatcher(db.Context, client);
 
+        using var recorder = new GatewayActivityRecorder();
         await dispatcher.DispatchPendingAsync(CancellationToken.None);
+
+        Assert.Equal(ActivityStatusCode.Error, SingleActivity(recorder, "gateway.telegram.notification_dispatch").Status);
 
         var notification = await db.Notifications.SingleAsync(CancellationToken.None);
         Assert.Equal(PersistenceConstants.NotificationFailed, notification.Status);
@@ -525,6 +532,9 @@ public sealed class TelegramNotificationDispatcherTest
 
     private static FileSystemArticleArtifactReader CreateReader(string dataDirectory) =>
         new FileSystemArticleArtifactReader(new ArticleArtifactPaths(dataDirectory));
+
+    private static Activity SingleActivity(GatewayActivityRecorder recorder, string name) =>
+        Assert.Single(recorder.Ended, activity => activity.OperationName == name);
 
     private static async Task SeedTerminalNotificationAsync(
         ArchivistDbContext db,

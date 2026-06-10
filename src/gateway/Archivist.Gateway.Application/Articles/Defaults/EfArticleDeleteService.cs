@@ -127,6 +127,7 @@ public sealed class EfArticleDeleteService(
             {
                 await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
                 activity?.SetTag(ArchivistTelemetry.Outcome, "artifact_cleanup_failed");
+                activity?.SetStatus(System.Diagnostics.ActivityStatusCode.Error, "artifact cleanup failed");
 
                 return ArticleDeleteResult.ArtifactCleanupFailed;
             }

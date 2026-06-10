@@ -27,6 +27,8 @@ builder.Logging.AddSimpleConsole(options =>
     }
 );
 
+builder.Logging.AddFilter("Microsoft.EntityFramework", LogLevel.Warning);
+
 builder.Services.AddAuth(builder.Configuration);
 builder.Services.AddForwardedHeaders(builder.Configuration, builder.Environment);
 builder.Services.AddArchivistPersistence(builder.Configuration);
@@ -39,6 +41,7 @@ builder.Services.AddTelegram(builder.Configuration);
 var app = builder.Build();
 
 app.UseForwardedHeaders();
+app.UseMiddleware<SelectiveHttpFailureLoggingMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 

@@ -38,7 +38,7 @@ Scenario: Release includes Snapshotter
 
 ```bash
 scripts/package-compose-release.sh test-version gateway worker ui snapshotter
-docker compose --env-file release/compose/.env --env-file release/compose/.env.images -f release/compose/docker-compose.yml config --quiet
+docker compose --env-file release/compose/.env --env-file release/compose/.env.images -f release/compose/docker-compose.yaml -f release/compose/docker-compose.prod.yaml config --quiet
 ```
 
 ## Required Context

@@ -19,11 +19,11 @@ COPY src/snapshotter/ ./
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-dev --no-editable \
-    && mkdir -p /runtime/data /runtime/tmp/archivist-snapshotter \
+    && mkdir -p /runtime/data /runtime/tmp/archivist-snapshotter /runtime/work/archivist-snapshotter \
     && find /app/venv -type d -exec chmod 0555 {} + \
     && find /app/venv -type f -exec chmod 0444 {} + \
     && find /app/venv/bin -type f -exec chmod 0555 {} + \
-    && chmod 0755 /runtime/data /runtime/tmp /runtime/tmp/archivist-snapshotter
+    && chmod 0755 /runtime/data /runtime/tmp /runtime/tmp/archivist-snapshotter /runtime/work /runtime/work/archivist-snapshotter
 
 FROM gcr.io/distroless/base-debian12:nonroot AS runtime
 
@@ -45,9 +45,10 @@ COPY --from=build --chown=0:0 /usr/lib/ /usr/lib/
 COPY --from=build --chown=0:0 /app/venv/ /app/venv/
 COPY --from=build --chown=65532:65532 /runtime/data/ /data/
 COPY --from=build --chown=65532:65532 /runtime/tmp/ /tmp/
+COPY --from=build --chown=65532:65532 /runtime/work/ /work/
 
 USER nonroot
 
-VOLUME ["/data"]
+VOLUME ["/data", "/work"]
 
 ENTRYPOINT ["/app/venv/bin/archivist-snapshotter"]

@@ -80,7 +80,7 @@ Not included:
 - REQ-015: The canonical log and trace attribute key is exactly `user_id`.
 - REQ-016: Snapshotter must not gain a `user_id` requirement.
 - REQ-017: `user_id` must remain a trace/log attribute only and must not be promoted to metrics or collector labels.
-- REQ-018: Gateway bootstrap must not read `settings.PersonalTelegramUserId`, `Telegram:AllowedUserId`, or equivalent deployment configuration for the personal Telegram sender mapping.
+- REQ-018: Gateway bootstrap must not read deployment-configured Telegram sender allowlists or personal sender settings for the personal Telegram sender mapping.
 - REQ-019: This feature must not introduce registration, user-management endpoints, or user self-service.
 
 ## Acceptance Criteria
@@ -190,7 +190,7 @@ Impacts:
 ## Rebuild Notes
 
 - Do not infer ownership from the personal user constant outside auth bootstrap, except for Worker CLI enqueue's explicit `jobs.DefaultUserID` existence check.
-- Do not use `Telegram:AllowedUserId`, `settings.PersonalTelegramUserId`, or equivalent deployment configuration for auth bootstrap. The personal Telegram sender id is the fixed value `1559957191` unless an existing non-null database value is preserved.
+- Do not use deployment-configured Telegram sender allowlists or personal sender settings for auth bootstrap. The personal Telegram sender id is the fixed value `1559957191` unless an existing non-null database value is preserved.
 - Multiple password-bearing user rows are valid. Password-only login ambiguity is resolved by the submitted password: exactly one matching hash succeeds; duplicate matches fail closed.
 - Worker CLI enqueue must never infer ownership from user-table cardinality and must never create the default user row.
 - Runtime ownership must be propagated through explicit values read from SQLite or session state.

@@ -59,15 +59,16 @@ Validation commands:
 cd src/gateway && dotnet format --verify-no-changes && dotnet build && dotnet test
 cd src/worker && go tool lefthook run build && go tool lefthook run format && go tool lefthook run lint && go tool lefthook run test
 cd src/snapshotter && uv run ruff format --check . && uv run ruff check . && uv run ty check . && uv run pytest
-docker compose --env-file .env.example config --quiet
+docker compose --env-file .env.local.example -f docker-compose.yaml -f docker-compose.local.yaml config --quiet
+ARCHIVIST_GATEWAY_IMAGE=gateway ARCHIVIST_WORKER_IMAGE=worker ARCHIVIST_UI_IMAGE=ui ARCHIVIST_SNAPSHOTTER_IMAGE=snapshotter docker compose --env-file .env.example -f docker-compose.yaml -f docker-compose.prod.yaml config --quiet
 scripts/package-compose-release.sh test-version gateway worker ui snapshotter
-docker compose --env-file release/compose/.env --env-file release/compose/.env.images -f release/compose/docker-compose.yml config --quiet
+docker compose --env-file release/compose/.env --env-file release/compose/.env.images -f release/compose/docker-compose.yaml -f release/compose/docker-compose.prod.yaml config --quiet
 git diff --check
 ```
 
 Manual validation is described in `ROADMAP.md` and `README.md`.
 
-Docker-based Compose validation was not executed in this environment because the `docker` CLI is unavailable. Release packaging and focused non-Docker validation passed. The generated production release `.env`, `docker-compose.yml`, and `otelcol-config.yaml` were inspected for no development LGTM backend default, removed OTEL environment key, app-side trace/log exporter toggles, or deployment environment resource attribute, then `release/` was removed.
+Docker-based Compose validation was not executed in this environment because the `docker` CLI is unavailable. Release packaging and focused non-Docker validation passed. The generated production release `.env`, Compose files, and `otelcol-config.yaml` were inspected for no development LGTM backend default, removed OTEL environment key, app-side trace/log exporter toggles, or deployment environment resource attribute, then `release/` was removed.
 
 ## Completion Criteria
 

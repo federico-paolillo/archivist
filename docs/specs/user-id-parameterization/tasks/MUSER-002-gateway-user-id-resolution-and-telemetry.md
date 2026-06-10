@@ -34,7 +34,7 @@ This task does not include:
 - Worker changes.
 - UI changes unless required by a Gateway test helper.
 - Registration or user-management endpoints.
-- Deployment-configured personal Telegram sender ids such as `settings.PersonalTelegramUserId` or `Telegram:AllowedUserId`.
+- Deployment-configured personal Telegram sender ids.
 
 ## Required Context
 
@@ -87,7 +87,7 @@ Scenario: Auth bootstrap preserves an existing Telegram sender mapping
 - Gateway source no longer uses the personal user constant outside auth bootstrap.
 - Password login verifies every non-empty Argon2id PHC hash and issues a session only when exactly one candidate matches.
 - Multiple password-bearing rows are valid, and duplicate password matches fail closed.
-- Auth bootstrap sets the personal row's `telegram_user_id` to `1559957191` only when null, preserves existing non-null values, and does not use `settings.PersonalTelegramUserId` or `Telegram:AllowedUserId`.
+- Auth bootstrap sets the personal row's `telegram_user_id` to `1559957191` only when null, preserves existing non-null values, and does not use deployment-configured personal Telegram sender ids.
 - Unknown Telegram senders create no rows and receive no reply.
 - Gateway tests cover mapped and unmapped Telegram senders, row-derived login sessions, duplicate password matches, bootstrap Telegram sender seeding, and cross-user article isolation.
 

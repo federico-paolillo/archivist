@@ -110,6 +110,7 @@ public sealed class EfArticleQueryService(
             (summaryMarkdown is null || contentMarkdown is null))
         {
             activity?.SetTag(ArchivistTelemetry.Outcome, "artifact_unavailable");
+            activity?.SetStatus(System.Diagnostics.ActivityStatusCode.Error, "required article artifact unavailable");
 
             return ArticleDetailResult.RequiredArtifactUnavailable;
         }

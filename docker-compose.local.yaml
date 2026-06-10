@@ -1,0 +1,76 @@
+services:
+  ingress:
+    ports:
+      - "65000:65000"
+
+  gateway:
+    build:
+      context: .
+      dockerfile: gateway.Dockerfile
+    image: archivist-gateway:local
+    environment:
+      ARCHIVIST_SQLITE_PATH: /data/archive.db
+      ARCHIVIST_DATA_DIR: /data
+      ARCHIVIST_GATEWAY_PUBLIC_HOSTS: localhost,127.0.0.1
+      ARCHIVIST_Telegram__BotToken: ${ARCHIVIST_Telegram__BotToken:?ARCHIVIST_Telegram__BotToken must be set in .env.local}
+      ARCHIVIST_Telegram__WebhookSecret: ${ARCHIVIST_Telegram__WebhookSecret:?ARCHIVIST_Telegram__WebhookSecret must be set in .env.local}
+      ARCHIVIST_AUTH_BOOTSTRAP_PASSWORD: ${ARCHIVIST_AUTH_BOOTSTRAP_PASSWORD?ARCHIVIST_AUTH_BOOTSTRAP_PASSWORD must be declared in .env.local; may be empty after bootstrap}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otelcol:4318
+
+  worker:
+    build:
+      context: .
+      dockerfile: worker.Dockerfile
+    image: archivist-worker:local
+    environment:
+      ARCHIVIST_SQLITE_PATH: /data/archive.db
+      ARCHIVIST_DATA_DIR: /data
+      ARCHIVIST_JINA_API_KEY: ${ARCHIVIST_JINA_API_KEY:?ARCHIVIST_JINA_API_KEY must be set in .env.local}
+      ARCHIVIST_LLM_PROVIDER: anthropic
+      ARCHIVIST_LLM_API_KEY: ${ARCHIVIST_LLM_API_KEY:?ARCHIVIST_LLM_API_KEY must be set in .env.local}
+      ARCHIVIST_LLM_MODEL: claude-haiku-4-5-20251001
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otelcol:4318
+
+  snapshotter:
+    build:
+      context: .
+      dockerfile: snapshotter.Dockerfile
+    image: archivist-snapshotter:local
+    environment:
+      ARCHIVIST_DATA_DIR: /data
+      ARCHIVIST_SQLITE_PATH: /data/archive.db
+      ARCHIVIST_SNAPSHOTTER_INTERVAL_SECONDS: "86400"
+      ARCHIVIST_SNAPSHOTTER_WORK_DIR: /work/archivist-snapshotter
+      ARCHIVIST_SNAPSHOTTER_S3_ENDPOINT_URL: ${ARCHIVIST_SNAPSHOTTER_S3_ENDPOINT_URL:?ARCHIVIST_SNAPSHOTTER_S3_ENDPOINT_URL must be set in .env.local}
+      ARCHIVIST_SNAPSHOTTER_S3_REGION: ${ARCHIVIST_SNAPSHOTTER_S3_REGION:?ARCHIVIST_SNAPSHOTTER_S3_REGION must be set in .env.local}
+      ARCHIVIST_SNAPSHOTTER_S3_BUCKET: ${ARCHIVIST_SNAPSHOTTER_S3_BUCKET:?ARCHIVIST_SNAPSHOTTER_S3_BUCKET must be set in .env.local}
+      ARCHIVIST_SNAPSHOTTER_S3_ACCESS_KEY_ID: ${ARCHIVIST_SNAPSHOTTER_S3_ACCESS_KEY_ID:?ARCHIVIST_SNAPSHOTTER_S3_ACCESS_KEY_ID must be set in .env.local}
+      ARCHIVIST_SNAPSHOTTER_S3_SECRET_ACCESS_KEY: ${ARCHIVIST_SNAPSHOTTER_S3_SECRET_ACCESS_KEY:?ARCHIVIST_SNAPSHOTTER_S3_SECRET_ACCESS_KEY must be set in .env.local}
+      ARCHIVIST_SNAPSHOTTER_OBJECT_PREFIX: ${ARCHIVIST_SNAPSHOTTER_OBJECT_PREFIX:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otelcol:4318
+
+  ui:
+    build:
+      context: .
+      dockerfile: ui.Dockerfile
+      args:
+        VITE_API_BASE_PATH: /api
+    image: archivist-ui:local
+
+  otelcol:
+    image: otel/opentelemetry-collector-contrib:0.153.0
+    environment:
+      ARCHIVIST_OTEL_EXPORTER_OTLP_ENDPOINT: ${ARCHIVIST_OTEL_EXPORTER_OTLP_ENDPOINT:-http://lgtm:4318}
+      ARCHIVIST_OTEL_EXPORTER_OTLP_AUTHORIZATION: ${ARCHIVIST_OTEL_EXPORTER_OTLP_AUTHORIZATION:-}
+      ARCHIVIST_OTEL_TAIL_SAMPLING_PERCENTAGE: "10"
+      ARCHIVIST_OTEL_TAIL_SAMPLING_DECISION_WAIT: 10s
+
+  lgtm:
+    image: grafana/otel-lgtm:latest
+    ports:
+      - "40300:3000"
+    expose:
+      - "4318"
+    networks:
+      - archivist
+    restart: always

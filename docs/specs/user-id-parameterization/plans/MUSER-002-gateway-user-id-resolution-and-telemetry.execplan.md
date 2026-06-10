@@ -29,14 +29,14 @@ Remove runtime personal-user hardcoding from Gateway auth and Telegram ingestion
 
 - Bootstrap remains the only Gateway production code allowed to contain the personal ULID.
 - Bootstrap may hardcode the personal Telegram sender id `1559957191`.
-- `Telegram:AllowedUserId` is not used as a runtime webhook authorization gate.
+- Deployment-configured Telegram sender allowlists are not used as runtime webhook authorization gates.
 
 ## Non-Goals
 
 - New Gateway routes.
 - User registration.
 - UI changes.
-- Deployment-configured personal Telegram sender ids such as `settings.PersonalTelegramUserId` or `Telegram:AllowedUserId`.
+- Deployment-configured personal Telegram sender ids.
 
 ## Implementation Sequence
 
@@ -44,7 +44,7 @@ Remove runtime personal-user hardcoding from Gateway auth and Telegram ingestion
 2. Make `POST /login` verify the submitted password against every loaded candidate.
 3. Make `POST /login` create `SessionEntry` with the matching `user_id` only when exactly one candidate hash verifies; zero matches and duplicate matches return the existing generic unauthorized response.
 4. Keep multiple password-bearing rows valid. Do not fail merely because more than one row has a non-empty `password_hash`.
-5. Change auth bootstrap to set the personal row's `telegram_user_id` to `1559957191` when it is null, preserve an existing non-null value, and remove `settings.PersonalTelegramUserId` / `Telegram:AllowedUserId` as bootstrap inputs.
+5. Change auth bootstrap to set the personal row's `telegram_user_id` to `1559957191` when it is null, preserve an existing non-null value, and remove deployment-configured personal Telegram sender ids as bootstrap inputs.
 6. Add a Telegram user resolver that maps sender Telegram id to `users.id`.
 7. Make Telegram webhook processing reject unmapped senders with no side effects and no reply.
 8. Pass resolved `user_id` into Telegram ingestion persistence.

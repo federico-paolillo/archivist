@@ -30,7 +30,7 @@ processors:
     send_batch_size: 1024
 
 exporters:
-  otlphttp/grafana:
+  otlp_http/grafana:
     endpoint: ${env:ARCHIVIST_OTEL_EXPORTER_OTLP_ENDPOINT}
     headers:
       Authorization: ${env:ARCHIVIST_OTEL_EXPORTER_OTLP_AUTHORIZATION}
@@ -40,8 +40,8 @@ service:
     traces:
       receivers: [otlp]
       processors: [memory_limiter, tail_sampling, batch]
-      exporters: [otlphttp/grafana]
+      exporters: [otlp_http/grafana]
     logs:
       receivers: [otlp]
       processors: [memory_limiter, batch]
-      exporters: [otlphttp/grafana]
+      exporters: [otlp_http/grafana]

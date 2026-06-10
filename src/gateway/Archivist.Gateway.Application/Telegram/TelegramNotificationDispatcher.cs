@@ -1,6 +1,7 @@
 namespace Archivist.Gateway.Application.Telegram;
 
 using Archivist.Gateway.Application.ArticleArtifacts;
+using Archivist.Gateway.Application.Observability;
 using Archivist.Gateway.Application.Persistence;
 
 using Microsoft.Extensions.Logging;
@@ -24,6 +25,7 @@ public sealed partial class TelegramNotificationDispatcher(
 
     private static readonly TimeSpan NotificationTtl = TimeSpan.FromDays(7);
     private const string SummarySuccessPrefix = "Archived. Summary is:";
+    private const string NotificationIdAttribute = "archivist.notification.id";
 
     /// <summary>
     /// Polls pending notification rows and dispatches terminal Telegram replies for terminal jobs.
@@ -49,6 +51,12 @@ public sealed partial class TelegramNotificationDispatcher(
 
     private async Task ProcessOneAsync(PendingNotificationRow notification, CancellationToken cancellationToken)
     {
+        using var activity = ArchivistTelemetry.ActivitySource.StartActivity("gateway.telegram.notification_dispatch");
+        activity?.SetTag(NotificationIdAttribute, notification.NotificationId);
+        activity?.SetTag(ArchivistTelemetry.JobId, notification.JobId);
+        activity?.SetTag(ArchivistTelemetry.ArticleId, notification.ArticleId);
+        activity?.SetTag(ArchivistTelemetry.Stage, "telegram_notification_dispatch");
+
         if (notification.JobStatus == PersistenceConstants.JobSucceeded)
         {
             await DispatchSucceededAsync(notification, cancellationToken).ConfigureAwait(false);
@@ -57,6 +65,7 @@ public sealed partial class TelegramNotificationDispatcher(
 
         if (notification.JobStatus != PersistenceConstants.JobFailed)
         {
+            activity?.SetTag(ArchivistTelemetry.Outcome, "non_terminal");
             LogSkippedNonTerminal(logger, notification.NotificationId, notification.JobId, notification.JobStatus);
             return;
         }
@@ -96,6 +105,9 @@ public sealed partial class TelegramNotificationDispatcher(
                 .MarkFailedAsync(notification.NotificationId, artifactError, failedAt, failedAt.Add(NotificationTtl), cancellationToken)
                 .ConfigureAwait(false);
 
+            System.Diagnostics.Activity.Current?.SetTag(ArchivistTelemetry.Outcome, "summary_artifact_read_failed");
+            System.Diagnostics.Activity.Current?.SetStatus(System.Diagnostics.ActivityStatusCode.Error, "summary artifact read failed");
+            System.Diagnostics.Activity.Current?.AddException(ex);
             LogSummaryArtifactReadFailed(logger, ex, notification.NotificationId, notification.JobId, notification.ArticleId);
             return;
         }
@@ -119,6 +131,7 @@ public sealed partial class TelegramNotificationDispatcher(
             .MarkFailedAsync(notification.NotificationId, missingTargetError, failedAt, failedAt.Add(NotificationTtl), cancellationToken)
             .ConfigureAwait(false);
 
+        System.Diagnostics.Activity.Current?.SetTag(ArchivistTelemetry.Outcome, "missing_reply_target");
         LogMissingReplyTarget(logger, notification.NotificationId, notification.JobId);
         return false;
     }
@@ -136,6 +149,7 @@ public sealed partial class TelegramNotificationDispatcher(
 
             await notificationRepository.MarkSentAsync(notification.NotificationId, now, expiresAt, cancellationToken).ConfigureAwait(false);
 
+            System.Diagnostics.Activity.Current?.SetTag(ArchivistTelemetry.Outcome, "sent");
             LogSent(logger, notification.NotificationId, notification.JobId);
         }
 #pragma warning disable CA1031 // Telegram delivery failure must be recorded and not propagate; any exception is caught here per spec REQ-026.
@@ -148,6 +162,9 @@ public sealed partial class TelegramNotificationDispatcher(
                 .MarkFailedAsync(notification.NotificationId, deliveryError, now, expiresAt, cancellationToken)
                 .ConfigureAwait(false);
 
+            System.Diagnostics.Activity.Current?.SetTag(ArchivistTelemetry.Outcome, "delivery_failed");
+            System.Diagnostics.Activity.Current?.SetStatus(System.Diagnostics.ActivityStatusCode.Error, "telegram delivery failed");
+            System.Diagnostics.Activity.Current?.AddException(ex);
             LogDeliveryFailed(logger, ex, notification.NotificationId, notification.JobId);
         }
     }

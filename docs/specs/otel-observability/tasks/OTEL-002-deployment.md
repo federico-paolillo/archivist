@@ -32,9 +32,10 @@ Add a private official OpenTelemetry Collector Contrib service, dev Grafana LGTM
 Required checks:
 
 ```bash
-docker compose --env-file .env.example config --quiet
+docker compose --env-file .env.local.example -f docker-compose.yaml -f docker-compose.local.yaml config --quiet
+ARCHIVIST_GATEWAY_IMAGE=gateway ARCHIVIST_WORKER_IMAGE=worker ARCHIVIST_UI_IMAGE=ui ARCHIVIST_SNAPSHOTTER_IMAGE=snapshotter docker compose --env-file .env.example -f docker-compose.yaml -f docker-compose.prod.yaml config --quiet
 scripts/package-compose-release.sh test-version gateway worker ui snapshotter
-docker compose --env-file release/compose/.env --env-file release/compose/.env.images -f release/compose/docker-compose.yml config --quiet
+docker compose --env-file release/compose/.env --env-file release/compose/.env.images -f release/compose/docker-compose.yaml -f release/compose/docker-compose.prod.yaml config --quiet
 ```
 
-Result: passed on 2026-06-03 for `sh -n scripts/package-compose-release.sh` and `scripts/package-compose-release.sh test-version gateway worker ui snapshotter`. Generated release `.env`, packaged `docker-compose.yml`, and packaged `otelcol-config.yaml` contained no development LGTM backend default, removed OTEL environment key, app-side trace/log exporter toggles, or deployment environment resource attribute. Generated `release/` artifacts were removed after inspection. Docker Compose config validation was not executed because the local environment has no `docker` CLI.
+Result: passed on 2026-06-03 for `sh -n scripts/package-compose-release.sh` and `scripts/package-compose-release.sh test-version gateway worker ui snapshotter`. Generated release `.env`, packaged Compose files, and packaged `otelcol-config.yaml` contained no development LGTM backend default, removed OTEL environment key, app-side trace/log exporter toggles, or deployment environment resource attribute. Generated `release/` artifacts were removed after inspection. Docker Compose config validation was not executed because the local environment has no `docker` CLI.

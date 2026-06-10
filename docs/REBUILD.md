@@ -190,7 +190,8 @@ cd src/snapshotter && uv run ruff check .
 cd src/snapshotter && uv run ty check .
 cd src/snapshotter && uv run pytest
 docker buildx build --file snapshotter.Dockerfile --platform linux/amd64 --load --tag archivist-snapshotter:test .
-docker compose --env-file .env.example config --quiet
+docker compose --env-file .env.local.example -f docker-compose.yaml -f docker-compose.local.yaml config --quiet
+ARCHIVIST_GATEWAY_IMAGE=gateway ARCHIVIST_WORKER_IMAGE=worker ARCHIVIST_UI_IMAGE=ui ARCHIVIST_SNAPSHOTTER_IMAGE=snapshotter docker compose --env-file .env.example -f docker-compose.yaml -f docker-compose.prod.yaml config --quiet
 ```
 
 ---

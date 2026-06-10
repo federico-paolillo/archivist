@@ -4,8 +4,6 @@ services:
     depends_on:
       - gateway
       - ui
-    ports:
-      - "65000:65000"
     volumes:
       - ./rp.Caddyfile:/etc/caddy/Caddyfile:ro
     networks:
@@ -13,24 +11,13 @@ services:
     restart: always
 
   gateway:
-    build:
-      context: .
-      dockerfile: gateway.Dockerfile
-    image: archivist-gateway:local
     environment:
       ASPNETCORE_URLS: http://0.0.0.0:8080
       DOTNET_URLS: http://0.0.0.0:8080
       ASPNETCORE_ENVIRONMENT: Production
       DOTNET_ENVIRONMENT: Production
-      ARCHIVIST_SQLITE_PATH: ${ARCHIVIST_SQLITE_PATH:-/data/archive.db}
-      ARCHIVIST_DATA_DIR: ${ARCHIVIST_DATA_DIR:-/data}
-      ARCHIVIST_GATEWAY_PUBLIC_HOSTS: ${ARCHIVIST_GATEWAY_PUBLIC_HOSTS:?ARCHIVIST_GATEWAY_PUBLIC_HOSTS must be set}
-      ARCHIVIST_Telegram__BotToken: ${ARCHIVIST_Telegram__BotToken:?ARCHIVIST_Telegram__BotToken must be set}
-      ARCHIVIST_Telegram__WebhookSecret: ${ARCHIVIST_Telegram__WebhookSecret:?ARCHIVIST_Telegram__WebhookSecret must be set}
-      ARCHIVIST_AUTH_BOOTSTRAP_PASSWORD: ${ARCHIVIST_AUTH_BOOTSTRAP_PASSWORD:-}
       OTEL_SERVICE_NAME: archivist-gateway
       OTEL_RESOURCE_ATTRIBUTES: service.namespace=archivist
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otelcol:4318}
       OTEL_TRACES_SAMPLER: always_on
     expose:
       - "8080"
@@ -41,22 +28,11 @@ services:
     restart: always
 
   worker:
-    build:
-      context: .
-      dockerfile: worker.Dockerfile
-    image: archivist-worker:local
     depends_on:
       - gateway
     environment:
-      ARCHIVIST_SQLITE_PATH: ${ARCHIVIST_SQLITE_PATH:-/data/archive.db}
-      ARCHIVIST_DATA_DIR: ${ARCHIVIST_DATA_DIR:-/data}
-      ARCHIVIST_JINA_API_KEY: ${ARCHIVIST_JINA_API_KEY:?ARCHIVIST_JINA_API_KEY must be set}
-      ARCHIVIST_LLM_PROVIDER: ${ARCHIVIST_LLM_PROVIDER:-anthropic}
-      ARCHIVIST_LLM_API_KEY: ${ARCHIVIST_LLM_API_KEY:?ARCHIVIST_LLM_API_KEY must be set}
-      ARCHIVIST_LLM_MODEL: ${ARCHIVIST_LLM_MODEL:-claude-haiku-4-5-20251001}
       OTEL_SERVICE_NAME: archivist-worker
       OTEL_RESOURCE_ATTRIBUTES: service.namespace=archivist
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otelcol:4318}
       OTEL_TRACES_SAMPLER: always_on
     volumes:
       - data:/data
@@ -65,27 +41,12 @@ services:
     restart: always
 
   snapshotter:
-    build:
-      context: .
-      dockerfile: snapshotter.Dockerfile
-    image: archivist-snapshotter:local
     depends_on:
       - gateway
       - worker
     environment:
-      ARCHIVIST_DATA_DIR: ${ARCHIVIST_DATA_DIR:-/data}
-      ARCHIVIST_SQLITE_PATH: ${ARCHIVIST_SQLITE_PATH:-/data/archive.db}
-      ARCHIVIST_SNAPSHOTTER_INTERVAL_SECONDS: ${ARCHIVIST_SNAPSHOTTER_INTERVAL_SECONDS:-86400}
-      ARCHIVIST_SNAPSHOTTER_WORK_DIR: ${ARCHIVIST_SNAPSHOTTER_WORK_DIR:-/work/archivist-snapshotter}
-      ARCHIVIST_SNAPSHOTTER_S3_ENDPOINT_URL: ${ARCHIVIST_SNAPSHOTTER_S3_ENDPOINT_URL:?ARCHIVIST_SNAPSHOTTER_S3_ENDPOINT_URL must be set}
-      ARCHIVIST_SNAPSHOTTER_S3_REGION: ${ARCHIVIST_SNAPSHOTTER_S3_REGION:?ARCHIVIST_SNAPSHOTTER_S3_REGION must be set}
-      ARCHIVIST_SNAPSHOTTER_S3_BUCKET: ${ARCHIVIST_SNAPSHOTTER_S3_BUCKET:?ARCHIVIST_SNAPSHOTTER_S3_BUCKET must be set}
-      ARCHIVIST_SNAPSHOTTER_S3_ACCESS_KEY_ID: ${ARCHIVIST_SNAPSHOTTER_S3_ACCESS_KEY_ID:?ARCHIVIST_SNAPSHOTTER_S3_ACCESS_KEY_ID must be set}
-      ARCHIVIST_SNAPSHOTTER_S3_SECRET_ACCESS_KEY: ${ARCHIVIST_SNAPSHOTTER_S3_SECRET_ACCESS_KEY:?ARCHIVIST_SNAPSHOTTER_S3_SECRET_ACCESS_KEY must be set}
-      ARCHIVIST_SNAPSHOTTER_OBJECT_PREFIX: ${ARCHIVIST_SNAPSHOTTER_OBJECT_PREFIX:-}
       OTEL_SERVICE_NAME: archivist-snapshotter
       OTEL_RESOURCE_ATTRIBUTES: service.namespace=archivist
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otelcol:4318}
       OTEL_TRACES_SAMPLER: always_on
     read_only: true
     tmpfs:
@@ -98,12 +59,6 @@ services:
     restart: always
 
   ui:
-    build:
-      context: .
-      dockerfile: ui.Dockerfile
-      args:
-        VITE_API_BASE_PATH: ${VITE_API_BASE_PATH:-/api}
-    image: archivist-ui:local
     expose:
       - "8080"
     networks:
@@ -111,28 +66,12 @@ services:
     restart: always
 
   otelcol:
-    image: ${ARCHIVIST_OTEL_COLLECTOR_IMAGE:-otel/opentelemetry-collector-contrib:0.150.0}
     command:
       - --config=/etc/otelcol-config.yaml
-    environment:
-      ARCHIVIST_OTEL_EXPORTER_OTLP_ENDPOINT: ${ARCHIVIST_OTEL_EXPORTER_OTLP_ENDPOINT:-http://lgtm:4318}
-      ARCHIVIST_OTEL_EXPORTER_OTLP_AUTHORIZATION: ${ARCHIVIST_OTEL_EXPORTER_OTLP_AUTHORIZATION:-}
-      ARCHIVIST_OTEL_TAIL_SAMPLING_PERCENTAGE: ${ARCHIVIST_OTEL_TAIL_SAMPLING_PERCENTAGE:-10}
-      ARCHIVIST_OTEL_TAIL_SAMPLING_DECISION_WAIT: ${ARCHIVIST_OTEL_TAIL_SAMPLING_DECISION_WAIT:-10s}
     expose:
       - "4318"
     volumes:
       - ./otelcol-config.yaml:/etc/otelcol-config.yaml:ro
-    networks:
-      - archivist
-    restart: always
-
-  lgtm:
-    image: grafana/otel-lgtm:latest
-    ports:
-      - "60300:3000"
-    expose:
-      - "4318"
     networks:
       - archivist
     restart: always

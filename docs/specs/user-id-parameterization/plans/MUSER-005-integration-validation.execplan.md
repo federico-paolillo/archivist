@@ -50,7 +50,8 @@ cd src/worker && go tool lefthook run build
 cd src/worker && go tool lefthook run format
 cd src/worker && go tool lefthook run lint
 cd src/worker && go tool lefthook run test
-docker compose --env-file .env.example config --quiet
+docker compose --env-file .env.local.example -f docker-compose.yaml -f docker-compose.local.yaml config --quiet
+ARCHIVIST_GATEWAY_IMAGE=gateway ARCHIVIST_WORKER_IMAGE=worker ARCHIVIST_UI_IMAGE=ui ARCHIVIST_SNAPSHOTTER_IMAGE=snapshotter docker compose --env-file .env.example -f docker-compose.yaml -f docker-compose.prod.yaml config --quiet
 ```
 
 ## Documentation Updates Required
