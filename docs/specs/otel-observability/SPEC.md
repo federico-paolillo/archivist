@@ -66,6 +66,8 @@ Not included:
 - REQ-014: Snapshotter must not attach `user_id`.
 - REQ-015: Gateway must selectively log security-relevant HTTP `401`/`403` responses and operational `5xx` responses without enabling broad request logging; routine unauthenticated `GET /auth/session` probes are excluded.
 - REQ-016: Gateway must mark `5xx` request activities and caught operational failures that return `5xx` as `ERROR` so Collector tail sampling retains those traces.
+- REQ-017: Worker empty queued-job claims must remain the normal idle poll path and must not mark Worker claim spans as `ERROR`.
+- REQ-018: Application OTLP log export from Gateway, Worker, and Snapshotter must include only `Info`/`Information` and higher log records; debug records may be emitted locally but must not be exported through OTLP.
 
 ## Acceptance Criteria
 
@@ -82,6 +84,18 @@ Scenario: Worker CLI enqueue has no parent
   Given the Worker CLI enqueues an article directly
   When the Worker processes the queued job
   Then processing emits a valid trace without requiring a parent trace
+
+Scenario: Worker empty queue poll is not an error trace
+  Given no queued article-processing job is claimable
+  When the Worker polls for one job
+  Then the Worker returns an idle/no-work result
+  And Worker claim spans are not marked as errors
+
+Scenario: Debug logs are not exported through OTLP
+  Given Gateway, Worker, or Snapshotter emits a debug-level application log
+  When application OTLP log export is configured
+  Then the debug-level log is not exported through OTLP
+  And info-level and higher application logs remain exportable
 
 Scenario: Collector outage is non-fatal
   Given the Collector is unreachable after services have started
@@ -115,6 +129,10 @@ Telemetry must redact secrets and avoid content payloads. High-cardinality domai
 ## Observability / Logging Notes
 
 Gateway, Worker, and Snapshotter retain stdout logging behavior. OTLP logs are additive. Trace correlation fields are added to logs when a current span exists. Gateway does not emit broad request logs; it emits selective HTTP failure logs for security-relevant `401`/`403` responses and operational `5xx` responses.
+
+Worker empty queued-job claims are routine idle polls. They may return `sql.ErrNoRows` inside the repository contract, but that sentinel must not set Worker claim span status to `ERROR`.
+
+Application debug logs are local diagnostic logs only. Gateway, Worker, and Snapshotter OTLP log emission must be centrally filtered to `Info`/`Information` and higher so debug heartbeat or troubleshooting logs do not become telemetry noise.
 
 ## Related Documents
 

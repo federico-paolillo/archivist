@@ -1,6 +1,96 @@
 # Archivist
 
-> You send to Archivist via Telegram a link with a web-page you like and Archivist will: snapshot, summarize and quiz you 
+> Send Archivist a web page link through Telegram, and Archivist will snapshot and summarize it.
+
+## Architecture
+
+This section is an orientation layer. The canonical rebuild contracts remain [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/DESIGN.md`](docs/DESIGN.md), [`docs/ARTIFACTS.md`](docs/ARTIFACTS.md), [`docs/ERRORS.md`](docs/ERRORS.md), and the feature specs under [`docs/specs/`](docs/specs/).
+
+Archivist is a small personal article archiving system. Telegram is the ingestion channel, Gateway owns HTTP/API/auth/Telegram boundaries, Worker owns article processing, SQLite owns durable state, the filesystem owns article artifacts, Snapshotter backs up `/data`, and the UI reads only through Gateway.
+
+```mermaid
+flowchart LR
+    telegram["Telegram Bot"] --> gateway["Gateway API<br/>ASP.NET Core Minimal API"]
+    browser["Browser UI<br/>Preact/Vite"] --> ingress["Ingress Caddy<br/>/api prefix strip"]
+    ingress --> gateway
+    ingress --> ui["UI Caddy"]
+    gateway --> sqlite[("SQLite<br/>users, articles, jobs, notifications")]
+    worker["Worker<br/>Go"] --> sqlite
+    worker --> data["/data article artifacts<br/>snapshot.html, content.md, summary.md"]
+    gateway --> data
+    snapshotter["Snapshotter<br/>Python"] --> data
+    snapshotter --> objectStorage["S3-compatible Object Storage"]
+    gateway --> otel["Private OpenTelemetry Collector"]
+    worker --> otel
+    snapshotter --> otel
+```
+
+Article ingestion and processing are asynchronous. Gateway accepts a Telegram URL, persists article and job state, and sends the immediate Telegram reply. Worker claims queued jobs from SQLite, enforces the HTTPS-only article fetch and SSRF boundary, writes artifacts, persists terminal state, and creates terminal notification rows. Gateway later dispatches Telegram completion replies from those rows.
+
+```mermaid
+sequenceDiagram
+    participant T as Telegram
+    participant G as Gateway
+    participant DB as SQLite
+    participant W as Worker
+    participant FS as Filesystem /data
+    participant J as Jina Reader
+    participant L as LLM Provider
+
+    T->>G: Webhook with one http/https URL
+    G->>DB: Insert article and queued job
+    G-->>T: Immediate acknowledgement
+    W->>DB: Atomically claim queued job
+    W->>W: Enforce HTTPS and SSRF policy
+    W->>FS: Write snapshot.html
+    W->>W: Extract readable Markdown locally
+    W->>J: Fallback when local extraction fails
+    W->>FS: Write content.md
+    W->>L: Generate text summary
+    W->>FS: Write summary.md
+    W->>DB: Mark article ready and job succeeded
+    W->>DB: Insert terminal notification
+    G->>DB: Read pending notification
+    G-->>T: Completion reply
+```
+
+Production deployment keeps Gateway private on the Docker network. Only ingress Caddy publishes the application port, strips `/api` before forwarding to Gateway, and overwrites forwarded headers so Gateway evaluates auth and host checks from the trusted public context.
+
+```mermaid
+flowchart LR
+    internet["Internet"] --> lb["External TLS termination<br/>load balancer"]
+    lb --> host["Docker host port<br/>ARCHIVIST_PUBLIC_PORT -> 65000"]
+    host --> caddy["Ingress Caddy<br/>http://:65000"]
+    caddy -->|"/api/*, prefix stripped"| gateway["Gateway<br/>private:8080"]
+    caddy -->|"other routes"| ui["UI<br/>private:8080"]
+    gateway --> sqlite[("SQLite on /data")]
+    gateway --> artifacts["/data/articles/{article_id}"]
+    worker["Worker"] --> sqlite
+    worker --> artifacts
+    snapshotter["Snapshotter"] --> data["/data"]
+    snapshotter --> s3["S3-compatible backups"]
+    gateway --> otel["Private OTEL Collector"]
+    worker --> otel
+    snapshotter --> otel
+```
+
+## Design Decisions
+
+The durable decisions are recorded in [`docs/DESIGN.md`](docs/DESIGN.md). The decisions most likely to surprise a reader are:
+
+- SQLite is the authoritative state store, while `/data/articles/{article_id}/` stores retained and derived artifacts.
+- Gateway and Worker communicate through SQLite, not RPC.
+- Worker is single-instance in v0; jobs and Telegram notifications do not retry automatically.
+- Worker is the article website security boundary: Gateway may accept `http` or `https` URLs, but Worker processing fetches direct HTTPS only and applies SSRF protections.
+- Gateway owns all Telegram API calls. Worker records terminal notification intent in SQLite.
+- Article success is final only after `summary.md` is atomically written and article/job/notification state commits.
+- Summaries are text-only Markdown in v0. `summary.json` remains a future structured-summary artifact.
+- Authentication uses a password-only login and an opaque server-side session id cookie; the cookie contains no user payload.
+- Runtime ownership is user-aware, but v0 still has one bootstrapped personal account. Worker CLI enqueue is the explicit default-user exception.
+- Stale running jobs are operator-recoverable through explicit authenticated force delete after two hours; normal delete still rejects running jobs.
+- Snapshotter backups are simple object-storage archives: SQLite is copied through the online backup API, while non-database artifacts are copied best-effort from a live filesystem.
+- Gateway hard delete accepts a documented SQLite/filesystem atomicity limit because SQLite transactions cannot include artifact directory deletion.
+- OpenTelemetry is always configured in Compose through a private Collector. Collector outages must not stop core Gateway, Worker, or Snapshotter behavior.
 
 ## Launch locally
 

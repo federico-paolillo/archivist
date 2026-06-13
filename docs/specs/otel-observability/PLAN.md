@@ -20,6 +20,8 @@ OTEL-001 -> OTEL-007 -> OTEL-008
 OTEL-002 -> OTEL-009 -> OTEL-010
 OTEL-004 -> OTEL-006 -> OTEL-010
 OTEL-008 -> OTEL-010
+OTEL-006 -> OTEL-011
+OTEL-011 -> OTEL-012
 ```
 
 ## Tasks
@@ -36,6 +38,8 @@ OTEL-008 -> OTEL-010
 | `OTEL-008` | Add Snapshotter backup and upload spans | done | `OTEL-007` | `OTEL-010` | no | - |
 | `OTEL-009` | Update README deployment instructions | done | `OTEL-002` | `OTEL-010` | yes | - |
 | `OTEL-010` | Document manual OTEL validation | done | `OTEL-006`, `OTEL-008`, `OTEL-009` | - | no | - |
+| `OTEL-011` | De-noise empty Worker queue claim spans | done | `OTEL-006` | - | no | - |
+| `OTEL-012` | De-noise Worker heartbeat logs and filter debug OTLP logs | done | `OTEL-011` | - | no | - |
 
 ## Concurrency Rules
 

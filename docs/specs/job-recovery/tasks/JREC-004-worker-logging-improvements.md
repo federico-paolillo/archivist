@@ -20,8 +20,8 @@ Improve Worker process-loop and pipeline structured logs so claimed jobs, stage 
 
 This task includes:
 
-- Process-loop iteration start logs.
-- Idle/no-job logs.
+- Debug-level process-loop iteration start logs.
+- Debug-level idle/no-job logs.
 - Post-claim/pre-URL-load logs.
 - Stage start and result logs for fetch, snapshot, canonical URL update, Markdown, summary, terminal success, terminal failure, and terminal-persistence failure.
 - Tests that assert important log entries and fields.

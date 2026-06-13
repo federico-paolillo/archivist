@@ -12,17 +12,14 @@ Archivist is a personal article archiving system with one bootstrapped user in v
 
 The v0 system accepts article URLs through Telegram, stores article state in SQLite, processes queued article jobs with a single worker, writes large artifacts to the filesystem, generates text LLM summaries, and exposes a minimal authenticated web UI for review and administration.
 
-High-level flow:
+High-level component relationships:
 
 ```text
-Telegram Bot
-  -> ASP.NET Core Minimal API gateway
-  -> SQLite articles and jobs
-  -> Go worker
-  -> SQLite plus filesystem artifacts under /data
-  -> Python snapshotter uploads /data backups to S3-compatible Object Storage
-  -> ASP.NET Core API
-  -> Preact/Vite UI
+Telegram Bot -> ASP.NET Core Minimal API gateway -> SQLite articles and jobs
+SQLite articles and jobs -> Go worker -> SQLite plus filesystem artifacts under /data
+Preact/Vite UI -> ASP.NET Core API -> SQLite plus filesystem artifacts under /data
+Python snapshotter -> /data backups -> S3-compatible Object Storage
+Gateway, Worker, and Snapshotter -> private OpenTelemetry Collector
 ```
 
 The system favors a small, rebuildable deployment over horizontal scale. SQLite owns authoritative state. Filesystem artifacts are derived or retained content associated with article records. Runtime Gateway and Worker code must resolve article and job ownership from SQLite, authenticated session state, or claimed job state. Authentication bootstrap may hardcode the initial personal user id and fixed personal Telegram sender id `1559957191`. Worker CLI enqueue is the only runtime exception: it uses `jobs.DefaultUserID = 01ASB2XFCZJY7WHZ2FNRTMQJCT`, checks that `users.id` exists by that id, never infers ownership from user-table cardinality, and never creates the user.
@@ -42,7 +39,7 @@ The system favors a small, rebuildable deployment over horizontal scale. SQLite 
   - dispatch terminal Telegram completion replies from SQLite notifications;
   - read article artifacts from `/data` through read-only abstractions;
   - expose authenticated API endpoints for the UI;
-  - support basic admin delete actions.
+  - support authenticated normal delete and stale running-job force delete actions.
 
 ### Worker
 
@@ -51,7 +48,7 @@ The system favors a small, rebuildable deployment over horizontal scale. SQLite 
 - Production command: `archivist-worker process`.
 - Responsibilities:
   - atomically dequeue jobs from SQLite;
-  - fetch article HTML over plain HTTP(S);
+  - fetch article HTML over direct HTTPS only;
   - store the raw HTML snapshot;
   - extract readable content with go-readability v2 first;
   - fall back to Jina Reader when local readability cannot produce Markdown;
@@ -126,8 +123,8 @@ Filesystem storage under `/data` stores larger raw and derived artifacts:
       snapshot.html
       content.md
       summary.md
-      summary.json  # future structured summary artifact
-      metadata.json
+      summary.json  # future structured summary artifact, not written in v0
+      metadata.json # future metadata artifact, not written in v0
 ```
 
 Artifact writes must be atomic: write to a temporary path and then rename into place. Artifact paths are deterministic from `DATA_DIR` and `article_id`; v0 does not store artifact path columns in SQLite. Optional artifact hashes may be stored for integrity checks and debugging if a future spec requires them.
@@ -214,7 +211,11 @@ The worker must not call Telegram APIs directly.
 
 ### Article Websites
 
-The worker fetches article HTML using direct HTTP(S) requests. v0 does not use Playwright, headless browser rendering, or browser automation.
+The gateway may accept and persist submitted `http` or `https` URLs from authorized Telegram messages, but Worker processing is the article website security boundary. The worker fetches article HTML using direct HTTPS requests only. Omitted ports are treated as `443`; any other explicit port is rejected.
+
+Worker article fetching must enforce the SSRF policy from `docs/specs/article-processing/SPEC.md`: reject userinfo, empty hosts, invalid hostnames, IP literals, single-label hosts, localhost names, Docker-internal names, cloud metadata hostnames, and private or special resolved IP ranges. Redirects are limited to one hop, every redirect target must pass the same policy, the total timeout is 20 seconds, response bodies are limited to 10 MiB, accepted content types are `text/html` and `application/xhtml+xml`, and ambient proxy environment variables such as `HTTP_PROXY`, `HTTPS_PROXY`, and `NO_PROXY` must not affect article fetch routing.
+
+v0 does not use Playwright, headless browser rendering, or browser automation.
 
 ### Extraction Providers and Libraries
 
@@ -237,12 +238,14 @@ Deployment requirements:
 
 - one shared `/data` volume for SQLite and article artifacts;
 - gateway, worker, UI, and snapshotter deployed as one application stack;
-- only ingress Caddy publishes a host port from the Docker stack;
+- in production, only ingress Caddy publishes a host port from the Docker stack;
 - Gateway is private on the Docker internal network and has no host-published port;
 - Snapshotter backs up `/data` to S3-compatible Object Storage;
 - Gateway, Worker, and Snapshotter send OTLP traces and logs to the private Collector;
 - the Collector exports telemetry to the configured Grafana-compatible backend and must not publish OTLP ports to the host;
 - stdout logging collected by the host or deployment environment.
+
+The local development Compose stack also publishes Grafana LGTM on host port `40300` for manual telemetry validation. That development-only exception is not part of the production runtime contract.
 
 The v0 topology does not target high scalability, multi-region deployment, or real-time processing guarantees.
 

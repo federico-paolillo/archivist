@@ -80,6 +80,35 @@ Follow-ups:
 
 - Run Docker Compose config validation and documented manual Grafana/LGTM validation on a host with Docker.
 
+## 2026-06-12 - OTEL-011 empty Worker queue claim span de-noising - done
+
+Summary:
+
+- Added canonical task `OTEL-011` for treating empty Worker queue polls as normal idle telemetry.
+- Updated the OTEL spec so empty queued-job claims must not mark Worker claim spans as `ERROR`.
+- Changed Worker job-claim span finalization so `sql.ErrNoRows` ends `worker.jobs.claim` without recording an error.
+- Changed pipeline claim span finalization so an empty claim ends `worker.pipeline.claim` cleanly while preserving `processed=false, err=nil`.
+- Added span-recorder regression tests for empty repository claims and empty pipeline polls.
+
+Decisions:
+
+- `sql.ErrNoRows` from the claim query remains the repository contract for no claimable job.
+- Empty queue polls are not infrastructure failures and must not drive tail-sampled error traces.
+- Unexpected claim errors still record error spans and still return as pipeline failures.
+- No claim SQL, job state, retry, requeue, sleep, logging, schema, API, Collector, or Grafana behavior changed.
+
+Validation:
+
+- `cd src/worker && go test ./internal/pipeline ./pkg/jobs` passed.
+- `cd src/worker && go tool lefthook run build` passed.
+- `cd src/worker && go tool lefthook run format` passed.
+- `cd src/worker && go tool lefthook run lint` passed.
+- `cd src/worker && go tool lefthook run test` passed.
+
+Follow-ups:
+
+- None.
+
 ## 2026-06-03 - OTEL user-feedback remediation - done
 
 Summary:
@@ -143,3 +172,44 @@ Validation:
 Follow-ups:
 
 - Run Docker Compose config validation and documented manual Grafana/LGTM validation on a host with Docker.
+
+## 2026-06-12 - OTEL-012 Worker heartbeat and debug OTLP log de-noising - done
+
+Summary:
+
+- Added canonical task `OTEL-012` for demoting Worker process-loop heartbeat logs and filtering debug logs from application OTLP export.
+- Updated the OTEL spec and design decision so Gateway, Worker, and Snapshotter application OTLP log export is limited to `Info`/`Information` and higher.
+- Updated job-recovery docs so Worker process-loop iteration start and idle/no-job poll-result logs are debug-level heartbeat diagnostics.
+- Changed Worker process-loop start and idle poll-result logs from info to debug.
+- Added a central Worker `slog` minimum-level handler and applied it only to the `otelslog` handler so stdout keeps existing runtime level behavior while OTLP export drops debug records.
+- Added a Gateway central logging extension that filters `OpenTelemetryLoggerProvider` at `LogLevel.Information`.
+- Added Snapshotter debug logging for local JSON output while keeping the central OTEL emission path limited to info and error levels.
+- Added regression tests for Worker heartbeat log levels, Worker OTLP handler filtering, Gateway provider filtering, and Snapshotter debug-local/no-OTLP behavior.
+
+Decisions:
+
+- Worker job and article-processing pipeline logs with claim, stage, job, and article context remain info-level operational telemetry.
+- Worker process-loop start and idle/no-job poll-result logs are debug-level heartbeat diagnostics.
+- Debug logs are local diagnostics only for OTLP purposes across Gateway, Worker, and Snapshotter.
+- No queue state, retry behavior, SQL claim semantics, process-loop sleep behavior, public APIs, schema, CLI flags, Compose, Collector, or Grafana configuration changed.
+
+Validation:
+
+- `cd src/worker && go test ./internal/app ./internal/observability` passed.
+- `cd src/gateway && dotnet test --filter OpenTelemetryExtensionsTest` passed with 2 tests.
+- `cd src/snapshotter && uv run pytest tests/test_logging.py tests/test_telemetry.py` passed with 6 tests.
+- `cd src/worker && go tool lefthook run build` passed.
+- `cd src/worker && go tool lefthook run format` passed.
+- `cd src/worker && go tool lefthook run lint` passed.
+- `cd src/worker && go tool lefthook run test` passed.
+- `cd src/gateway && dotnet format --verify-no-changes` passed after normalizing formatting with `dotnet format`.
+- `cd src/gateway && dotnet build` passed.
+- `cd src/gateway && dotnet test` passed with 209 tests.
+- `cd src/snapshotter && uv run ruff format --check .` passed.
+- `cd src/snapshotter && uv run ruff check .` passed.
+- `cd src/snapshotter && uv run ty check .` passed.
+- `cd src/snapshotter && uv run pytest` passed with 21 tests.
+
+Follow-ups:
+
+- None.

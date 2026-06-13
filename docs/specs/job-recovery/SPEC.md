@@ -73,8 +73,8 @@ Not included:
 - REQ-016: The UI must require a separate destructive confirmation before calling the force-delete API.
 - REQ-017: Successful force delete in the UI must remove the article from the list, clear the detail pane, and navigate to `/articles`.
 - REQ-018: Force-delete failure in the UI must leave the current article selected and display the Gateway error text.
-- REQ-019: The Worker must log each process-loop iteration start.
-- REQ-020: The Worker must log idle/no-job poll results.
+- REQ-019: The Worker must log each process-loop iteration start at debug level.
+- REQ-020: The Worker must log idle/no-job poll results at debug level.
 - REQ-021: The Worker must log immediately after a queued job is claimed, before loading the article URL.
 - REQ-022: The Worker must log pipeline stage start and result for fetch, snapshot write, canonical URL update, Markdown extraction, summary generation, terminal success, terminal failure, and terminal-persistence failure.
 - REQ-023: Worker logs must use stable structured fields including `job_id`, `article_id`, `stage`, `status`, `duration`, `arc_code`, `provider`, `model`, `request_id`, and `artifact_result` where applicable.
@@ -184,7 +184,8 @@ Impacts:
 
 ## Observability / Logging Notes
 
-- Worker logging must make the claim and every pipeline boundary visible.
+- Worker logging must make the claim and every pipeline boundary visible at info level or higher.
+- Worker process-loop iteration start and idle/no-job poll-result logs are heartbeat diagnostics and must be debug-level.
 - Logs should be structured for grepability and operational diagnosis without a dedicated observability stack.
 - Gateway force-delete logs, if added, must not include auth cookie values or private article content.
 

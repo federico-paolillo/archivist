@@ -40,7 +40,7 @@ Only decisions with `Status: accepted` are binding for rebuild. Decisions marked
 
 **Decision:** v0 prioritizes deterministic processing, clear failure states, minimal dependencies, and a small deployment surface. Features that increase product breadth but are not required for the core archive-review loop are deferred.
 
-**Consequences:** v0 excludes Playwright, full-text search, filtering, advanced tagging, PWA/offline support, multi-user support, browser extensions, and a dedicated observability stack. Future feature specs may add those capabilities only by updating the relevant canonical docs.
+**Consequences:** v0 excludes Playwright, full-text search, filtering, advanced tagging, PWA/offline support, multi-user support, and browser extensions. Future feature specs may add deferred capabilities only by updating the relevant canonical docs. OpenTelemetry observability was later added by DSGN-019 and the `otel-observability` feature.
 
 ### DSGN-002: Single-User Product Boundary
 
@@ -273,7 +273,7 @@ Do not add sliding expiry, refresh tokens, multiple concurrent sessions per user
 
 **Consequences:** Wrapped provider, HTTP, SDK, and filesystem details remain available to logs without leaking into `articles.error_message` or `jobs.error_message`. Terminal public text is rendered only when the pipeline persists terminal article/job failure state; diagnostic `err.Error()` strings must not be persisted as public ARC text. Rebuilds must not reintroduce adapter result fields such as `ErrorCode` or `ResultStatus` for failure classification. `docs/ERRORS.md` remains the canonical human ARC catalog; `internal/arc` is the Go implementation of that catalog.
 
-### DSGN-017: Stale Running Jobs Are Operator-Recoverable By Force Delete
+### DSGN-021: Stale Running Jobs Are Operator-Recoverable By Force Delete
 
 **Date:** 2026-06-02
 **Status:** accepted
@@ -302,7 +302,7 @@ Do not add sliding expiry, refresh tokens, multiple concurrent sessions per user
 
 **Context:** Archivist needs operational visibility across Gateway HTTP entrypoints, asynchronous Worker processing, LLM/provider calls, artifact writes, Snapshotter backups, and deployment failures. Earlier v0 scope excluded a dedicated observability stack, but this feature explicitly adds post-v0 observability.
 
-**Decision:** Gateway, Worker, and Snapshotter emit traces and logs through OpenTelemetry SDKs to a private official OpenTelemetry Collector Contrib service. Application telemetry is always configured in Compose; no application-side trace/log exporter disable switches are part of the deployment contract. Application SDKs export traces always-on; sampling is performed by the Collector with tail sampling that keeps all error traces and 10% of non-error traces. Gateway-to-Worker asynchronous propagation uses W3C Trace Context stored on queued jobs as `traceparent` and `tracestate`. Applications use .NET `Activity`, Go/Python OpenTelemetry SDKs, and standard W3C propagators before custom code. Collector runtime outages must not stop core application behavior.
+**Decision:** Gateway, Worker, and Snapshotter emit traces and logs through OpenTelemetry SDKs to a private official OpenTelemetry Collector Contrib service. Application telemetry is always configured in Compose; no application-side trace/log exporter disable switches are part of the deployment contract. Application SDKs export traces always-on; sampling is performed by the Collector with tail sampling that keeps all error traces and 10% of non-error traces. Application OTLP log export includes only `Info`/`Information` and higher records; debug logs may remain local diagnostics but must not be exported through OTLP. Gateway-to-Worker asynchronous propagation uses W3C Trace Context stored on queued jobs as `traceparent` and `tracestate`. Applications use .NET `Activity`, Go/Python OpenTelemetry SDKs, and standard W3C propagators before custom code. Collector runtime outages must not stop core application behavior.
 
 **Consequences:** The SQLite job schema gains nullable carrier fields. The deployment topology gains a private Collector and a development-only Grafana LGTM service. Logs include `trace_id` and `span_id` when emitted inside a span. High-cardinality values such as `article_id`, `job_id`, URLs, and provider request IDs remain searchable trace/log attributes and must not be promoted to Loki labels or metric labels.
 
