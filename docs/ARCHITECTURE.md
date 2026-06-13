@@ -8,9 +8,9 @@ Architecture decisions that constrain all features belong here or in `docs/DESIG
 
 ## System Overview
 
-Archivist is a personal article archiving system with one bootstrapped user in v0 and a user-aware ownership model.
+Archivist is a personal article archiving system with one bootstrapped user and a user-aware ownership model.
 
-The v0 system accepts article URLs through Telegram, stores article state in SQLite, processes queued article jobs with a single worker, writes large artifacts to the filesystem, generates text LLM summaries, and exposes a minimal authenticated web UI for review and administration.
+The system accepts article URLs through Telegram, stores article state in SQLite, processes queued article jobs with a single worker, writes large artifacts to the filesystem, generates text LLM summaries, and exposes an authenticated web UI for review and administration.
 
 High-level component relationships:
 
@@ -44,7 +44,7 @@ The system favors a small, rebuildable deployment over horizontal scale. SQLite 
 ### Worker
 
 - Runtime: Go.
-- Deployment: single instance in v0.
+- Deployment: single instance.
 - Production command: `archivist-worker process`.
 - Responsibilities:
   - atomically dequeue jobs from SQLite;
@@ -84,7 +84,7 @@ The system favors a small, rebuildable deployment over horizontal scale. SQLite 
   - upload the archive to S3-compatible Object Storage with explicit endpoint, region, bucket, object key, access key, and secret key configuration;
   - emit structured stdout logs without secrets or article content.
 
-Snapshotter does not own restore, remote retention, pruning, encryption, Gateway/UI status, or writer coordination in v0. Failed snapshot attempts are logged, temporary files are cleaned up, and the service continues to the next interval.
+Snapshotter owns periodic archive creation and upload only. Restore is manual, remote retention is delegated to bucket policy, archives are plaintext before upload, Gateway/UI backup status is not exposed, and Snapshotter does not coordinate writers. Failed snapshot attempts are logged, temporary files are cleaned up, and the service continues to the next interval.
 
 ### OpenTelemetry Collector
 
@@ -123,17 +123,15 @@ Filesystem storage under `/data` stores larger raw and derived artifacts:
       snapshot.html
       content.md
       summary.md
-      summary.json  # future structured summary artifact, not written in v0
-      metadata.json # future metadata artifact, not written in v0
 ```
 
-Artifact writes must be atomic: write to a temporary path and then rename into place. Artifact paths are deterministic from `DATA_DIR` and `article_id`; v0 does not store artifact path columns in SQLite. Optional artifact hashes may be stored for integrity checks and debugging if a future spec requires them.
+Artifact writes must be atomic: write to a temporary path and then rename into place. Artifact paths are deterministic from `DATA_DIR` and `article_id`; SQLite does not store artifact path columns.
 
 The canonical artifact path contract is defined in `docs/ARTIFACTS.md`.
 
 Core user state includes:
 
-- `id`: seeded as `01ASB2XFCZJY7WHZ2FNRTMQJCT` for the personal account in v0
+- `id`: seeded as `01ASB2XFCZJY7WHZ2FNRTMQJCT` for the personal account
 - `telegram_user_id`: nullable until bootstrap or another canonical user-provisioning path maps a Telegram sender id, unique when present. Auth bootstrap sets the personal row to `1559957191` only when this value is null and preserves an existing non-null value.
 - `password_hash`: nullable only before UI/API authentication bootstrap completes, then an Argon2id PHC string
 
@@ -179,13 +177,13 @@ Notification state includes:
 - `sent_at`
 - `expires_at`
 
-Jobs do not retry automatically in v0. Notifications do not retry automatically in v0. Failed jobs and failed notifications persist error text so the user can manually re-send the URL or the operator can diagnose the issue.
+Jobs do not retry automatically. Notifications do not retry automatically. Failed jobs and failed notifications persist error text so the user can manually re-send the URL or the operator can diagnose the issue.
 
 `jobs.traceparent` and `jobs.tracestate` are nullable W3C Trace Context carrier fields. Gateway writes them when creating a queued job inside a traced request. Worker extracts them when claiming the job to continue Gateway-originated traces. Worker-created CLI enqueue jobs may leave them null; processing those jobs starts a valid root trace.
 
 Worker CLI enqueue uses `jobs.DefaultUserID = 01ASB2XFCZJY7WHZ2FNRTMQJCT` as the default owner for operator-created jobs. Before inserting an article or job, the Worker must query `users.id` for that exact id. Missing default user fails enqueue. Additional user rows do not change the selected owner or cause failure. Worker CLI enqueue must not create, upsert, or repair `users`.
 
-In final v0 processing, `articles.status = ready`, `jobs.status = succeeded`, and the success notification row are committed only after `summary.md` has been atomically written. HTML snapshotting and Markdown extraction are intermediate stages once summary generation exists. Any terminal failure in fetch, snapshot, Markdown extraction, summarization, or artifact writing marks the article and job failed with an ARC-coded public error.
+Article processing succeeds only when `articles.status = ready`, `jobs.status = succeeded`, and the success notification row are committed after `summary.md` has been atomically written. HTML snapshotting and Markdown extraction are intermediate stages. Any terminal failure in fetch, snapshot, Markdown extraction, summarization, or artifact writing marks the article and job failed with an ARC-coded public error.
 
 ## Service Boundaries and Communication
 
@@ -199,13 +197,13 @@ The worker owns processing jobs, filesystem artifact production, final article/j
 
 ### Telegram
 
-Telegram is the only v0 ingestion channel. The gateway accepts Telegram webhook requests and rejects requests that do not match the configured webhook secret. Sender authorization is based on `users.telegram_user_id`: a sender is authorized only when the sender id maps to an existing Archivist user row.
+Telegram is the only ingestion channel. The gateway accepts Telegram webhook requests and rejects requests that do not match the configured webhook secret. Sender authorization is based on `users.telegram_user_id`: a sender is authorized only when the sender id maps to an existing Archivist user row.
 
-Authorized Telegram messages must contain exactly one trimmed absolute `http` or `https` URL. Invalid authorized messages receive `Nope, you must send only an URL`. Valid queued URL messages receive `Ok, I will have a look` after the article/job enqueue transaction commits. Completion replies are sent later by the gateway from SQLite notification rows, as replies to the original Telegram message.
+Authorized Telegram messages must contain exactly one trimmed absolute `http` or `https` URL. Invalid authorized messages receive `Nope, you must send only an URL`. Valid queued URL messages receive `Ok, I will have a look` after the article/job enqueue transaction commits. Completion replies are sent by the gateway from SQLite notification rows after terminal state persists, as replies to the original Telegram message.
 
 The gateway persists the Telegram sender user ID separately from `telegram_chat_id` and `telegram_message_id`. `telegram_user_id` is sender identity metadata. `telegram_chat_id` and `telegram_message_id` are reply-target metadata. Accepted Telegram ingestion stores the resolved Archivist `user_id` on both the article and job rows.
 
-The v0 personal account ULID must not be treated as a catch-all for runtime ingestion. Auth bootstrap seeds the personal row's Telegram sender mapping with `1559957191` only when `users.telegram_user_id` is null. Deployment-configured Telegram sender allowlists or personal sender settings are not bootstrap inputs and are not runtime webhook authorization gates.
+The personal account ULID must not be treated as a catch-all for runtime ingestion. Auth bootstrap seeds the personal row's Telegram sender mapping with `1559957191` only when `users.telegram_user_id` is null. Deployment-configured Telegram sender allowlists or personal sender settings are not bootstrap inputs and are not runtime webhook authorization gates.
 
 The worker must not call Telegram APIs directly.
 
@@ -215,7 +213,7 @@ The gateway may accept and persist submitted `http` or `https` URLs from authori
 
 Worker article fetching must enforce the SSRF policy from `docs/specs/article-processing/SPEC.md`: reject userinfo, empty hosts, invalid hostnames, IP literals, single-label hosts, localhost names, Docker-internal names, cloud metadata hostnames, and private or special resolved IP ranges. Redirects are limited to one hop, every redirect target must pass the same policy, the total timeout is 20 seconds, response bodies are limited to 10 MiB, accepted content types are `text/html` and `application/xhtml+xml`, and ambient proxy environment variables such as `HTTP_PROXY`, `HTTPS_PROXY`, and `NO_PROXY` must not affect article fetch routing.
 
-v0 does not use Playwright, headless browser rendering, or browser automation.
+Article fetching uses direct HTTP clients only; Playwright, headless browser rendering, and browser automation are not part of article processing.
 
 ### Extraction Providers and Libraries
 
@@ -228,11 +226,15 @@ The Worker logs critical extraction decisions, including fallback from go-readab
 
 ### LLM Provider
 
-The Worker uses a provider-agnostic summarization interface. Claude through Anthropic is the first v0 provider, but provider, API key, and model are configuration values. The Anthropic implementation must use official Anthropic SDKs when suitable SDKs exist for the implementation language. Provider-specific SDK types must not leak outside the summarizer adapter.
+The Worker uses a provider-agnostic summarization interface. Claude through Anthropic is the configured provider path, while provider, API key, and model are configuration values. The Anthropic implementation must use official Anthropic SDKs when suitable SDKs exist for the implementation language. Provider-specific SDK types must not leak outside the summarizer adapter.
 
 ## Runtime Topology
 
-v0 deploys all components together on a single VPS.
+Archivist deploys all components together on a single VPS.
+
+The topology is single-site and single-stack. It provides neither horizontal scaling nor real-time processing guarantees.
+
+### Compose Topology
 
 Deployment requirements:
 
@@ -245,25 +247,25 @@ Deployment requirements:
 - the Collector exports telemetry to the configured Grafana-compatible backend and must not publish OTLP ports to the host;
 - stdout logging collected by the host or deployment environment.
 
-The local development Compose stack also publishes Grafana LGTM on host port `40300` for manual telemetry validation. That development-only exception is not part of the production runtime contract.
+Compose uses a shared base plus environment overlays. `docker-compose.yaml` owns the common service topology, networks, volumes, dependencies, and shared runtime constants. `docker-compose.local.yaml` adds local `build:` entries, local image tags, static local defaults, env-file-backed secrets and external target selectors, and the development-only Grafana LGTM service. `docker-compose.prod.yaml` has no `build:` entries and receives Gateway, Worker, UI, and Snapshotter images through `ARCHIVIST_GATEWAY_IMAGE`, `ARCHIVIST_WORKER_IMAGE`, `ARCHIVIST_UI_IMAGE`, and `ARCHIVIST_SNAPSHOTTER_IMAGE`.
 
-The v0 topology does not target high scalability, multi-region deployment, or real-time processing guarantees.
+The local development Compose stack publishes Grafana LGTM on host port `40300` for manual telemetry validation. Production Compose includes the private Collector but does not include Grafana LGTM.
 
 ### Repository Automation
 
-GitHub Actions is the canonical repository automation surface. CI runs on pushes to `main` and must fail when Gateway, Worker, UI, or Snapshotter build, lint, formatting, type-checking, or test validation fails. Coverage upload is deferred until the component test commands emit coverage reports.
+GitHub Actions is the canonical repository automation surface. CI runs on pushes to `main` and must fail when Gateway, Worker, UI, or Snapshotter build, lint, formatting, type-checking, or test validation fails.
 
 Gateway validation uses the exact .NET SDK pinned by `src/gateway/global.json`. The Gateway container build stage must use the matching `mcr.microsoft.com/dotnet/sdk` image tag so local, CI, and release builds use the same SDK feature band.
 
 CD is a manually dispatched release workflow. It checks out the requested release ref, validates the same component gates as CI, builds and pushes multi-architecture `linux/amd64` and `linux/arm64` images for Gateway, Worker, UI, and Snapshotter to GitHub Container Registry, emits GitHub artifact attestations for each pushed image, tags the resolved release commit, and opens a draft GitHub release. The UI image build receives the resolved release commit SHA through the `VERSION_LABEL` Docker build argument.
 
-Compose uses a shared base plus environment overlays. `docker-compose.yaml` owns the common service topology, networks, volumes, dependencies, and shared runtime constants. `docker-compose.local.yaml` adds local `build:` entries, local image tags, static local defaults, env-file-backed secrets and external target selectors, and the development-only Grafana LGTM service. `docker-compose.prod.yaml` has no `build:` entries and receives Gateway, Worker, UI, and Snapshotter images through `ARCHIVIST_GATEWAY_IMAGE`, `ARCHIVIST_WORKER_IMAGE`, `ARCHIVIST_UI_IMAGE`, and `ARCHIVIST_SNAPSHOTTER_IMAGE`.
+### Release Package
 
 The CD workflow generates a release package under `release/compose/`, validates the packaged production Compose model with Docker Compose, and publishes it as a compressed deployment artifact attached to both the workflow run and the draft GitHub release. The package contents are `docker-compose.yaml`, `docker-compose.prod.yaml`, `.env`, digest-pinned `.env.images`, `rp.Caddyfile`, and `otelcol-config.yaml`. Operators deploy with the packaged runtime `.env` first and the release-provided `.env.images` file second so release image pins override accidental local image values, and they must pass both packaged Compose files with `-f docker-compose.yaml -f docker-compose.prod.yaml`.
 
 ### Reverse Proxy And TLS Termination
 
-The primary v0 public topology is:
+The primary public topology is:
 
 ```text
 Internet -> Scaleway Load Balancer TLS termination -> Docker host port 65000 -> ingress Caddy plaintext HTTP
@@ -298,11 +300,11 @@ http://:65000 {
 
 `X-Forwarded-Proto` must be the literal value `https`. Using Caddy's `{scheme}` would forward `http` in this topology and make Gateway reject HTTPS-required auth flows. `GATEWAY_PUBLIC_HOSTS` must match the public hostname supplied through the forwarded host context. Gateway trusts forwarded headers because only the reverse proxy is supposed to reach it on the Docker internal network; this is a documented deployment invariant rather than a static source-IP allowlist because the upstream load balancer may use dynamic source IPs.
 
-If a future deployment sends TLS all the way to Caddy, then Caddy becomes the TLS endpoint and must be configured with a real certificate strategy. That alternate topology must be documented before use.
+When a deployment sends TLS all the way to Caddy, Caddy is the TLS endpoint and must be configured with a real certificate strategy.
 
 ## Security Boundaries
 
-The v0 deployment has one bootstrapped user, but runtime authorization is user-aware.
+The deployment has one bootstrapped user, but runtime authorization is user-aware.
 
 Security boundaries:
 
@@ -316,14 +318,14 @@ Security boundaries:
 - UI/API auth HTTPS decisions use the effective public request context after trusted forwarded-header processing.
 - Gateway must not be exposed directly to the public Internet while trusting forwarded headers. If it is exposed directly, clients may spoof `X-Forwarded-Proto` or `X-Forwarded-Host`, which can make Gateway evaluate auth HTTPS and host decisions using attacker-supplied public context.
 - Gateway auth integrates with ASP.NET Core through a custom `"app-cookie"` authentication handler registered by `AddAppCookie()`.
-- v0 stores auth sessions in memory behind `ISessionStore`; gateway restart invalidates existing auth sessions by design.
+- Auth sessions are stored in memory behind `ISessionStore`; gateway restart invalidates existing auth sessions by design.
 - Multi-replica UI/API auth requires a shared `ISessionStore`, with Redis preferred, and shared login throttling state.
 - Secrets must be supplied through environment variables or equivalent deployment secret mechanisms.
 - Secrets must not be committed to the repository.
 
 ## Configuration
 
-The following logical configuration keys define the v0 runtime surface:
+The following logical configuration keys define the runtime surface:
 
 ```text
 DATA_DIR
@@ -371,17 +373,33 @@ The UI build uses `VITE_API_BASE_PATH` to choose the same-origin public API base
 
 Snapshotter reads `ARCHIVIST_`-prefixed application variables and standard `OTEL_*` SDK variables set by Compose. Canonical Snapshotter application variables are `ARCHIVIST_DATA_DIR`, `ARCHIVIST_SQLITE_PATH`, `ARCHIVIST_SNAPSHOTTER_INTERVAL_SECONDS`, `ARCHIVIST_SNAPSHOTTER_WORK_DIR`, `ARCHIVIST_SNAPSHOTTER_S3_ENDPOINT_URL`, `ARCHIVIST_SNAPSHOTTER_S3_REGION`, `ARCHIVIST_SNAPSHOTTER_S3_BUCKET`, `ARCHIVIST_SNAPSHOTTER_S3_ACCESS_KEY_ID`, `ARCHIVIST_SNAPSHOTTER_S3_SECRET_ACCESS_KEY`, and `ARCHIVIST_SNAPSHOTTER_OBJECT_PREFIX`. `ARCHIVIST_SNAPSHOTTER_INTERVAL_SECONDS` defaults to `86400`. The Snapshotter executable defaults `ARCHIVIST_SNAPSHOTTER_WORK_DIR` to `/tmp/archivist-snapshotter`; Compose deployments set it to `/work/archivist-snapshotter` on a disk-backed `snapshotter-work` volume so snapshot staging is not constrained by tmpfs memory. `ARCHIVIST_SNAPSHOTTER_OBJECT_PREFIX` defaults to empty. The S3 endpoint URL, region, bucket, access key id, and secret access key are required at startup. The access key id and secret access key are secret material.
 
-Local Compose is `docker-compose.yaml` plus `docker-compose.local.yaml`; static local defaults are written directly in `docker-compose.local.yaml`, while `.env.local` supplies secrets and external target selectors such as S3 destination values and an optional OTEL backend override. Local runs may intentionally target production Telegram, LLM, S3-compatible Object Storage, or OTEL systems when those values are copied into `.env.local`. Production Compose is `docker-compose.yaml` plus `docker-compose.prod.yaml`; it reads the packaged `.env` and `.env.images` files and has no default fallbacks for configurable values: required variables must be set and non-empty, while documented optional variables may be explicitly empty. Compose configures application SDKs with `OTEL_SERVICE_NAME`, `OTEL_RESOURCE_ATTRIBUTES`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and always-on trace sampling. Application-side trace/log exporter disable switches are not part of the deployment contract. Collector-specific deployment variables use `ARCHIVIST_OTEL_*`. Applications must keep core behavior working during Collector runtime outages. Invalid telemetry configuration may fail startup. Gateway selectively logs security-relevant HTTP `401`/`403` responses and operational `5xx` responses without enabling broad request logging; routine unauthenticated `GET /auth/session` probes are not logged. Gateway marks `5xx` request activities and caught operational failures that return `5xx` as `ERROR` so Collector tail sampling retains those traces. Telemetry must not expose secrets, cookies, Telegram bot tokens, authentication headers, full article HTML, full Markdown, full summaries, provider payloads, or S3 credentials. High-cardinality values such as `user_id`, `article_id`, `job_id`, URLs, and provider request IDs remain trace/log attributes and must not be promoted to Loki labels or metric labels. Gateway and Worker attach `user_id` when the Archivist user is resolved; Snapshotter does not attach `user_id`.
+Local Compose is `docker-compose.yaml` plus `docker-compose.local.yaml`; static local defaults are written directly in `docker-compose.local.yaml`, while `.env.local` supplies secrets and external target selectors such as S3 destination values and an optional OTEL backend override. Local runs may intentionally target production Telegram, LLM, S3-compatible Object Storage, or OTEL systems when those values are copied into `.env.local`.
+
+Production Compose is `docker-compose.yaml` plus `docker-compose.prod.yaml`; it reads the packaged `.env` and `.env.images` files and has no default fallbacks for configurable values. Required variables must be set and non-empty. Documented optional variables may be explicitly empty.
+
+### Telemetry Export And Privacy
+
+Compose configures application SDKs with `OTEL_SERVICE_NAME`, `OTEL_RESOURCE_ATTRIBUTES`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and always-on trace sampling. Application-side trace/log exporter disable switches are not part of the deployment contract. Collector-specific deployment variables use `ARCHIVIST_OTEL_*`.
+
+Applications must keep core behavior working during Collector runtime outages. Invalid telemetry configuration may fail startup.
+
+Telemetry must not expose secrets, cookies, Telegram bot tokens, authentication headers, full article HTML, full Markdown, full summaries, provider payloads, or S3 credentials. High-cardinality values such as `user_id`, `article_id`, `job_id`, URLs, and provider request IDs remain trace/log attributes and must not be promoted to Loki labels or metric labels. Gateway and Worker attach `user_id` when the Archivist user is resolved; Snapshotter does not attach `user_id`.
+
+### Gateway Failure Logging
+
+Gateway selectively logs security-relevant HTTP `401`/`403` responses and operational `5xx` responses without enabling broad request logging. Routine unauthenticated `GET /auth/session` probes are not logged.
+
+Gateway marks `5xx` request activities and caught operational failures that return `5xx` as `ERROR` so Collector tail sampling retains those traces.
 
 ## Key Constraints
 
-- One bootstrapped user in v0; runtime ownership and authorization paths remain user-aware.
-- Single Go worker instance in v0.
-- Single gateway instance in v0 for in-memory auth sessions and login throttling.
-- Single snapshotter instance in v0.
+- One bootstrapped user; runtime ownership and authorization paths remain user-aware.
+- Single Go worker instance.
+- Single gateway instance for in-memory auth sessions and login throttling.
+- Single snapshotter instance.
 - SQLite-backed metadata and job queue.
 - Filesystem-backed artifact storage.
-- No automatic worker retries or Telegram notification retries in v0.
-- No external queue system in v0.
-- No Playwright or headless browser rendering in v0.
-- No full-text search, filtering, advanced tagging, browser extension, or PWA/offline mode in v0.
+- Worker jobs and Telegram notifications are terminal unless the user or operator creates new work.
+- SQLite is the job queue; there is no external queue system.
+- Article processing uses direct fetch and extraction paths; there is no Playwright or headless browser rendering.
+- The browser UI is limited to authentication, article listing, article detail, artifact display, status display, and delete/recovery actions.

@@ -7,6 +7,8 @@ canonical: true
 
 # ExecPlan: <TASK-ID> <Task Title>
 
+Proposed ExecPlans are non-authoritative drafts. Set `status: accepted` before using this plan to guide a `ready` task. This plan must not add requirements beyond the linked task, feature spec, and feature plan.
+
 ## Objective
 
 Describe the task objective and the expected implementation outcome.
@@ -27,11 +29,15 @@ Add only ExecPlan-specific context:
 - TODO: additional `docs/DESIGN.md` decisions, only if needed
 - TODO: additional `.agents/skills/<relevant-skill>/SKILL.md`, only if needed
 
-## Assumptions
+## Task Requirements Addressed
+
+- TODO: summarize requirements already present in the linked task/spec/plan. Do not introduce new requirements here.
+
+## Constraints
 
 - TODO
 
-## Non-Goals
+## Assumptions
 
 - TODO
 

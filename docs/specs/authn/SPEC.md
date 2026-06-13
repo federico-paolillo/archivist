@@ -17,7 +17,7 @@ Protect the Archivist web UI and UI-facing gateway API with cookie authenticatio
 
 ## Motivation
 
-Archivist v0 exposes a private browser UI for article review and administration. The UI must be usable from a normal browser without exposing credentials to JavaScript, while keeping the implementation small enough for a single VPS deployment.
+Archivist exposes a private browser UI for article review and administration. The UI must be usable from a normal browser without exposing credentials to JavaScript, while keeping the implementation small enough for a single VPS deployment.
 
 ## Scope
 
@@ -27,27 +27,18 @@ In scope:
 - Argon2id password hash storage in SQLite.
 - One-time bootstrap of the personal user's password hash from `AUTH_BOOTSTRAP_PASSWORD`.
 - Bootstrap of the personal user's `telegram_user_id` to the fixed Telegram sender id `1559957191` when the row has no Telegram sender mapping.
+- Persisted Telegram sender identity mapping on `users.telegram_user_id`; auth bootstrap seeds only the personal mapping and runtime Gateway flows must treat mappings as data read from SQLite.
 - Opaque server-issued session id cookies integrated through a custom ASP.NET Core authentication handler.
 - Browser-session auth cookies with `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/`, no `Domain`, and the `__Host-app-auth` cookie name.
-- In-memory v0 `ISessionStore` with 24-hour server-side absolute expiry.
+- In-memory `ISessionStore` with 24-hour server-side absolute expiry.
 - `POST /login`, `POST /logout`, and `GET /auth/session`.
 - Protection of UI-facing API endpoints.
 - In-memory login throttling for the single gateway instance.
 - Basic same-origin defenses for unsafe methods.
 - Forwarded-header handling for the trusted Docker reverse proxy deployment topology.
-- Auth endpoint/session contracts consumed by the final browser UI.
-
-## Out of Scope
-
-Not included:
-
-- Account registration, password reset, password rotation UI, user self-service, roles, or tenant isolation.
-- User registration or user-management UI.
-- Multi-replica auth operation in v0.
-- Custom HMAC cookies, random cookie names, or user-id hash cookie payloads.
-- Sliding expiry, refresh tokens, multiple concurrent sessions per user, or revocation lists beyond plain session entry removal.
-- Encryption, signing, MACs, or other cryptographic transforms over the cookie value.
-- Final Preact browser login rendering, login-failure route, article shell, and logout menu, which are owned by the `ui` feature.
+- Auth endpoint/session contracts consumed by the browser UI.
+- Auth does not provide account registration, password reset, password rotation UI, user self-service, roles, tenant isolation, user-management UI, multi-replica session sharing, custom HMAC cookies, random cookie names, user-id hash cookie payloads, sliding expiry, refresh tokens, multiple concurrent sessions per user, revocation lists beyond session entry removal, or cryptographic transforms over the cookie value.
+- Browser login rendering, login-failure route, article shell, and logout menu are owned by the `ui` feature.
 
 ## Users / Actors
 
@@ -72,9 +63,9 @@ Not included:
 - REQ-012: The auth cookie must be `HttpOnly`, `Secure`, `SameSite=Strict`, use `Path=/`, and omit `Domain`.
 - REQ-013: `ISessionStore` must map `sessionId` to `{ userId, createdAt, absoluteExpiresAt }`.
 - REQ-014: Session expiry must be absolute and server-side enforced at 24 hours from issue.
-- REQ-014A: The auth cookie name `__Host-app-auth` and 24-hour server-side session lifetime are canonical constants. Gateway must consume `AppCookieDefaults` directly; configuration values that attempt to change them must have no effect unless a future spec promotes those values to configurable deployment behavior.
-- REQ-015: The v0 `ISessionStore` implementation must be in-memory and may use `ConcurrentDictionary<string, SessionEntry>`.
-- REQ-016: Gateway restart invalidates existing v0 sessions by wiping the in-memory store.
+- REQ-014A: The auth cookie name `__Host-app-auth` and 24-hour server-side session lifetime are canonical constants. Gateway must consume `AppCookieDefaults` directly; configuration values that attempt to change them must have no effect unless this spec promotes those values to configurable deployment behavior.
+- REQ-015: The `ISessionStore` implementation must be in-memory and may use `ConcurrentDictionary<string, SessionEntry>`.
+- REQ-016: Gateway restart invalidates existing sessions by wiping the in-memory store.
 - REQ-017: Gateway auth must integrate with ASP.NET Core through a custom `IAuthenticationHandler`, or `AuthenticationHandler<AuthenticationSchemeOptions>`, registered by `AddAppCookie()`.
 - REQ-018: The auth scheme and authentication type must be `"app-cookie"`.
 - REQ-019: Authenticated requests must receive a minimal `ClaimsPrincipal` containing only `ClaimTypes.NameIdentifier` with the user id.
@@ -100,6 +91,9 @@ Not included:
 - REQ-039: Multiple password-bearing user rows are valid.
 - REQ-040: Login must fail closed when no password-bearing row exists, when no candidate hash matches, or when more than one candidate hash matches the submitted password.
 - REQ-041: Auth must not introduce registration, user-management endpoints, or user self-service.
+- REQ-042: Gateway runtime code must derive authenticated user identity from password verification, session state, or persisted Telegram sender mapping, not from the personal user ULID constant outside bootstrap.
+- REQ-043: Telegram sender authorization must resolve a user only through `users.telegram_user_id`; unknown Telegram senders must not create or mutate users, articles, jobs, or notifications.
+- REQ-044: Gateway logs and spans must attach `user_id` after password, session, or Telegram sender resolution when the Archivist user is known.
 
 ## Acceptance Criteria
 
@@ -190,6 +184,16 @@ Scenario: Unsafe request rejects public origin mismatch
   When an unsafe request supplies an Origin or Referer with a mismatched scheme, host, or effective port
   Then the response status is 403
   And the endpoint handler is not reached
+
+Scenario: Telegram sender mapping resolves a user
+  Given users.telegram_user_id maps a Telegram sender to user "U1"
+  When Gateway accepts a Telegram webhook from that sender
+  Then downstream article and job ownership use user "U1"
+
+Scenario: Unknown Telegram sender is ignored
+  Given no users.telegram_user_id row matches a Telegram sender
+  When Gateway receives a Telegram webhook from that sender
+  Then no user, article, job, or notification state is created or mutated
 ```
 
 ## Data and State
@@ -202,7 +206,7 @@ SQLite remains the source of truth for authenticated users.
 - `telegram_user_id`: nullable until bootstrap or another canonical user-provisioning path maps a Telegram sender; unique when present. Auth bootstrap sets the personal row to `1559957191` only when this value is null.
 - `password_hash`: nullable only before auth bootstrap completes; after bootstrap it stores an Argon2id PHC string.
 
-The v0 system starts with one bootstrapped user row. Additional password-bearing rows may exist through canonical provisioning outside auth, and password-only login supports them by matching the submitted password against all non-empty Argon2id PHC hashes. Auth does not introduce registration, provisioning state, roles, tenants, external identity tables, password history, refresh tokens, or user self-service.
+The system starts with one bootstrapped user row. Additional password-bearing rows may exist through canonical provisioning outside auth, and password-only login supports them by matching the submitted password against all non-empty Argon2id PHC hashes. Gateway runtime identity is data-driven after bootstrap: password login uses the exactly matched password owner, session authentication uses the stored session user id, and Telegram sender authorization uses `users.telegram_user_id`. Auth does not introduce registration, provisioning state, roles, tenants, external identity tables, password history, refresh tokens, or user self-service.
 
 ### `ISessionStore`
 
@@ -222,7 +226,7 @@ public sealed record SessionEntry(
     DateTimeOffset AbsoluteExpiresAt);
 ```
 
-The v0 implementation is in-memory and may use `ConcurrentDictionary<string, SessionEntry>`. `RemoveAsync` on a missing key is a no-op. Expired entries are removed on lookup and may also be removed by periodic sweep.
+The implementation is in-memory and may use `ConcurrentDictionary<string, SessionEntry>`. `RemoveAsync` on a missing key is a no-op. Expired entries are removed on lookup and may also be removed by periodic sweep.
 
 ## Interfaces
 
@@ -275,7 +279,7 @@ services.AddAuthorization();
 Depends on:
 
 - `telegram-ingestion` persistence foundation for the shared `users` table contract.
-- `docs/ARCHITECTURE.md` v0 bootstrapped-user gateway/UI boundary.
+- `docs/ARCHITECTURE.md` bootstrapped-user gateway/UI boundary.
 - `docs/ARCHITECTURE.md` reverse-proxy deployment topology.
 
 Implementation agents should use `.agents/skills/archivist-gateway/SKILL.md` and `.agents/skills/archivist-ui/SKILL.md` for module coding guidance. These skills are not feature dependencies or rebuild sources of truth.
@@ -286,6 +290,7 @@ Impacts:
 - Gateway persistence initialization for the `users` table.
 - UI auth API client contract.
 - Telegram ingestion user-table expectations.
+- Gateway Telegram sender identity resolution.
 
 ## Rebuild Notes
 
@@ -293,7 +298,7 @@ Impacts:
 - Do not replace opaque session cookies with encrypted cookie payloads or custom signed cookie formats without a new design decision.
 - Do not add sliding expiry, refresh tokens, multiple concurrent sessions per user, or revocation lists beyond session entry removal.
 - Do not encrypt, sign, MAC, or otherwise transform the cookie value.
-- Gateway restart invalidating cookies is intentional in v0.
+- Gateway restart invalidating cookies is intentional with the in-memory session store.
 - Do not implement final Preact login page rendering in this feature; `docs/specs/ui/SPEC.md` owns browser UI routes and rendering behavior.
 - The trusted reverse proxy must overwrite forwarded headers. Do not expose Gateway directly to the public Internet while trusting forwarded headers.
 
@@ -304,16 +309,7 @@ Impacts:
 - The cookie value contains no user id, role, expiry, or metadata. Store presence and server-side expiry determine validity.
 - SameSite cookies are not the only CSRF control. Unsafe requests must also enforce same-origin request checks.
 - Same-origin request checks must compare the post-forwarding effective public scheme, host, and port.
-- Login throttling is in-memory and is acceptable only because v0 has one gateway instance.
-
-## Multiple-Replica Notes
-
-To support multiple gateway replicas:
-
-- Replace the in-memory `ISessionStore` with a shared implementation. Redis is preferred over memcached because eviction semantics under memory pressure are safer for auth state.
-- Move login throttling counters to a shared store.
-- Keep the fixed `__Host-app-auth` cookie name and opaque session id format.
-- No shared cookie key ring is required because the cookie carries no protected payload.
+- Login throttling is in-memory and relies on the single gateway instance deployment.
 
 ## Observability / Logging Notes
 
@@ -327,8 +323,6 @@ To support multiple gateway replicas:
 ## Related Documents
 
 - `./PLAN.md`
-- `./DIARY.md`
-- `./plans/AUTHN-002-password-persistence-and-bootstrap.execplan.md`
-- `./plans/AUTHN-003-gateway-cookie-authentication.execplan.md`
-- `./tasks/AUTHN-006-reverse-proxy-forwarded-headers-and-effective-https-auth.md`
-- `./plans/AUTHN-006-reverse-proxy-forwarded-headers.execplan.md`
+- `./tasks/AUTHN-002-password-persistence-and-bootstrap.md`
+- `./tasks/AUTHN-003-gateway-cookie-authentication-endpoints.md`
+- `./tasks/AUTHN-004-protect-ui-api-and-validate-auth-client-contract.md`

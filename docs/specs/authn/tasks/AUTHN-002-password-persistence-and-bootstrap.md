@@ -3,10 +3,10 @@ id: AUTHN-002
 feature: authn
 title: Password persistence and bootstrap
 status: done
-depends_on: [AUTHN-001, TELING-001]
+depends_on: [TELING-001]
 blocks: [AUTHN-003]
 parallel: false
-exec_plan: ../plans/AUTHN-002-password-persistence-and-bootstrap.execplan.md
+exec_plan: null
 canonical: true
 ---
 
@@ -22,16 +22,11 @@ This task includes:
 
 - Ensuring a `users` table with `id`, nullable `telegram_user_id`, and nullable `password_hash`.
 - Bootstrapping `password_hash` from `AUTH_BOOTSTRAP_PASSWORD` only when missing.
+- Creating the personal user row with `id = 01ASB2XFCZJY7WHZ2FNRTMQJCT` when missing.
+- Seeding the personal user's `telegram_user_id` to `1559957191` only when it is null.
 - Argon2id PHC hashing and verification.
 - Strict 2048-character printable ASCII password validation.
 
-## Out of Scope
-
-This task does not include:
-
-- Login HTTP endpoints.
-- UI screens.
-- Password rotation UI.
 
 ## Required Context
 
@@ -44,7 +39,6 @@ Read before execution:
 - `docs/ARCHITECTURE.md`
 - `docs/DESIGN.md`
 - `docs/specs/telegram-ingestion/tasks/TELING-001-persistence-contracts.md`
-- `docs/specs/telegram-ingestion/plans/TELING-001-persistence-contracts.execplan.md`
 
 ## Acceptance Criteria
 
@@ -60,13 +54,23 @@ Scenario: Existing password hash is present
   When the gateway initializes auth storage
   Then AUTH_BOOTSTRAP_PASSWORD is not required
   And the existing hash is preserved
+
+Scenario: Bootstrap seeds missing Telegram sender mapping
+  Given the personal user has telegram_user_id null
+  When the gateway initializes auth storage
+  Then telegram_user_id is set to 1559957191
+
+Scenario: Bootstrap preserves existing Telegram sender mapping
+  Given the personal user has a non-null telegram_user_id
+  When the gateway initializes auth storage
+  Then telegram_user_id is unchanged
 ```
 
 ## Done When
 
 - Bootstrap and verification tests pass.
 - Bootstrap plaintext is not logged or persisted.
-- The task's ExecPlan is accepted before implementation begins.
+- Existing non-null Telegram sender mappings are preserved.
 
 ## Validation
 
@@ -80,8 +84,6 @@ cd src/gateway && dotnet test
 ## Dependencies
 
 Depends on:
-
-- `AUTHN-001`
 - `TELING-001`
 
 Blocks:
@@ -93,5 +95,5 @@ Blocks:
 ExecPlan:
 
 ```text
-../plans/AUTHN-002-password-persistence-and-bootstrap.execplan.md
+null
 ```

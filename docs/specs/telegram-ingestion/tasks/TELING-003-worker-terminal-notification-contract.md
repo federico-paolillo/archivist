@@ -35,15 +35,6 @@ This task includes:
 - Ensuring article update, job update, and notification insert are atomic.
 - Worker tests for success, failure, and non-Telegram jobs.
 
-## Out of Scope
-
-This task does not include:
-
-- Telegram API calls.
-- Gateway notification dispatch.
-- The article fetching/extraction/summarization implementation except where tests need fixtures for terminal state.
-- Gateway webhook ingestion.
-- Automatic retry behavior.
 
 ## Inputs
 
@@ -136,7 +127,6 @@ Scenario: Non-Telegram job reaches terminal state
 - Article-processing failures preserve ARC-coded public error text for downstream Gateway notification dispatch.
 - No worker retry state or retry scheduling exists.
 - Task status and `PLAN.md` are updated if the task is completed.
-- `DIARY.md` has an entry if implementation is performed.
 
 ## Validation
 

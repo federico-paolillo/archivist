@@ -3,7 +3,7 @@ id: ARTPROC-003
 feature: article-processing
 title: Worker Filesystem Artifact Access Layer
 status: done
-depends_on: [ARTPROC-001]
+depends_on: []
 blocks: [ARTPROC-004]
 parallel: true
 exec_plan: null
@@ -18,7 +18,7 @@ Build a reusable Worker filesystem access layer for article artifacts under `DAT
 
 ## Story / Context
 
-As the Worker, I need one shared artifact access boundary so snapshotting, future extraction, future summarization, and any cleanup behavior use the same deterministic and traversal-resistant filesystem rules.
+As the Worker, I need one shared artifact access boundary so snapshotting, Markdown extraction, summary generation, and cleanup behavior use the same deterministic and traversal-resistant filesystem rules.
 
 ## Scope
 
@@ -31,14 +31,6 @@ This task includes:
 - Traversal-resistant access using `os.Root` or `os.OpenInRoot` where functionally correct.
 - Worker tests for deterministic paths, atomic writes, and traversal rejection.
 
-## Out of Scope
-
-This task does not include:
-
-- HTTP fetching.
-- SQLite state updates.
-- Gateway artifact reads.
-- Writing `content.md`, `summary.json`, `summary.md`, or `metadata.json`.
 
 ## Inputs
 
@@ -102,7 +94,6 @@ Scenario: Artifact access rejects traversal
 - Tests cover deterministic path, atomic write, and traversal rejection.
 - No placeholder artifacts are created.
 - Task status and `PLAN.md` are updated if the task is completed.
-- `DIARY.md` has an entry if implementation is performed.
 
 ## Validation
 
@@ -123,8 +114,6 @@ Manual validation, if any:
 
 Depends on:
 
-- `ARTPROC-001`
-
 Blocks:
 
 - `ARTPROC-004`
@@ -143,4 +132,4 @@ null
 
 ## Notes
 
-- This layer should be designed for reuse by later extraction and summarization features without implementing those features now.
+- This layer is shared by snapshot, Markdown extraction, and summarization artifact access.

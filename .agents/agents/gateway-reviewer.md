@@ -44,7 +44,7 @@ dotnet build
 dotnet test
 ```
 
-Report any skipped verification and why.
+Report verification that was not run and why.
 
 ## Escalation
 

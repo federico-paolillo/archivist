@@ -18,7 +18,7 @@ Default allowed write scope when assigned:
 
 - `src/gateway/**`
 - Gateway tests under `src/gateway/**`
-- Task/PLAN/DIARY updates explicitly assigned by the coordinator
+- Task and PLAN updates explicitly assigned by the coordinator
 - Canonical docs only when the task explicitly requires durable Gateway behavior changes
 
 ## Forbidden Edits

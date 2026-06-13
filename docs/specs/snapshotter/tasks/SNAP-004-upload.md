@@ -8,7 +8,7 @@ depends_on:
 blocks:
   - SNAP-005
 parallel: true
-exec_plan: ../plans/SNAP-004-upload.execplan.md
+exec_plan: null
 canonical: true
 ---
 

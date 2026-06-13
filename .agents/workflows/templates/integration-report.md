@@ -7,11 +7,10 @@ This file is non-canonical coordination state. Integration must preserve canonic
 - Feature id:
 - Integration branch:
 - Integrator:
-- Date:
 
 ## Inputs
 
-| Branch | Role | Review Status | Merge Status |
+| Branch | Role | Review Result | Merge Result |
 |---|---|---|---|
 |  |  |  |  |
 
@@ -37,7 +36,7 @@ This file is non-canonical coordination state. Integration must preserve canonic
 
 - Branches safe to delete:
 - Worktrees safe to remove:
-- Deferred cleanup:
+- Cleanup blockers:
 
 ## Residual Risks
 

@@ -6,7 +6,7 @@ status: done
 depends_on: []
 blocks: [TELING-002, TELING-003]
 parallel: false
-exec_plan: ../plans/TELING-001-persistence-contracts.execplan.md
+exec_plan: null
 canonical: true
 ---
 
@@ -24,7 +24,7 @@ As the gateway and worker, we need a shared database contract so ingestion, work
 
 This task includes:
 
-- `users` table with fixed personal user ID `01ASB2XFCZJY7WHZ2FNRTMQJCT`, nullable unique `telegram_user_id`, and preservation of auth-owned `password_hash`.
+- `users` table with existing bootstrapped user ID `01ASB2XFCZJY7WHZ2FNRTMQJCT`, nullable unique `telegram_user_id`, and preservation of auth-owned `password_hash`.
 - `articles` table with only durable article state: URL, optional canonical URL/title, status, error, and created timestamp.
 - `jobs` table for worker queue state and Telegram origin metadata.
 - `notifications` table for gateway delivery state linked to jobs.
@@ -34,15 +34,6 @@ This task includes:
 - Gateway and worker repository interfaces or equivalent persistence boundaries.
 - Persistence tests for schema constraints, idempotency, enqueue atomicity, terminal notification insertion, and cleanup eligibility.
 
-## Out of Scope
-
-This task does not include:
-
-- Telegram webhook endpoint behavior.
-- Telegram API calls.
-- Article fetching, extraction, summarization, or artifact writes.
-- Background notification dispatch.
-- Automatic retry behavior.
 
 ## Inputs
 
@@ -62,7 +53,7 @@ Required inputs, existing files, interfaces, or decisions:
 Expected outputs, files, behavior, or interfaces:
 
 - SQLite schema/migration or schema initialization for users, articles, jobs, and notifications.
-- Persistence code to atomically ensure the personal user, create an article, and create a queued job.
+- Persistence code to resolve an existing user by `telegram_user_id`, then atomically create an article and queued job for that user.
 - Persistence code to atomically update terminal article/job state and create notification rows during worker terminal transitions.
 - Repository support for deterministic artifact path resolution, or a documented path builder used by gateway and worker.
 - Tests proving the shared persistence contract.
@@ -88,7 +79,6 @@ Read before execution:
 - `.agents/skills/archivist-general/SKILL.md`
 - `.agents/skills/archivist-gateway/SKILL.md`
 - `.agents/skills/archivist-worker/SKILL.md`
-- `../plans/TELING-001-persistence-contracts.execplan.md`
 
 Do not load unrelated feature folders unless required by discovered dependencies.
 
@@ -97,20 +87,20 @@ Do not load unrelated feature folders unless required by discovered dependencies
 ```gherkin
 Scenario: Valid Telegram URL is persisted atomically
   Given a Telegram update_id has not been processed
+  And users.telegram_user_id maps the Telegram sender to an existing user row
   When the gateway records a valid URL ingestion
-  Then the personal user row exists with id "01ASB2XFCZJY7WHZ2FNRTMQJCT"
-  And one article is created with status "queued"
-  And one queued job is created for that article
+  Then one article is created with that user's id and status "queued"
+  And one queued job is created for that article with that user's id
   And the Telegram update_id is recorded
-  And the Telegram sender user ID is recorded as telegram_user_id
-  And any existing password_hash is preserved
+  And the Telegram sender user ID is recorded on the job as telegram_user_id
+  And no users row is created, updated, or reassigned by ingestion
   And the transaction commits atomically
 
-Scenario: Telegram sender identity is stored on the personal Archivist user
-  Given a valid Telegram URL ingestion from telegram_user_id 12345
+Scenario: Existing Telegram sender mapping controls ownership
+  Given users.telegram_user_id maps Telegram sender 12345 to an existing user row
   When the gateway records the ingestion
-  Then the users table contains id "01ASB2XFCZJY7WHZ2FNRTMQJCT"
-  And that row has telegram_user_id 12345
+  Then the article and queued job use that user row's id
+  And the users table is unchanged
 
 Scenario: Duplicate Telegram update is ignored
   Given a Telegram update_id has already been processed
@@ -147,7 +137,8 @@ Scenario: Deterministic article artifacts are resolved without path columns
 - SQLite schema and persistence contracts support all state required by the feature spec.
 - Idempotency prevents duplicate articles/jobs for duplicate Telegram `update_id` values.
 - Accepted Telegram ingestions persist `telegram_user_id` separately from `chat_id`.
-- The personal user row maps the authorized Telegram user to `01ASB2XFCZJY7WHZ2FNRTMQJCT`.
+- Accepted Telegram ingestions resolve ownership from an existing `users.telegram_user_id` mapping.
+- Telegram ingestion does not create, update, or reassign `users` rows.
 - Telegram ingestion preserves the auth-owned `users.password_hash` column.
 - Article schema omits summary, domain, artifact path columns, extraction telemetry, and processed timestamp.
 - Terminal notification rows can be created atomically with terminal article/job state.
@@ -155,7 +146,6 @@ Scenario: Deterministic article artifacts are resolved without path columns
 - TTL cleanup eligibility is represented for terminal jobs and sent/failed notifications.
 - Gateway and worker tests cover the persistence contract.
 - Task status and `PLAN.md` are updated if the task is completed.
-- `DIARY.md` has an entry if implementation is performed.
 
 ## Validation
 
@@ -191,7 +181,7 @@ Blocks:
 ExecPlan:
 
 ```text
-../plans/TELING-001-persistence-contracts.execplan.md
+null
 ```
 
 ## Open Questions

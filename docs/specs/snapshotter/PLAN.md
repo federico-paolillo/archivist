@@ -15,8 +15,6 @@ This file controls implementation of the Snapshotter service, its backup contrac
 ## Task DAG
 
 ```text
-SNAP-001 -> SNAP-002
-SNAP-001 -> SNAP-006
 SNAP-002 -> SNAP-003
 SNAP-002 -> SNAP-004
 SNAP-003 -> SNAP-005
@@ -25,34 +23,24 @@ SNAP-005 -> SNAP-006
 SNAP-002 -> SNAP-007
 SNAP-006 -> SNAP-008
 SNAP-007 -> SNAP-008
-SNAP-008 -> SNAP-009
-SNAP-006 -> SNAP-009
 ```
 
 ---
 
 ## Execution Phases
 
-### Phase 1: Canonical Contract
-
-- `SNAP-001` records the feature spec, task plan, backup contract, architecture, artifact, design, and rebuild updates.
-
-### Phase 2: Python Service
+### Phase 1: Python Service
 
 - `SNAP-002` scaffolds the `uv` project and validation tooling.
 - `SNAP-003` implements snapshot staging, SQLite online backup, artifact copy, manifest, tarball creation, and tests.
 - `SNAP-004` implements S3-compatible upload and tests.
 - `SNAP-005` implements the interval daemon loop and failure behavior.
 
-### Phase 3: Deployment And Automation
+### Phase 2: Deployment And Automation
 
 - `SNAP-006` adds the Docker image, Compose service, and env examples.
 - `SNAP-007` adds local and CI Python validation.
 - `SNAP-008` extends CD image build, attestations, release package, and release notes.
-
-### Phase 4: Integration
-
-- `SNAP-009` integrates reviewed slices, runs final validation, and records completion.
 
 ---
 
@@ -60,25 +48,21 @@ SNAP-006 -> SNAP-009
 
 | ID | Task | Status | Depends On | Blocks | Parallel | ExecPlan |
 |---|---|---|---|---|---|---|
-| `SNAP-001` | Create canonical snapshotter contract | done | - | `SNAP-002`, `SNAP-006` | no | - |
-| `SNAP-002` | Scaffold Python snapshotter project | done | `SNAP-001` | `SNAP-003`, `SNAP-004`, `SNAP-007` | yes | `plans/SNAP-002-python-scaffold.execplan.md` |
-| `SNAP-003` | Implement snapshot archive capture | done | `SNAP-002` | `SNAP-005` | no | `plans/SNAP-003-capture.execplan.md` |
-| `SNAP-004` | Implement S3-compatible upload | done | `SNAP-002` | `SNAP-005` | yes | `plans/SNAP-004-upload.execplan.md` |
-| `SNAP-005` | Implement interval daemon behavior | done | `SNAP-003`, `SNAP-004` | `SNAP-006` | no | `plans/SNAP-005-daemon.execplan.md` |
-| `SNAP-006` | Add Docker and Compose integration | done | `SNAP-001`, `SNAP-005` | `SNAP-008`, `SNAP-009` | no | `plans/SNAP-006-deployment.execplan.md` |
+| `SNAP-002` | Scaffold Python snapshotter project | done | - | `SNAP-003`, `SNAP-004`, `SNAP-007` | yes | null |
+| `SNAP-003` | Implement snapshot archive capture | done | `SNAP-002` | `SNAP-005` | no | null |
+| `SNAP-004` | Implement S3-compatible upload | done | `SNAP-002` | `SNAP-005` | yes | null |
+| `SNAP-005` | Implement interval daemon behavior | done | `SNAP-003`, `SNAP-004` | `SNAP-006` | no | null |
+| `SNAP-006` | Add Docker and Compose integration | done | `SNAP-005` | `SNAP-008` | no | null |
 | `SNAP-007` | Add Python validation to lefthook and CI | done | `SNAP-002` | `SNAP-008` | yes | - |
-| `SNAP-008` | Extend CD release automation | done | `SNAP-006`, `SNAP-007` | `SNAP-009` | no | `plans/SNAP-008-release.execplan.md` |
-| `SNAP-009` | Final integration validation | done | `SNAP-006`, `SNAP-008` | - | no | - |
+| `SNAP-008` | Extend CD release automation | done | `SNAP-006`, `SNAP-007` | - | no | null |
 
 ---
 
 ## Concurrency Rules
 
-- `SNAP-002` through `SNAP-005` are owned by the Python worker under `src/snapshotter/**`.
-- `SNAP-006` through `SNAP-008` are owned by the deployment worker for Docker, Compose, env examples, workflow, release scripts, and `lefthook.yml`.
-- Deployment work may prepare scripts and workflow structure after `SNAP-001`, but must not finalize image validation until the Python entrypoint exists.
-- Coordinator owns ALM status updates, feature diary, review routing, and final validation.
-- Do not run two workers against the same write scope.
+- `SNAP-002` through `SNAP-005` modify the Snapshotter Python service and tests under `src/snapshotter/**`.
+- `SNAP-006` through `SNAP-008` modify deployment, Compose, env examples, CI/CD, release scripts, and validation wiring.
+- Do not run concurrent task work against the same write scope.
 
 ---
 
@@ -132,5 +116,4 @@ The feature is complete when:
 - acceptance criteria in `SPEC.md` are satisfied;
 - validation sequence passes or failures are recorded;
 - durable implementation decisions have been promoted to canonical documents;
-- `DIARY.md` contains final implementation notes;
 - `docs/specs/INDEX.md` reflects the final feature status.

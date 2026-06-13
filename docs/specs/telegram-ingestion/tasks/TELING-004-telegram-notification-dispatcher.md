@@ -6,7 +6,7 @@ status: done
 depends_on: [TELING-002, TELING-003]
 blocks: []
 parallel: false
-exec_plan: ../plans/TELING-004-telegram-notification-dispatcher.execplan.md
+exec_plan: null
 canonical: true
 ---
 
@@ -27,8 +27,8 @@ This task includes:
 - Gateway background dispatcher for pending terminal notification rows.
 - Telegram send-message integration for terminal replies.
 - Reply targeting using `jobs.telegram_chat_id` and `jobs.telegram_message_id`.
-- Dispatcher infrastructure for succeeded-job notifications without final success content selection.
-- Summary-based success notification content remains owned by `SUMGEN-005`.
+- Dispatcher infrastructure for terminal notifications.
+- Summary-based success notification content is owned by `SUMGEN-005`.
 - Failure reply content loaded from `jobs.error_message`.
 - ARC-coded article-processing failure replies preserve `jobs.error_message` unchanged except for deterministic Telegram length truncation.
 - Deterministic Telegram message length truncation.
@@ -36,16 +36,6 @@ This task includes:
 - Notification cleanup for sent/failed rows after 7 days.
 - Dispatcher tests with a fake Telegram client and SQLite-backed notifications.
 
-## Out of Scope
-
-This task does not include:
-
-- Immediate queued acknowledgement dispatch.
-- Worker terminal notification writes.
-- Webhook ingestion.
-- Summary success artifact reads or success reply body construction.
-- UI notification surfaces.
-- Automatic retry behavior.
 
 ## Inputs
 
@@ -85,7 +75,6 @@ Read before execution:
 - `.agents/skills/archivist-gateway/SKILL.md`
 - `./TELING-002-telegram-webhook-ingestion.md`
 - `./TELING-003-worker-terminal-notification-contract.md`
-- `../plans/TELING-004-telegram-notification-dispatcher.execplan.md`
 
 Do not load unrelated feature folders unless required by discovered dependencies.
 
@@ -94,10 +83,10 @@ Do not load unrelated feature folders unless required by discovered dependencies
 ```gherkin
 Scenario: Dispatcher sends success reply
   Given a pending notification exists for a succeeded job
-  When only TELING-004 has been implemented
+  When summary-based success content is available
   Then the reply target is read from the job Telegram metadata
-  And final success reply body construction remains unavailable until SUMGEN-005
-  And the notification remains pending rather than being sent with snapshot or Markdown completion text
+  And success reply body construction uses the summary-generation contract
+  And the notification is not sent with snapshot or Markdown completion text
 
 Scenario: Dispatcher sends failure reply
   Given a pending notification exists for a failed job
@@ -130,14 +119,13 @@ Scenario: Expired sent or failed notifications are cleaned up
 ## Done When
 
 - Dispatcher sends terminal replies from pending notification rows.
-- Dispatcher leaves succeeded-job success content selection to downstream feature tasks such as `SUMGEN-005`.
+- Dispatcher uses summary-based succeeded-job content from `SUMGEN-005`.
 - Dispatcher preserves ARC-coded article-processing failure text from `jobs.error_message`, subject only to deterministic Telegram length truncation.
 - Dispatcher never changes terminal article/job state as a side effect of Telegram delivery failure.
 - Telegram delivery failure marks the notification failed without retrying.
 - Sent or failed notifications expire after 7 days and are cleaned up by the gateway.
 - Long failure messages are truncated deterministically to Telegram limits.
 - Task status and `PLAN.md` are updated if the task is completed.
-- `DIARY.md` has an entry if implementation is performed.
 
 ## Validation
 
@@ -169,7 +157,7 @@ Blocks:
 ExecPlan:
 
 ```text
-../plans/TELING-004-telegram-notification-dispatcher.execplan.md
+null
 ```
 
 ## Open Questions
@@ -179,5 +167,5 @@ ExecPlan:
 ## Notes
 
 - The gateway owns this dispatcher because the gateway owns Telegram API integration.
-- Snapshot-only success text is an interim bridge for article-processing; later v0 extraction/summarization work must replace it with summary-based completion.
+- Snapshot and Markdown completion are not terminal success notification content.
 - ARC codes are transported for article-processing terminal failures only. Telegram webhook validation replies and Telegram delivery errors are not ARC-coded.

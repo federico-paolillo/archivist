@@ -31,5 +31,3 @@ Required checks:
 ```bash
 cd src/gateway && dotnet build && dotnet test
 ```
-
-Result: passed on 2026-06-03.

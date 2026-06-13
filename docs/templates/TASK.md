@@ -24,15 +24,15 @@ Example:
 
 As a `<user or system actor>`, I want `<capability>`, so that `<outcome>`.
 
-## Scope
-
-This task includes:
+## Requirements
 
 - TODO
 
-## Out of Scope
+## Current Negative Requirements
 
-This task does not include:
+- TODO
+
+## Constraints
 
 - TODO
 
@@ -45,6 +45,14 @@ Required inputs, existing files, interfaces, or decisions:
 ## Outputs
 
 Expected outputs, files, behavior, or interfaces:
+
+- TODO
+
+## Assumptions
+
+- TODO
+
+## Risks
 
 - TODO
 

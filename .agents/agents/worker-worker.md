@@ -17,7 +17,7 @@ Default allowed write scope when assigned:
 
 - `src/worker/**`
 - Worker tests under `src/worker/**`
-- Task/PLAN/DIARY updates explicitly assigned by the coordinator
+- Task and PLAN updates explicitly assigned by the coordinator
 - Canonical docs only when the task explicitly requires durable Worker behavior changes
 
 ## Forbidden Edits

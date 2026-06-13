@@ -17,9 +17,9 @@ Accept article URLs from Telegram senders mapped to Archivist users, enqueue the
 
 ## Motivation
 
-Telegram is the v0 ingestion channel for Archivist. The user should be able to send a single article URL, receive an immediate acknowledgement once the work is queued, and later receive either the generated summary or the final processing error without checking the web UI.
+Telegram is the ingestion channel for Archivist. The user should be able to send a single article URL, receive an immediate acknowledgement once the work is queued, and receive either the generated summary or the final processing error when processing completes without checking the web UI.
 
-The data model should stay small. v0 does not implement automatic retries or durable processing telemetry. Failure state must be clear enough that the user can manually re-send the same URL.
+The data model stays small. Archivist does not implement automatic retries or durable processing telemetry. Failure state must be clear enough that the user can manually re-send the same URL.
 
 ## Scope
 
@@ -38,17 +38,8 @@ In scope:
 - Terminal success/failure Telegram replies using the original message as the reply target.
 - Transactional notification creation when worker jobs complete.
 - TTL cleanup for terminal jobs and notifications.
-
-## Out of Scope
-
-Not included:
-
-- Article fetching, extraction, Markdown generation, and summarization implementation details.
-- Telegram commands, menus, inline keyboards, media messages, captions, or conversation flows.
-- User registration, account management, tenant administration, or user-facing user selection.
-- Automatic worker retries or automatic Telegram notification retries.
-- Persistent extraction observability fields such as selected extractor or extraction score.
-- A dedicated observability stack.
+- Article fetching, extraction, Markdown generation, and summarization implementation details are owned by downstream processing features.
+- Telegram commands, menus, inline keyboards, media messages, captions, conversation flows, user registration, account management, tenant administration, user-facing user selection, automatic worker retries, automatic Telegram notification retries, persistent extraction observability fields, and a dedicated observability stack are not part of this feature's behavior.
 
 ## Users / Actors
 
@@ -73,17 +64,16 @@ Not included:
 - REQ-011: Telegram `update_id` must be persisted on jobs for idempotency so duplicate updates do not create duplicate jobs.
 - REQ-012: Jobs must retain Telegram reply-target metadata: `telegram_chat_id`, `telegram_message_id`, and `telegram_update_id`.
 - REQ-013: Jobs must retain Telegram sender identity metadata as `telegram_user_id`, distinct from `telegram_chat_id`.
-- REQ-014: Telegram ingestion must not create, upsert, or reassign `users`; user and Telegram identity mapping is owned by bootstrap or future user-provisioning features.
+- REQ-014: Telegram ingestion must not create, update, or reassign `users`; Telegram identity mapping must already exist in `users.telegram_user_id`.
 - REQ-015: The worker must claim queued jobs atomically with `UPDATE ... RETURNING`.
 - REQ-016: Job states must be limited to `queued`, `running`, `succeeded`, and `failed`.
 - REQ-017: Worker completion must update article state, update job state, and insert one pending notification in the same SQLite transaction.
 - REQ-018: Successful worker completion must mark the article `ready`, mark the job `succeeded`, set terminal job timestamps/TTL, and create one pending notification.
 - REQ-019: Failed worker completion must mark the article `failed`, mark the job `failed`, persist the final error, set terminal job timestamps/TTL, and create one pending notification.
-- REQ-020: Automatic worker retries are out of scope for v0.
+- REQ-020: Automatic worker retries are not implemented.
 - REQ-021: The worker must not call Telegram APIs directly.
 - REQ-022: The gateway must dispatch pending notifications by joining `notifications -> jobs -> articles`.
-- REQ-023: Successful final v0 completion replies must read `summary.md` from the deterministic article artifact path under `DATA_DIR` once summary generation is implemented.
-- REQ-023A: Snapshot-only or Markdown-only success replies are interim bridges only before downstream processing is implemented; final v0 success replies are summary-based.
+- REQ-023: Successful completion replies must read `summary.md` from the deterministic article artifact path under `DATA_DIR`.
 - REQ-024: Failed completion replies must use `jobs.error_message`.
 - REQ-024A: Failed article-processing completion replies must preserve ARC-coded public error text from `jobs.error_message`, including the leading `[ARC-NNN]` prefix defined by `docs/ERRORS.md`.
 - REQ-025: Terminal Telegram replies must fit within Telegram message length limits by deterministic truncation when necessary.
@@ -161,8 +151,8 @@ Scenario: Job fails
 
 Scenario: Gateway sends success notification
   Given a pending notification exists for a succeeded job
-  And summary generation has implemented success notification content
-  When the gateway dispatches the notification through the summary-generation success branch
+  And the article has `summary.md`
+  When the gateway dispatches the notification
   Then the gateway replies to the original Telegram message with summary text
   And the notification is marked "sent"
 
@@ -198,7 +188,7 @@ SQLite remains the source of truth for users, articles, jobs, and notifications.
 - `telegram_user_id`: nullable until bootstrap or another user-provisioning path maps a Telegram sender; unique when present and required for accepted Telegram ingestion behavior.
 - `password_hash`: Argon2id PHC string owned by `authn`; Telegram ingestion must preserve it.
 
-The v0 system has one user row. No user timestamps, provisioning state, roles, tenants, or external identity table are required.
+The system starts with one user row. No user timestamps, provisioning state, roles, tenants, or external identity table are required by this feature.
 
 ### `articles`
 
@@ -219,8 +209,6 @@ Article artifacts are not represented by path columns. Artifact paths are comput
 {DATA_DIR}/articles/{article_id}/snapshot.html
 {DATA_DIR}/articles/{article_id}/content.md
 {DATA_DIR}/articles/{article_id}/summary.md
-{DATA_DIR}/articles/{article_id}/summary.json
-{DATA_DIR}/articles/{article_id}/metadata.json
 ```
 
 The table must not include `summary`, `domain`, artifact path columns, `selected_extractor`, `extractor_score`, or `processed_at`.
@@ -242,7 +230,7 @@ The table must not include `summary`, `domain`, artifact path columns, `selected
 - `completed_at`, nullable
 - `expires_at`, nullable
 
-Jobs are temporary worker processing attempts against articles. v0 jobs do not include `attempts`, `run_after`, `locked_at`, `locked_by`, `retrying`, or `dead`.
+Jobs are temporary worker processing attempts against articles. Jobs do not include `attempts`, `run_after`, `locked_at`, `locked_by`, `retrying`, or `dead`.
 
 ### `notifications`
 
@@ -297,11 +285,11 @@ Impacts:
 - Valid URL acknowledgement is sent synchronously after the enqueue transaction commits.
 - Terminal completion replies are sent asynchronously from persisted notifications.
 - `telegram_user_id` is sender identity metadata; `telegram_chat_id` and `telegram_message_id` are reply-target metadata. These fields must not be conflated.
-- `users` is canonical storage for the personal user and Telegram user mapping in v0.
-- Article artifact paths are computed from `DATA_DIR` and `article_id`; do not add artifact path columns unless a future spec changes that decision.
-- Snapshot-only and Markdown-only success notifications are interim bridges. The final v0 extraction/summarization pipeline replaces them with summary-based completion.
+- `users.telegram_user_id` is the canonical Telegram sender-to-user mapping.
+- Article artifact paths are computed from `DATA_DIR` and `article_id`; do not add artifact path columns unless a canonical decision changes that behavior.
+- Successful article completion follows the current `snapshot.html` -> `content.md` -> `summary.md` pipeline and sends summary-based completion.
 - ARC error codes apply only to persisted user-facing article-processing failures. Telegram webhook validation replies, authorization failures, acknowledgement failures, and Telegram delivery errors are not ARC-coded.
-- Extraction telemetry is logged, not stored in durable schema, for v0.
+- Extraction telemetry is logged, not stored in durable schema.
 - Existing code is not authoritative; rebuilds must follow this spec and linked tasks.
 
 ## Security / Privacy Notes
@@ -315,9 +303,9 @@ Impacts:
 
 - Logs for ingestion should include `telegram_update_id`, `telegram_chat_id`, `telegram_message_id`, `telegram_user_id`, accepted/rejected outcome, and article/job IDs when available.
 - Logs for article processing should include `article_id`, `job_id`, URL, status, duration, and error when available.
-- Logs may include extraction warnings or suspicious extraction behavior, but v0 does not persist extractor telemetry columns.
+- Logs may include extraction warnings or suspicious extraction behavior, but Archivist does not persist extractor telemetry columns.
 - Logs for notification dispatch should include notification ID, job ID, status, and error text when delivery fails.
-- No dedicated observability stack is required for v0.
+- No dedicated observability stack is required by this feature.
 
 ## Open Questions
 
@@ -326,7 +314,6 @@ Impacts:
 ## Related Documents
 
 - `./PLAN.md`
-- `./DIARY.md`
 - `./tasks/TELING-001-persistence-contracts.md`
 - `./tasks/TELING-002-telegram-webhook-ingestion.md`
 - `./tasks/TELING-003-worker-terminal-notification-contract.md`

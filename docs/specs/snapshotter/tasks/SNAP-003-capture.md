@@ -8,7 +8,7 @@ depends_on:
 blocks:
   - SNAP-005
 parallel: false
-exec_plan: ../plans/SNAP-003-capture.execplan.md
+exec_plan: null
 canonical: true
 ---
 

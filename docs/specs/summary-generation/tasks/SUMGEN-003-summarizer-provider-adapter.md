@@ -3,10 +3,10 @@ id: SUMGEN-003
 feature: summary-generation
 title: Summarizer Provider Adapter
 status: done
-depends_on: [SUMGEN-001]
+depends_on: []
 blocks: [SUMGEN-004]
 parallel: true
-exec_plan: ../plans/SUMGEN-003-summarizer-provider-adapter.execplan.md
+exec_plan: null
 canonical: true
 ---
 
@@ -36,22 +36,11 @@ This task includes:
 - Mapping generic provider, API, timeout, transport, permission, authentication, rate-limit, overloaded, and malformed-output failures to `ARC-013` unless a more specific code applies.
 - Tests for configuration, success, text-only output handling, and error classification.
 
-## Out of Scope
-
-This task does not include:
-
-- Reading or writing article artifacts.
-- SQLite job state transitions.
-- Gateway notification dispatch.
-- Multiple summarizer providers beyond the abstraction.
-- Chunked or truncated summarization.
-- Structured summary JSON.
 
 ## Inputs
 
 Required inputs, existing files, interfaces, or decisions:
 
-- Completed `SUMGEN-001`.
 - Anthropic Client SDK documentation.
 - Anthropic Go SDK documentation.
 - Anthropic API error documentation.
@@ -85,7 +74,6 @@ Read before execution:
 - `docs/ERRORS.md`
 - `.agents/skills/archivist-general/SKILL.md`
 - `.agents/skills/archivist-worker/SKILL.md`
-- `../plans/SUMGEN-003-summarizer-provider-adapter.execplan.md`
 
 Do not load unrelated feature folders unless listed here or required by dependencies.
 
@@ -124,7 +112,6 @@ Scenario: Anthropic request is too large
 - Error mapping covers `ARC-013`, `ARC-014`, and `ARC-015`.
 - Tests cover success, configuration, and failure classification.
 - Task status and `PLAN.md` are updated if the task is completed.
-- `DIARY.md` has an entry if implementation is performed.
 
 ## Validation
 
@@ -145,8 +132,6 @@ Manual validation, if any:
 
 Depends on:
 
-- `SUMGEN-001`
-
 Blocks:
 
 - `SUMGEN-004`
@@ -156,7 +141,7 @@ Blocks:
 ExecPlan:
 
 ```text
-../plans/SUMGEN-003-summarizer-provider-adapter.execplan.md
+null
 ```
 
 ## Open Questions
@@ -168,4 +153,3 @@ ExecPlan:
 - Do not implement chunking or source truncation in this task.
 - `AnthropicAdapter` does not accept a logger and must not emit `slog.Info` or `slog.Error` calls. Structured logging for provider, model, request id, ARC code, duration, and article context is owned by SUMGEN-004 pipeline orchestration per `.agents/skills/archivist-worker/SKILL.md`.
 - `SummarizerRequest` carries `ArticleID`, `JobID`, and `URL` metadata fields so orchestration can thread article context into log entries without a second interface change.
-- Worker runtime configuration key reconciliation is corrected by `docs/specs/worker-runtime-configuration/tasks/WCFG-001-canonical-worker-config-loading.md`; SUMGEN-004 must consume LLM settings from that canonical config shape.

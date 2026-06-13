@@ -8,37 +8,34 @@ canonical: true
 
 ## Purpose
 
-This file is the feature-level implementation control board for the v0 UI/API authentication surface.
+This file is the feature-level implementation control board for the final UI/API authentication surface.
 
 ---
 
 ## Task DAG
 
 ```text
-AUTHN-001 -> AUTHN-002 -> AUTHN-003 -> AUTHN-004 -> AUTHN-006 -> AUTHN-005 -> AUTHN-007
+TELING-001 -> AUTHN-002 -> AUTHN-003 -> AUTHN-004
+AUTHN-004 -> UIEND-002
+AUTHN-004 -> UIEND-003
+AUTHN-004 -> UI-002
 ```
 
 ---
 
 ## Execution Phases
 
-### Phase 1: Canonical Contracts
+### Phase 1: Gateway Persistence
 
-- `AUTHN-001` creates the authn feature artifacts and promotes durable auth decisions to architecture, design, and conventions.
+- `AUTHN-002` defines the `users` password fields, personal-user bootstrap, Argon2id password hashing, bootstrap Telegram sender mapping, and password verification inputs.
 
-### Phase 2: Gateway Foundations
+### Phase 2: Gateway Authentication Runtime
 
-- `AUTHN-002` defines password persistence, bootstrap behavior, and Argon2id verification.
-- `AUTHN-003` implements opaque session cookie endpoints, `ISessionStore`, the custom `"app-cookie"` authentication handler, throttling, and same-origin checks.
+- `AUTHN-003` implements opaque session cookie endpoints, `ISessionStore`, the custom `"app-cookie"` authentication handler, login throttling, trusted forwarded-header processing, effective public HTTPS validation, and same-origin checks for unsafe methods.
 
-### Phase 3: UI API Protection And Reverse Proxy Auth
+### Phase 3: Final Auth Contract Validation
 
-- `AUTHN-004` validates protected UI-facing gateway endpoint behavior and preserves the auth endpoint contract consumed by the final UI.
-- `AUTHN-006` amends Gateway auth for trusted reverse-proxy forwarded headers and effective public HTTPS validation.
-
-### Phase 4: Security Validation
-
-- `AUTHN-005` performs the security validation pass and records completion.
+- `AUTHN-004` validates the protected UI-facing Gateway contract consumed by `ui-endpoints` and `ui`, including authenticated API `401/403` behavior, auth endpoint behavior, effective public scheme/host/port handling, cookie attributes, and same-origin rejection.
 
 ---
 
@@ -46,35 +43,32 @@ AUTHN-001 -> AUTHN-002 -> AUTHN-003 -> AUTHN-004 -> AUTHN-006 -> AUTHN-005 -> AU
 
 | ID | Task | Status | Depends On | Blocks | Parallel | ExecPlan |
 |---|---|---|---|---|---|---|
-| `AUTHN-001` | Authn canonical docs and design decisions | done | - | `AUTHN-002` | no | - |
-| `AUTHN-002` | Password persistence and bootstrap | done | `AUTHN-001`, `TELING-001` | `AUTHN-003` | no | `plans/AUTHN-002-password-persistence-and-bootstrap.execplan.md` (completed) |
-| `AUTHN-003` | Gateway opaque session cookie authentication | done | `AUTHN-002` | `AUTHN-004`, `UIEND-002`, `UIEND-003` | no | `plans/AUTHN-003-gateway-cookie-authentication.execplan.md` (completed) |
-| `AUTHN-004` | Protect UI API and validate auth client contract | done | `AUTHN-003` | `AUTHN-006`, `UI-002` | no | - |
-| `AUTHN-006` | Reverse-proxy forwarded headers and effective HTTPS auth | done | `AUTHN-004` | `AUTHN-005` | no | `plans/AUTHN-006-reverse-proxy-forwarded-headers.execplan.md` (completed) |
-| `AUTHN-005` | Security validation pass | done | `AUTHN-006` | `AUTHN-007` | no | - |
-| `AUTHN-007` | Auth review hardening | done | `AUTHN-005` | - | no | - |
+| `AUTHN-002` | Password persistence and bootstrap | done | `TELING-001` | `AUTHN-003` | no | null |
+| `AUTHN-003` | Gateway opaque session cookie authentication | done | `AUTHN-002` | `AUTHN-004` | no | null |
+| `AUTHN-004` | Protect UI API and validate auth client contract | done | `AUTHN-003` | `UIEND-002`, `UIEND-003`, `UI-002` | no | null |
 
 ---
 
 ## Concurrency Rules
 
-- Auth implementation tasks are sequenced because they modify the same schema, auth middleware, and API routes.
-- `AUTHN-002` must wait for `TELING-001` unless the implementer explicitly updates the shared persistence foundation first.
-- Future UI API feature tasks must treat `AUTHN-003` as a blocking gateway contract.
-- The browser auth shell must wait for `AUTHN-004` because that task validates the UI auth client contract consumed by `UI-002`.
-- `AUTHN-006` must run after `AUTHN-004` and before `AUTHN-005` because it changes Gateway auth request interpretation, forwarded-header startup order, and same-origin validation.
-- Future Telegram persistence work must preserve `users.password_hash` and nullable-at-rest `users.telegram_user_id`.
+- Auth implementation tasks are sequenced because they modify the same schema, middleware, endpoint routing, request-origin interpretation, and tests.
+- `AUTHN-002` must wait for `TELING-001` because it extends the shared persistence foundation.
+- `AUTHN-004` is the final auth dependency for UI article endpoints and browser UI work.
+- UI endpoint and browser UI tasks must not depend on pre-proxy auth behavior; they consume the post-forwarding, effective-HTTPS auth contract validated by `AUTHN-004`.
+- Telegram persistence work must preserve `users.password_hash` and nullable-at-rest `users.telegram_user_id`.
 
 ---
 
 ## Blocking Interfaces or Schemas
 
 - `users.password_hash` Argon2id PHC storage.
+- `users.telegram_user_id` as the persisted Telegram sender mapping.
 - `ISessionStore` and `SessionEntry`.
 - `AppCookieAuthenticationHandler`, `AppCookieDefaults`, and `AddAppCookie()`.
 - `POST /login`, `POST /logout`, and `GET /auth/session`.
 - Cookie name and attributes for `__Host-app-auth`.
 - 32-byte base64url opaque session id generation and 24-hour server-side absolute expiry.
+- Password-only exact-one-match login across all password-bearing users.
 - Same-origin rejection behavior for unsafe methods.
 - Effective public scheme, host, and port after trusted forwarded-header processing.
 - `GATEWAY_PUBLIC_HOSTS`, `AUTH_BOOTSTRAP_PASSWORD`, and `SQLITE_PATH` standalone logical keys, supplied to Gateway through configuration providers or `ARCHIVIST_`-prefixed environment variables.
@@ -85,7 +79,7 @@ AUTHN-001 -> AUTHN-002 -> AUTHN-003 -> AUTHN-004 -> AUTHN-006 -> AUTHN-005 -> AU
 
 1. Run gateway auth bootstrap and endpoint tests.
 2. Run gateway build and full test suite.
-3. Verify forwarded `https` login success, effective `http` login `403`, forwarded public host constraints, cookie attributes, session rotation, server-side expiry, logout store removal, oversized login rejection, throttling, protected endpoint `401`, and same-origin rejection.
+3. Verify password hash bootstrap, bootstrap Telegram sender seeding, exact-one-match login, duplicate-match failure, forwarded `https` login success, effective `http` login `403`, forwarded public host constraints, cookie attributes, session rotation, server-side expiry, logout store removal, oversized login rejection, throttling, protected endpoint `401`, and same-origin rejection.
 
 Validation commands:
 
@@ -107,9 +101,8 @@ cd src/gateway && dotnet test
 
 The feature is complete when:
 
-- all required tasks are `done` or explicitly `skipped`;
+- all required tasks are `done`;
 - acceptance criteria in `SPEC.md` are satisfied;
 - validation sequence passes or failures are recorded;
 - durable implementation decisions have been promoted to canonical documents;
-- `DIARY.md` contains final implementation notes;
 - `docs/specs/INDEX.md` reflects the final feature status.

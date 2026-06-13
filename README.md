@@ -25,7 +25,7 @@ flowchart LR
     snapshotter --> otel
 ```
 
-Article ingestion and processing are asynchronous. Gateway accepts a Telegram URL, persists article and job state, and sends the immediate Telegram reply. Worker claims queued jobs from SQLite, enforces the HTTPS-only article fetch and SSRF boundary, writes artifacts, persists terminal state, and creates terminal notification rows. Gateway later dispatches Telegram completion replies from those rows.
+Article ingestion and processing are asynchronous. Gateway accepts a Telegram URL, persists article and job state, and sends the immediate Telegram reply. Worker claims queued jobs from SQLite, enforces the HTTPS-only article fetch and SSRF boundary, writes artifacts, persists terminal state, and creates terminal notification rows. Gateway dispatches Telegram completion replies from those rows after terminal state persists.
 
 ```mermaid
 sequenceDiagram
@@ -80,13 +80,13 @@ The durable decisions are recorded in [`docs/DESIGN.md`](docs/DESIGN.md). The de
 
 - SQLite is the authoritative state store, while `/data/articles/{article_id}/` stores retained and derived artifacts.
 - Gateway and Worker communicate through SQLite, not RPC.
-- Worker is single-instance in v0; jobs and Telegram notifications do not retry automatically.
+- Worker is single-instance; jobs and Telegram notifications do not retry automatically.
 - Worker is the article website security boundary: Gateway may accept `http` or `https` URLs, but Worker processing fetches direct HTTPS only and applies SSRF protections.
 - Gateway owns all Telegram API calls. Worker records terminal notification intent in SQLite.
 - Article success is final only after `summary.md` is atomically written and article/job/notification state commits.
-- Summaries are text-only Markdown in v0. `summary.json` remains a future structured-summary artifact.
+- Summaries are text-only Markdown persisted as `summary.md`.
 - Authentication uses a password-only login and an opaque server-side session id cookie; the cookie contains no user payload.
-- Runtime ownership is user-aware, but v0 still has one bootstrapped personal account. Worker CLI enqueue is the explicit default-user exception.
+- Runtime ownership is user-aware, with one bootstrapped personal account. Worker CLI enqueue is the explicit default-user exception.
 - Stale running jobs are operator-recoverable through explicit authenticated force delete after two hours; normal delete still rejects running jobs.
 - Snapshotter backups are simple object-storage archives: SQLite is copied through the online backup API, while non-database artifacts are copied best-effort from a live filesystem.
 - Gateway hard delete accepts a documented SQLite/filesystem atomicity limit because SQLite transactions cannot include artifact directory deletion.

@@ -27,24 +27,17 @@ This task includes:
 - Adding `github.com/imroc/req/v3` to the Worker module.
 - Accepting only absolute `https` URLs. Omitted ports are treated as HTTPS port `443`; explicit `:443` is allowed; every other explicit port is rejected.
 - Following at most 1 redirect, with every redirect target subject to the same Worker SSRF policy as the original URL.
+- Rejecting userinfo, empty hosts, invalid hostnames, all IP literals, single-label hostnames, localhost names, Docker-internal names, cloud metadata names, and private or special resolved IP ranges.
+- Resolving DNS at dial time and dialing only validated addresses.
+- Ignoring ambient proxy environment variables such as `HTTP_PROXY`, `HTTPS_PROXY`, and `NO_PROXY` for article fetching.
 - Applying a 20 second total timeout.
 - Enforcing a 10 MiB maximum response body.
 - Accepting only `text/html` and `application/xhtml+xml`.
 - Returning the final redirected URL.
 - Mapping resolution, HTTP status, content type, size, timeout, and unknown failures to ARC codes.
+- Mapping SSRF policy blocks to `ARC-017` and DNS resolution failures to `ARC-001`.
 - Worker tests with local HTTP test servers.
 
-`ARTPROC-008` is the later hardening task that finalizes the reusable Worker SSRF guard, including the absolute-HTTPS-only policy, one-redirect limit, redirect-target revalidation, DNS/IP checks, and `ARC-017` policy-block mapping.
-
-## Out of Scope
-
-This task does not include:
-
-- Snapshot file writes.
-- SQLite job state transitions.
-- Extraction or summarization.
-- Browser rendering.
-- Automatic retries.
 
 ## Inputs
 
@@ -109,6 +102,16 @@ Scenario: Redirect target must pass SSRF policy
   When the Worker fetcher follows the redirect
   Then it returns an ARC-coded public error without fetching the blocked target
 
+Scenario: Suspicious URL is blocked
+  Given a URL uses userinfo, an IP literal, localhost, a single-label host, a Docker-internal host, a metadata hostname, or a private or special resolved address
+  When the Worker fetcher requests the URL
+  Then it returns an ARC-017 public error
+
+Scenario: DNS failure remains URL resolution failure
+  Given a syntactically valid public-looking hostname cannot be resolved
+  When the Worker fetcher requests the URL
+  Then it returns an ARC-001 public error
+
 Scenario: URL returns forbidden
   Given a URL returns 401 or 403
   When the Worker fetcher requests the URL
@@ -141,10 +144,10 @@ Scenario: Response exceeds size limit
 - URL scheme, redirect, timeout, body size, and content-type rules are enforced.
 - Worker fetches only absolute `https` article URLs.
 - Worker follows at most 1 redirect, and redirect targets pass the same SSRF policy as the original URL.
+- Worker article fetching rejects suspicious URL targets, validates DNS and direct dial targets, and ignores ambient proxy environment variables.
 - Failure classes map to ARC-coded public errors.
-- Tests cover allowed redirects, rejected second redirects, blocked redirect targets, 401/403, 404, non-specialized HTTP failures such as 410, timeout/5xx, non-HTML, and max body size.
+- Tests cover allowed redirects, rejected second redirects, blocked redirect targets, SSRF policy blocks, DNS failures, 401/403, 404, non-specialized HTTP failures such as 410, timeout/5xx, non-HTML, and max body size.
 - Task status and `PLAN.md` are updated if the task is completed.
-- `DIARY.md` has an entry if implementation is performed.
 
 ## Validation
 
@@ -186,4 +189,4 @@ null
 
 ## Notes
 
-- JavaScript-heavy empty app shells are accepted as raw HTML in this task. Detecting or rendering them is out of scope.
+- JavaScript-heavy empty app shells are accepted as raw HTML in this task; this task does not detect or render them.

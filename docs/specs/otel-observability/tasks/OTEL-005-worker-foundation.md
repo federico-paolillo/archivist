@@ -4,7 +4,6 @@ feature: otel-observability
 title: Add Worker OTEL foundation
 status: done
 depends_on:
-  - OTEL-001
 blocks:
   - OTEL-006
 parallel: true
@@ -31,5 +30,3 @@ Required checks:
 ```bash
 cd src/worker && go tool lefthook run build && go tool lefthook run format && go tool lefthook run lint && go tool lefthook run test
 ```
-
-Result: worker agent reported `go tool lefthook run build`, `go tool lefthook run test`, and `go test ./...` passed on 2026-06-03. Coordinator re-ran `go test ./...` successfully.

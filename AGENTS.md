@@ -12,9 +12,7 @@ Agents must follow this file together with `docs/BOOKKEEPING.md` and `docs/REBUI
 
 ## Source of Truth
 
-The canonical rebuild artifacts and historical artifacts are defined in `docs/REBUILD.md`. That file is the authoritative list.
-
-Historical logs may inform implementation, but they do not define required behavior unless the relevant decision has been promoted to a canonical file.
+The canonical rebuild artifacts are defined in `docs/REBUILD.md`. That file is the authoritative list.
 
 ---
 
@@ -24,7 +22,7 @@ Significant parallel feature work may use `.agents/skills/archivist-agentic-feat
 
 Repo-local role profiles live under `.agents/agents/`. Workflow handoff templates live under `.agents/workflows/templates/`.
 
-These files are non-canonical tooling. Durable behavior must still be captured in canonical docs, feature specs, feature plans, task files, or linked ExecPlans.
+These files are non-canonical tooling. Durable behavior must still be captured in canonical docs, feature specs, feature plans, or task files. Accepted, in-progress, or completed linked ExecPlans may guide implementation, but they do not add requirements beyond current specs and tasks.
 
 ---
 
@@ -49,7 +47,7 @@ Identify the affected feature, module or modules, and durable surfaces before lo
 
 Load additional context by trigger:
 
-- `docs/BOOKKEEPING.md`: creating or updating specs, plans, tasks, ExecPlans, or diaries; changing task status; resolving dependency or concurrency questions; applying diary or ExecPlan rules.
+- `docs/BOOKKEEPING.md`: creating or updating specs, plans, tasks, or ExecPlans; changing task status; resolving dependency or concurrency questions; applying ExecPlan rules.
 - `docs/ARCHITECTURE.md`: changing or depending on executables, service boundaries, storage, runtime topology, integrations, authentication boundaries, or deployment assumptions.
 - `docs/DESIGN.md`: relying on or changing durable cross-task decisions, decision rationale, or rebuild-relevant tradeoffs.
 - `docs/ERRORS.md`: changing persisted public ARC error codes, public messages, or error classification contracts.
@@ -82,7 +80,7 @@ In planning mode, do not modify production code unless explicitly requested.
 
 Use implementation mode only for tasks marked `ready` or explicitly assigned by the user.
 
-In implementation mode, follow the task file and linked ExecPlan. Do not invent new durable behavior. If required information is missing, update the relevant specification or mark the task blocked.
+In implementation mode, follow the task file and any accepted or in-progress linked ExecPlan. Do not invent new durable behavior. If required information is missing, update the relevant specification or mark the task blocked.
 
 ### Rebuild Mode
 
@@ -101,7 +99,7 @@ Agents may work on a task only when:
 3. the task has clear acceptance criteria or a clear `Done When` section;
 4. required context files are available.
 
-Do not work on tasks marked `draft`, `blocked`, `done`, or `skipped` unless explicitly asked.
+Do not work on tasks marked `draft`, `blocked`, or `done` unless explicitly asked.
 
 ---
 
@@ -117,7 +115,7 @@ Do not silently invent durable behavior.
 
 When required information is missing:
 
-1. add an open question to the relevant `SPEC.md`, task, or ExecPlan;
+1. add an open question to the relevant `SPEC.md` or task;
 2. mark the task `blocked` if implementation cannot continue safely;
 3. propose a minimal decision only when it is local and reversible;
 4. promote architectural, interface, storage, security, or rebuild-relevant decisions to canonical docs.
@@ -130,9 +128,8 @@ When implementing a task, update all relevant bookkeeping artifacts:
 
 1. task frontmatter status;
 2. task status row in `PLAN.md`;
-3. `DIARY.md` with an append-only entry;
-4. `SPEC.md`, `PLAN.md`, `ARCHITECTURE.md`, `DESIGN.md`, `docs/ERRORS.md`, or `docs/ARTIFACTS.md` if durable decisions changed;
-5. `docs/specs/INDEX.md` if feature status or dependencies changed.
+3. `SPEC.md`, `PLAN.md`, `ARCHITECTURE.md`, `DESIGN.md`, `docs/ERRORS.md`, or `docs/ARTIFACTS.md` if durable decisions changed;
+4. `docs/specs/INDEX.md` if feature status or dependencies changed.
 
 Update `.agents/skills` only when non-canonical development guidance itself changes. Do not use skills as the only record of rebuild-critical behavior.
 
@@ -142,34 +139,17 @@ Update `.agents/skills` only when non-canonical development guidance itself chan
 
 Use an ExecPlan when a task is complex, risky, cross-cutting, or modifies architecture, storage, authentication, public APIs, schema, worker behavior, deployment behavior, or shared conventions. Simple tasks set `exec_plan: null`.
 
+Proposed ExecPlans are non-authoritative drafts. Only accepted, in-progress, or completed ExecPlans linked from a task may guide implementation, and no ExecPlan may add requirements beyond the current feature spec, plan, and task file.
+
 See `docs/BOOKKEEPING.md` § Linking ExecPlans to Tasks for the bidirectional frontmatter format.
-
----
-
-## Implementation Diary Rules
-
-After completing or materially changing a task, append an entry to the feature `DIARY.md`.
-
-Each entry should include:
-
-- date
-- task ID
-- status outcome
-- summary of changes
-- decisions made
-- validation performed
-- follow-ups
-- canonical documents updated
-
-Do not put raw chain-of-thought in `DIARY.md`. Record conclusions, rationale, decisions, and validation.
 
 ---
 
 ## Validation Rules
 
-Before marking a task `done`, run the validation specified in the task or ExecPlan.
+Before marking a task `done`, run the validation specified in the task or accepted/in-progress ExecPlan.
 
-If validation cannot be run, record why in both the task and the diary entry.
+If validation cannot be run, record why in the task and any affected plan or canonical document.
 
 A task should not be marked `done` unless its acceptance criteria and `Done When` section are satisfied.
 
@@ -181,7 +161,6 @@ Agents must not:
 
 - treat existing code as the source of truth;
 - create behavior not present in canonical docs without updating the docs;
-- use `DIARY.md` as the only source for required behavior;
 - ignore task dependencies;
 - change public interfaces without updating specs and dependent tasks;
 - mark tasks done without validation notes;
@@ -208,5 +187,5 @@ When asked to implement a task:
 2. summarize loaded context;
 3. implement only the scoped task;
 4. run validation;
-5. update task status, `PLAN.md`, and `DIARY.md`;
+5. update task status and `PLAN.md`;
 6. promote durable decisions to canonical docs.

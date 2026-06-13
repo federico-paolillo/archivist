@@ -21,7 +21,7 @@ Coordinate significant Archivist feature work across ALM context, repo-local rol
 
 ## Forbidden Edits
 
-- Do not bypass Archivist task readiness, dependency, validation, or diary rules.
+- Do not bypass Archivist task readiness, dependency, or validation rules.
 - Do not treat `.agents` files as canonical rebuild artifacts.
 - Do not assign overlapping write scopes to parallel workers.
 - Do not spawn workers for unclear product intent, ambiguous contracts, missing acceptance criteria, or unsafe architecture tradeoffs.
@@ -41,7 +41,7 @@ Coordinate significant Archivist feature work across ALM context, repo-local rol
 8. Route reviewer findings back to the owning worker or request an explicit waiver when needed.
 9. Dispatch the merger only after required reviews are approved or waived.
 10. Run final validation from the coordinator context.
-11. Ensure completed implementation work updates task status, feature `PLAN.md`, and `DIARY.md` according to `AGENTS.md`.
+11. Ensure completed implementation work updates task status and feature `PLAN.md` according to `AGENTS.md`. Diary or coordinator notes are optional non-canonical coordination only.
 
 ## Branch And Worktree Defaults
 

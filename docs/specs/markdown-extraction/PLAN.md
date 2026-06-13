@@ -15,15 +15,12 @@ This file is the feature-level implementation control board for Markdown extract
 ## Task DAG
 
 ```text
-MDEXT-001 -> MDEXT-002
-MDEXT-001 -> MDEXT-003
-MDEXT-001 -> MDEXT-004
 ARTPROC-003 -> MDEXT-002
 ARTPROC-005 -> MDEXT-005
 MDEXT-002 -> MDEXT-005
 MDEXT-003 -> MDEXT-005
 MDEXT-004 -> MDEXT-005
-MDEXT-005 -> SUMGEN-002
+MDEXT-005 -> SUMGEN-004
 ```
 
 ---
@@ -32,18 +29,16 @@ MDEXT-005 -> SUMGEN-002
 
 ### Phase 1: Canonical Planning And Standards
 
-- `MDEXT-001` creates the feature ALM artifacts and updates canonical architecture, design, artifact, configuration, logging, and error conventions.
 
 ### Phase 2: Worker Extraction Foundations
 
 - `MDEXT-002` extends Worker artifact access with atomic `content.md` writes.
 - `MDEXT-003` implements local go-readability v2 extraction and Markdown conversion behind `MarkdownExtractor`.
-- `MDEXT-004` implements Jina Reader fallback behind `MarkdownExtractor`, with SDK selection captured in an ExecPlan.
+- `MDEXT-004` implements Jina Reader fallback behind `MarkdownExtractor`, with SDK selection captured in the feature contracts.
 
-### Phase 3: Pipeline Integration And Notifications
+### Phase 3: Intermediate Pipeline Integration
 
-- `MDEXT-005` integrates Markdown extraction into Worker terminal processing.
-- `MDEXT-006` is skipped once `summary-generation` is planned because `SUMGEN-005` owns the final success notification path.
+- `MDEXT-005` integrates Markdown extraction as the intermediate Worker pipeline stage between snapshotting and summary generation.
 
 ---
 
@@ -51,21 +46,17 @@ MDEXT-005 -> SUMGEN-002
 
 | ID | Task | Status | Depends On | Blocks | Parallel | ExecPlan |
 |---|---|---|---|---|---|---|
-| `MDEXT-001` | Create feature artifacts and contracts | done | - | `MDEXT-002`, `MDEXT-003`, `MDEXT-004` | no | - |
-| `MDEXT-002` | Worker Markdown artifact access | done | `MDEXT-001`, `ARTPROC-003` | `MDEXT-005` | yes | - |
-| `MDEXT-003` | Worker go-readability extraction | done | `MDEXT-001` | `MDEXT-005` | yes | - |
-| `MDEXT-004` | Worker Jina Reader fallback | done | `MDEXT-001` | `MDEXT-005` | yes | `plans/MDEXT-004-worker-jina-reader-fallback.execplan.md` |
-| `MDEXT-005` | Worker Markdown pipeline integration | done | `ARTPROC-005`, `MDEXT-002`, `MDEXT-003`, `MDEXT-004` | `SUMGEN-002` | no | `plans/MDEXT-005-worker-markdown-pipeline-integration.execplan.md` |
-| `MDEXT-006` | Gateway Markdown success notification | skipped | `MDEXT-005`, `TELING-004` | - | no | - |
+| `MDEXT-002` | Worker Markdown artifact access | done | `ARTPROC-003` | `MDEXT-005` | yes | - |
+| `MDEXT-003` | Worker go-readability extraction | done | - | `MDEXT-005` | yes | - |
+| `MDEXT-004` | Worker Jina Reader fallback | done | - | `MDEXT-005` | yes | null |
+| `MDEXT-005` | Worker Markdown pipeline integration | done | `ARTPROC-005`, `MDEXT-002`, `MDEXT-003`, `MDEXT-004` | `SUMGEN-004` | no | null |
 
 ---
 
 ## Concurrency Rules
 
-- `MDEXT-003` and `MDEXT-004` may run in parallel after `MDEXT-001` because they own separate provider adapters.
 - `MDEXT-002` must wait for `ARTPROC-003` because it extends the shared artifact access layer created by article processing.
-- `MDEXT-005` must wait for HTML snapshot orchestration and all Markdown extraction components.
-- `MDEXT-006` is skipped because summary generation supersedes Markdown-complete terminal notifications before implementation.
+- `MDEXT-005` must wait for HTML snapshot orchestration and all Markdown extraction components, and it blocks summary pipeline integration.
 - Worker pipeline orchestration, SQLite terminal-transition code, and Gateway dispatcher behavior must not be modified concurrently by multiple tasks.
 
 ---
@@ -115,9 +106,8 @@ cd src/gateway && dotnet test
 
 The feature is complete when:
 
-- all required tasks are `done` or explicitly `skipped`;
+- all required tasks are `done`;
 - acceptance criteria in `SPEC.md` are satisfied;
 - validation sequence passes;
 - durable implementation decisions have been promoted to canonical documents;
-- `DIARY.md` contains final implementation notes;
 - `docs/specs/INDEX.md` reflects the final feature status.

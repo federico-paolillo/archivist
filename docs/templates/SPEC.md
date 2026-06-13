@@ -19,19 +19,11 @@ Describe what this feature exists to accomplish.
 
 Explain why this feature matters and what problem it solves.
 
-## Scope
-
-In scope:
+## Current Intended Behavior
 
 - TODO
 
-## Out of Scope
-
-Not included:
-
-- TODO
-
-## Users / Actors
+## Current Negative Requirements
 
 - TODO
 
@@ -39,6 +31,22 @@ Not included:
 
 - REQ-001: TODO
 - REQ-002: TODO
+
+## Constraints
+
+- TODO
+
+## Assumptions
+
+- TODO
+
+## Risks
+
+- TODO
+
+## Users / Actors
+
+- TODO
 
 ## Acceptance Criteria
 
@@ -90,4 +98,3 @@ List feature-specific rules that must survive full regeneration.
 ## Related Documents
 
 - `./PLAN.md`
-- `./DIARY.md`

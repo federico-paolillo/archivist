@@ -7,7 +7,6 @@ depends_on:
   - OTEL-004
   - OTEL-005
 blocks:
-  - OTEL-010
 parallel: false
 exec_plan: null
 canonical: true
@@ -32,5 +31,3 @@ Required checks:
 ```bash
 cd src/worker && go tool lefthook run build && go tool lefthook run test
 ```
-
-Result: worker agent reported required checks passed on 2026-06-03. Coordinator re-ran `go test ./...` successfully.

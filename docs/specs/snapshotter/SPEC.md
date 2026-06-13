@@ -5,7 +5,8 @@ title: Snapshotter
 status: done
 owner: null
 depends_on:
-  - job-recovery
+  - summary-generation
+  - ui-endpoints
 impacts:
   - architecture
   - artifacts
@@ -38,17 +39,9 @@ In scope:
 - Rootless distroless Docker image.
 - Docker Compose, env example, CI, CD, release packaging, and validation updates.
 - Manual restore documentation in canonical backup notes.
-
-## Out of Scope
-
-Not included:
-
-- Gateway, Worker, or UI pause/lock coordination during artifact copy.
-- App-managed remote snapshot retention or pruning.
-- Restore command or automated destructive restore.
-- Telegram/UI-visible backup status.
-- Metrics, alerting, or an observability stack.
-- Client-side archive encryption.
+- Gateway, Worker, and UI continue running during artifact copy; Snapshotter does not coordinate writers.
+- Snapshotter backup behavior does not define metrics or alerting. Trace and log export for Snapshotter is governed by `otel-observability`.
+- Remote snapshot retention/pruning is delegated to object-storage policy. Restore remains manual. Telegram/UI-visible backup status, automated destructive restore, and client-side archive encryption require separate canonical behavior before implementation.
 
 ## Users / Actors
 
@@ -92,7 +85,7 @@ Scenario: Artifact files are copied best-effort
   Given /data contains article artifact files
   When Snapshotter creates a staged snapshot
   Then artifact files observed during traversal are copied into staged data
-  And files that disappear during traversal are logged and skipped without failing the entire snapshot
+  And files that disappear during traversal are logged as best-effort copy misses without failing the entire snapshot
 
 Scenario: Upload failure does not terminate the daemon
   Given the configured S3 endpoint rejects an upload
@@ -165,7 +158,8 @@ Compose deployments override `ARCHIVIST_SNAPSHOTTER_WORK_DIR` to `/work/archivis
 
 Depends on:
 
-- `job-recovery`
+- Summary-complete article artifacts from `summary-generation`
+- Article delete and force-delete artifact cleanup contracts from `ui-endpoints`
 - Canonical `/data` artifact contract in `docs/ARTIFACTS.md`
 - Runtime topology and release automation contract in `docs/ARCHITECTURE.md`
 
@@ -195,7 +189,7 @@ Impacts:
 ## Observability / Logging Notes
 
 - Snapshotter emits structured JSON logs to stdout.
-- Logs include snapshot start, archive creation, upload success, upload failure, cleanup failure, and skipped disappearing artifact files.
+- Logs include snapshot start, archive creation, upload success, upload failure, cleanup failure, and best-effort copy misses for disappearing artifact files.
 - Logs must include enough context to identify archive name and object key without logging credentials.
 
 ## Open Questions
@@ -205,7 +199,6 @@ Impacts:
 ## Related Documents
 
 - `./PLAN.md`
-- `./DIARY.md`
 - `../../ARCHITECTURE.md`
 - `../../ARTIFACTS.md`
 - `../../DESIGN.md`

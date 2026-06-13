@@ -6,7 +6,6 @@ status: done
 depends_on:
   - OTEL-002
 blocks:
-  - OTEL-010
 parallel: true
 exec_plan: null
 canonical: true
@@ -32,5 +31,3 @@ Required checks:
 ```bash
 git diff --check
 ```
-
-Result: passed on 2026-06-03. README now documents always-configured application telemetry, local LGTM validation setup, production Collector backend configuration, and Collector runtime outage behavior without app-side trace/log exporter toggles or deployment environment values.

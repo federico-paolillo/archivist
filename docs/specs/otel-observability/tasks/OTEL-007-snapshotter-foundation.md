@@ -4,7 +4,6 @@ feature: otel-observability
 title: Add Snapshotter OTEL foundation
 status: done
 depends_on:
-  - OTEL-001
 blocks:
   - OTEL-008
 parallel: true
@@ -31,5 +30,3 @@ Required checks:
 ```bash
 cd src/snapshotter && uv run ruff format --check . && uv run ruff check . && uv run ty check . && uv run pytest
 ```
-
-Result: passed on 2026-06-03.

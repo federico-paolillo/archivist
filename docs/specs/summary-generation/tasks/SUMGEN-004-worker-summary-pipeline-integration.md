@@ -3,10 +3,10 @@ id: SUMGEN-004
 feature: summary-generation
 title: Worker Summary Pipeline Integration
 status: done
-depends_on: [SUMGEN-002, SUMGEN-003, WCFG-001, WCFG-002]
+depends_on: [MDEXT-005, SUMGEN-002, SUMGEN-003]
 blocks: [SUMGEN-005]
 parallel: false
-exec_plan: ../plans/SUMGEN-004-worker-summary-pipeline-integration.execplan.md
+exec_plan: null
 canonical: true
 ---
 
@@ -32,15 +32,6 @@ This task includes:
 - Tests proving snapshot and Markdown stages do not mark success once summary generation exists.
 - Tests for success, provider failure, billing failure, context/request-too-large failure, artifact failure, logging, and transactional behavior.
 
-## Out of Scope
-
-This task does not include:
-
-- Summarizer provider implementation.
-- Artifact access implementation.
-- Gateway notification dispatch implementation.
-- Automatic retries.
-- Summary JSON or schema validation.
 
 ## Inputs
 
@@ -48,9 +39,7 @@ Required inputs, existing files, interfaces, or decisions:
 
 - Completed `SUMGEN-002`.
 - Completed `SUMGEN-003`.
-- Completed `WCFG-001`.
-- Completed `WCFG-002`.
-- `../plans/SUMGEN-004-worker-summary-pipeline-integration.execplan.md`
+- Completed `MDEXT-005`.
 
 ## Outputs
 
@@ -83,11 +72,8 @@ Read before execution:
 - `docs/specs/article-processing/SPEC.md`
 - `docs/specs/markdown-extraction/SPEC.md`
 - `docs/specs/markdown-extraction/tasks/MDEXT-005-worker-markdown-pipeline-integration.md`
-- `docs/specs/worker-runtime-configuration/tasks/WCFG-001-canonical-worker-config-loading.md`
-- `docs/specs/worker-runtime-configuration/tasks/WCFG-002-non-optional-worker-composition.md`
 - `./SUMGEN-002-worker-summary-artifact-access.md`
 - `./SUMGEN-003-summarizer-provider-adapter.md`
-- `../plans/SUMGEN-004-worker-summary-pipeline-integration.execplan.md`
 
 Do not load unrelated feature folders unless listed here or required by dependencies.
 
@@ -124,12 +110,11 @@ Scenario: summarizer failure is committed transactionally
 ## Done When
 
 - Worker pipeline marks success only after `summary.md` is promoted.
-- Snapshot and Markdown stages are intermediate in the final v0 pipeline.
+- Snapshot and Markdown stages are intermediate in the completed pipeline.
 - Failure sets article failed, stores ARC-coded public error, sets job failed, and inserts notification in one transaction.
 - Logs capture summarizer provider, model, request ID when available, ARC code, and artifact write result.
 - Tests cover summary success, provider failure, context/request-too-large failure, billing failure, summary write failure, notification creation, and transaction rollback behavior.
 - Task status and `PLAN.md` are updated if the task is completed.
-- `DIARY.md` has an entry if implementation is performed.
 
 ## Validation
 
@@ -159,10 +144,9 @@ Validation performed on 2026-05-23:
 
 Depends on:
 
+- `MDEXT-005`
 - `SUMGEN-002`
 - `SUMGEN-003`
-- `WCFG-001`
-- `WCFG-002`
 
 Blocks:
 
@@ -173,7 +157,7 @@ Blocks:
 ExecPlan:
 
 ```text
-../plans/SUMGEN-004-worker-summary-pipeline-integration.execplan.md
+null
 ```
 
 ## Open Questions

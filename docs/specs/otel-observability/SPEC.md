@@ -37,16 +37,8 @@ In scope:
 - Tail sampling that retains all error traces and 10% of non-error traces.
 - Development Grafana LGTM container for manual local validation.
 - README deployment instructions.
-
-## Out of Scope
-
-Not included:
-
-- Metrics.
-- Production Grafana, Tempo, Loki, or Grafana Cloud provisioning.
-- Promoting high-cardinality values to Loki labels or metric labels.
-- Custom trace id generation or hand-rolled trace propagation.
-- Snapshotter linking one backup trace to every historical article trace.
+- Manual local validation through Grafana LGTM.
+- Production Grafana/Tempo/Loki/Grafana Cloud provisioning, metrics, high-cardinality values as Loki labels or metric labels, custom trace id generation, hand-rolled trace propagation, and linking one Snapshotter backup trace to every historical article trace require separate canonical behavior before implementation.
 
 ## Requirements
 
@@ -134,8 +126,24 @@ Worker empty queued-job claims are routine idle polls. They may return `sql.ErrN
 
 Application debug logs are local diagnostic logs only. Gateway, Worker, and Snapshotter OTLP log emission must be centrally filtered to `Info`/`Information` and higher so debug heartbeat or troubleshooting logs do not become telemetry noise.
 
+## Manual Validation Notes
+
+Local manual validation uses the development Compose stack and Grafana LGTM at `http://localhost:40300`.
+
+Expected checks:
+
+1. Submit an article through Telegram or enqueue a URL with the Worker CLI.
+2. Inspect traces for Gateway inbound HTTP spans.
+3. Confirm Worker processing continues the Gateway trace for Telegram-created jobs.
+4. Confirm Worker CLI-enqueued jobs create traces without requiring a parent.
+5. Confirm Snapshotter emits independent snapshot attempt traces.
+6. Inspect logs and confirm records inside spans include `trace_id` and `span_id`.
+7. Search logs/traces by `article_id`, `job_id`, URL, or provider request ID as attributes.
+8. Confirm those high-cardinality values are not Loki labels or metric labels.
+9. Stop `otelcol` and confirm core application behavior continues while telemetry export fails non-fatally.
+
 ## Related Documents
 
 - `./PLAN.md`
-- `./DIARY.md`
-- `../../../ROADMAP.md`
+- `../../ARCHITECTURE.md`
+- `../../DESIGN.md`

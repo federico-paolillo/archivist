@@ -3,7 +3,7 @@ id: MDEXT-003
 feature: markdown-extraction
 title: Worker Go-Readability Extraction
 status: done
-depends_on: [MDEXT-001]
+depends_on: []
 blocks: [MDEXT-005]
 parallel: true
 exec_plan: null
@@ -34,22 +34,11 @@ This task includes:
 - Mapping local extraction and conversion failures to `ARC-009`.
 - Tests for readable HTML, unreadable HTML, parse failure, and conversion failure.
 
-## Out of Scope
-
-This task does not include:
-
-- Jina Reader fallback.
-- Artifact writes.
-- SQLite job state transitions.
-- Gateway notification behavior.
-- Extraction candidate scoring.
-- LLM summarization.
 
 ## Inputs
 
 Required inputs, existing files, interfaces, or decisions:
 
-- Completed `MDEXT-001`.
 - `../SPEC.md`
 - `docs/ERRORS.md`
 - `.agents/skills/archivist-worker/SKILL.md`
@@ -113,7 +102,6 @@ Scenario: local conversion fails
 - Local unreadable documents are distinguishable from unknown failures.
 - Tests cover readable, unreadable, parse failure, and conversion failure behavior.
 - Task status and `PLAN.md` are updated if the task is completed.
-- `DIARY.md` has an entry if implementation is performed.
 
 ## Validation
 
@@ -133,8 +121,6 @@ Manual validation, if any:
 ## Dependencies
 
 Depends on:
-
-- `MDEXT-001`
 
 Blocks:
 

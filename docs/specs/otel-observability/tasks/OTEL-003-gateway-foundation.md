@@ -4,7 +4,6 @@ feature: otel-observability
 title: Add Gateway OTEL foundation
 status: done
 depends_on:
-  - OTEL-001
 blocks:
   - OTEL-004
 parallel: true
@@ -31,5 +30,3 @@ Required checks:
 ```bash
 cd src/gateway && dotnet format --verify-no-changes && dotnet build && dotnet test
 ```
-
-Result: passed on 2026-06-03.

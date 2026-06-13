@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Defines the full-regeneration contract. It states which files are canonical, which files are historical, and how an agent should rebuild the system from scratch.
+Defines the full-regeneration contract. It states which files are canonical and how an agent should rebuild the system from scratch.
 
 This file is mandatory if the project is intended to be regenerated multiple times.
 
@@ -29,20 +29,6 @@ docs/specs/*/PLAN.md
 docs/specs/*/tasks/*.md
 docs/specs/*/plans/*.execplan.md
 ```
-
----
-
-## Historical Artifacts
-
-The following files are historical by default:
-
-```text
-docs/specs/*/DIARY.md
-```
-
-Historical artifacts may explain prior implementation choices, but they must not be the only place where required behavior is defined.
-
-If a diary entry contains a durable decision, promote it to a canonical document before relying on it for rebuild.
 
 ---
 
@@ -112,17 +98,14 @@ Project-specific ordering:
 2. authn
 3. article-processing
 4. markdown-extraction
-5. worker-runtime-configuration
-6. summary-generation
-7. ui-endpoints
-8. ui
-9. job-recovery
-10. snapshotter
-11. otel-observability
-12. user-id-parameterization
+5. summary-generation
+6. ui-endpoints
+7. ui
+8. snapshotter
+9. otel-observability
 ```
 
-Task-level cross-feature dependencies in feature `PLAN.md` files further constrain this order. In particular, the shared persistence foundation from `TELING-001` must precede auth password persistence, article processing orchestration, and UI endpoint work; final success notification behavior is completed by `SUMGEN-005`; and the browser UI starts only after auth and UI article endpoint contracts are implemented and validated.
+Task-level cross-feature dependencies in feature `PLAN.md` files further constrain this order. In particular, the shared persistence foundation from `TELING-001` must precede auth password persistence, article processing orchestration, and UI endpoint work; final success notification behavior is completed by `SUMGEN-005`; and the browser UI starts only after auth and UI article endpoint contracts are implemented and validated. Worker runtime configuration, stale-job force deletion, and user-id resolution are current contracts inside the owning features, not standalone rebuild phases.
 
 ---
 
@@ -161,12 +144,11 @@ If an agent cannot implement a task because required information is missing:
 
 A rebuild is not complete until:
 
-1. all required feature tasks are `done` or explicitly `skipped`;
+1. all required feature tasks are `done`;
 2. all acceptance criteria are satisfied;
 3. the validation suite passes;
 4. deployment or runtime smoke tests pass, if applicable;
-5. feature diaries record implementation outcomes;
-6. durable decisions discovered during the rebuild have been promoted to canonical documents.
+5. durable decisions discovered during the rebuild have been promoted to canonical documents.
 
 Executable and service-boundary rebuild work must include validation through the deployed entrypoint shape, such as a CLI command, hosted-service loop, or HTTP route. Tests that only instantiate internal services do not satisfy executable-boundary acceptance criteria.
 
@@ -204,5 +186,5 @@ A rebuild is complete when:
 - all required executables run;
 - configured tests pass;
 - feature acceptance criteria are satisfied;
-- no required behavior exists only in code or diary entries;
+- no required behavior exists only in code;
 - `docs/specs/INDEX.md` reflects final feature status.

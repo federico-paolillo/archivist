@@ -4,13 +4,12 @@ feature: snapshotter
 title: Scaffold Python snapshotter project
 status: done
 depends_on:
-  - SNAP-001
 blocks:
   - SNAP-003
   - SNAP-004
   - SNAP-007
 parallel: true
-exec_plan: ../plans/SNAP-002-python-scaffold.execplan.md
+exec_plan: null
 canonical: true
 ---
 
@@ -30,9 +29,6 @@ This task includes:
 - `tests/**`
 - `ruff`, `ty`, and `pytest` configuration
 
-## Out of Scope
-
-This task does not include Docker, Compose, CI/CD, or release scripts.
 
 ## Acceptance Criteria
 

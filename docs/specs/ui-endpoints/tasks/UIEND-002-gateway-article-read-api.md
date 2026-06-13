@@ -3,10 +3,10 @@ id: UIEND-002
 feature: ui-endpoints
 title: Gateway article read API
 status: done
-depends_on: [UIEND-001, AUTHN-003, TELING-001, SUMGEN-005]
-blocks: [UI-003]
+depends_on: [AUTHN-004, TELING-001, SUMGEN-005]
+blocks: [UIEND-003, UI-003]
 parallel: false
-exec_plan: ../plans/UIEND-002-gateway-article-read-api.execplan.md
+exec_plan: null
 canonical: true
 ---
 
@@ -22,21 +22,14 @@ This task includes:
 
 - `GET /articles`
 - `GET /articles/{id}`
-- Article ULID cursor validation.
+- Article ULID cursor validation and route normalization.
 - Fixed 25-item list pages.
 - Lower-camel JSON DTOs for list and detail responses.
-- Authenticated user scoping.
+- Authenticated session user scoping.
 - Read-only artifact reads for `summary.md` and `content.md`.
+- Server-computed `canForceDelete` article detail metadata.
 - Gateway integration tests for auth, pagination, detail, and artifact behavior.
 
-## Out of Scope
-
-This task does not include:
-
-- Delete behavior.
-- UI implementation.
-- Login/logout implementation.
-- SQLite schema creation or migrations.
 
 ## Expected Affected Areas
 
@@ -56,9 +49,9 @@ Read before execution:
 - `.agents/skills/archivist-gateway/SKILL.md`
 - `docs/ARTIFACTS.md`
 - `docs/specs/authn/SPEC.md`
+- `docs/specs/authn/tasks/AUTHN-004-protect-ui-api-and-validate-auth-client-contract.md`
 - `docs/specs/telegram-ingestion/SPEC.md`
 - `docs/specs/summary-generation/SPEC.md`
-- `../plans/UIEND-002-gateway-article-read-api.execplan.md`
 
 ## Acceptance Criteria
 
@@ -73,12 +66,24 @@ Scenario: Article detail returns Markdown artifacts
   And summary.md and content.md exist
   When the browser requests GET /articles/{id}
   Then the response contains summaryMarkdown and contentMarkdown
+
+Scenario: Article detail reports force-delete metadata
+  Given the authenticated user owns an article with only stale running jobs
+  When the browser requests GET /articles/{id}
+  Then the response contains canForceDelete true
+
+Scenario: Article detail enforces ownership
+  Given user "U1" owns an article
+  And user "U2" is authenticated
+  When user "U2" requests GET /articles/{id}
+  Then the response status is 404
 ```
 
 ## Done When
 
 - `GET /articles` and `GET /articles/{id}` are implemented.
-- Tests cover unauthenticated access, pagination, invalid cursors, missing article, malformed IDs, ready article artifacts, and queued/failed nullable artifacts.
+- Detail responses include `canForceDelete`.
+- Tests cover unauthenticated access, ownership scoping, pagination, invalid cursors, missing article, malformed IDs, ULID normalization, ready article artifacts, queued/failed nullable artifacts, and force-delete eligibility metadata.
 - Validation passes or failures are recorded.
 
 ## Validation
@@ -94,14 +99,13 @@ cd src/gateway && dotnet test
 ## Dependencies
 
 Depends on:
-
-- `UIEND-001`
-- `AUTHN-003`
+- `AUTHN-004`
 - `TELING-001`
 - `SUMGEN-005`
 
 Blocks:
 
+- `UIEND-003`
 - `UI-003`
 
 ## ExecPlan
@@ -109,7 +113,7 @@ Blocks:
 ExecPlan:
 
 ```text
-../plans/UIEND-002-gateway-article-read-api.execplan.md
+null
 ```
 
 ## Open Questions

@@ -15,15 +15,10 @@ This file is the feature-level implementation control board for summary generati
 ## Task DAG
 
 ```text
-SUMGEN-001 -> SUMGEN-002
-SUMGEN-001 -> SUMGEN-003
-MDEXT-005 -> SUMGEN-002
-WCFG-001 -> SUMGEN-002
-WCFG-002 -> SUMGEN-002
+MDEXT-002 -> SUMGEN-002
+MDEXT-005 -> SUMGEN-004
 SUMGEN-002 -> SUMGEN-004
 SUMGEN-003 -> SUMGEN-004
-WCFG-001 -> SUMGEN-004
-WCFG-002 -> SUMGEN-004
 SUMGEN-004 -> SUMGEN-005
 TELING-004 -> SUMGEN-005
 ```
@@ -34,7 +29,6 @@ TELING-004 -> SUMGEN-005
 
 ### Phase 1: Canonical Planning And Standards
 
-- `SUMGEN-001` creates the feature ALM artifacts and updates canonical architecture, design, artifact, configuration, logging, and error conventions.
 
 ### Phase 2: Worker Summary Foundations
 
@@ -43,7 +37,7 @@ TELING-004 -> SUMGEN-005
 
 ### Phase 3: Final Pipeline And Notifications
 
-- `SUMGEN-004` integrates summary generation into Worker terminal processing and makes summary success the final v0 success point.
+- `SUMGEN-004` integrates summary generation into Worker terminal processing and makes summary success the terminal success point.
 - `SUMGEN-005` replaces Markdown-complete success notifications with summary-based Telegram replies through read-only Gateway artifact access.
 
 ---
@@ -52,19 +46,18 @@ TELING-004 -> SUMGEN-005
 
 | ID | Task | Status | Depends On | Blocks | Parallel | ExecPlan |
 |---|---|---|---|---|---|---|
-| `SUMGEN-001` | Create feature artifacts and contracts | done | - | `SUMGEN-002`, `SUMGEN-003` | no | - |
-| `SUMGEN-002` | Worker summary artifact access | done | `SUMGEN-001`, `MDEXT-005`, `WCFG-001`, `WCFG-002` | `SUMGEN-004` | yes | - |
-| `SUMGEN-003` | Summarizer provider adapter | done | `SUMGEN-001` | `SUMGEN-004` | yes | `plans/SUMGEN-003-summarizer-provider-adapter.execplan.md` |
-| `SUMGEN-004` | Worker summary pipeline integration | done | `SUMGEN-002`, `SUMGEN-003`, `WCFG-001`, `WCFG-002` | `SUMGEN-005` | no | `plans/SUMGEN-004-worker-summary-pipeline-integration.execplan.md` (completed) |
-| `SUMGEN-005` | Gateway summary notification | done | `SUMGEN-004`, `TELING-004` | - | no | `plans/SUMGEN-005-gateway-summary-notification.execplan.md` (completed) |
+| `SUMGEN-002` | Worker summary artifact access | done | `MDEXT-002` | `SUMGEN-004` | yes | - |
+| `SUMGEN-003` | Summarizer provider adapter | done | - | `SUMGEN-004` | yes | null |
+| `SUMGEN-004` | Worker summary pipeline integration | done | `MDEXT-005`, `SUMGEN-002`, `SUMGEN-003` | `SUMGEN-005` | no | null |
+| `SUMGEN-005` | Gateway summary notification | done | `SUMGEN-004`, `TELING-004` | - | no | null |
 
 ---
 
 ## Concurrency Rules
 
 - `SUMGEN-002` and `SUMGEN-003` may run in parallel after their dependencies are done because they own separate artifact and provider-adapter surfaces.
-- `SUMGEN-002` must wait for `MDEXT-005` because it extends the Markdown-complete artifact/pipeline boundary.
-- Remaining Worker summary tasks must use canonical Worker config from `worker-runtime-configuration/WCFG-001` and non-optional Worker composition from `worker-runtime-configuration/WCFG-002`.
+- `SUMGEN-002` must wait for Markdown artifact access because it extends deterministic article artifact reads and writes.
+- `SUMGEN-004` must wait for `MDEXT-005` because summary generation is invoked after the Markdown pipeline stage promotes `content.md`.
 - `SUMGEN-004` is complete and owns Worker summary-complete terminal state.
 - `SUMGEN-005` is complete and owns Gateway summary-complete notification content.
 - Worker pipeline orchestration, SQLite terminal-transition code, and Gateway dispatcher behavior must not be modified concurrently by multiple tasks.
@@ -116,9 +109,8 @@ cd src/gateway && dotnet test
 
 The feature is complete when:
 
-- all required tasks are `done` or explicitly `skipped`;
+- all required tasks are `done`;
 - acceptance criteria in `SPEC.md` are satisfied;
 - validation sequence passes;
 - durable implementation decisions have been promoted to canonical documents;
-- `DIARY.md` contains final implementation notes;
 - `docs/specs/INDEX.md` reflects the final feature status.

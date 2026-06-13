@@ -1,6 +1,6 @@
 ---
 name: archivist-agentic-feature
-description: Use when coordinating significant Archivist feature work with repo-local multi-agent roles, ALM task readiness, worker/reviewer handoffs, branches, worktrees, integration, verification, cleanup, and diary logging.
+description: Use when coordinating significant Archivist feature work with repo-local multi-agent roles, ALM task readiness, worker/reviewer handoffs, branches, worktrees, integration, verification, cleanup, and optional non-canonical coordination notes.
 ---
 
 # Archivist Agentic Feature
@@ -11,7 +11,7 @@ Use this skill for significant features, cross-module work, multi-day changes, o
 
 - `.agents` files are non-canonical tooling.
 - Durable behavior lives in canonical ALM files: `AGENTS.md`, `docs/REBUILD.md`, `docs/BOOKKEEPING.md`, `docs/ARCHITECTURE.md`, `docs/DESIGN.md`, `docs/ERRORS.md`, `docs/ARTIFACTS.md`, and `docs/specs/**`.
-- Workflow templates under `.agents/workflows/templates/` are coordination scratch/state. They do not replace task files, ExecPlans, feature `PLAN.md`, or `DIARY.md`.
+- Workflow templates under `.agents/workflows/templates/` are optional non-canonical coordination scratch/state. They do not replace task files, accepted/in-progress ExecPlans, feature `PLAN.md`, or other canonical ALM files.
 
 ## Trigger Protocol
 
@@ -71,7 +71,7 @@ The coordinator owns decomposition and final acceptance.
 9. Repeat review/fix until approved, approved with nits accepted by the coordinator, or explicitly waived.
 10. Dispatch the merger only after required approvals or waivers are recorded.
 11. Run final verification from the coordinator context.
-12. Ensure completed implementation work updates task status, feature `PLAN.md`, and `DIARY.md` according to `AGENTS.md`.
+12. Ensure completed implementation work updates task status and feature `PLAN.md` according to `AGENTS.md`. Diary or coordinator notes may be updated for coordination only, but they are never completion gates.
 
 ## Branch And Worktree Defaults
 

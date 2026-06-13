@@ -13,7 +13,7 @@ canonical: true
 
 ## Intent
 
-Provide the final v0 browser interface for password-only login and authenticated article review.
+Provide the browser interface for password-only login and authenticated article review.
 
 ## Motivation
 
@@ -28,19 +28,13 @@ In scope:
 - Article master-detail page matching `docs/design/view.png` and `docs/design/DESIGN.md`.
 - Vite build-time API base path configuration through `VITE_API_BASE_PATH`, defaulting to `/api`.
 - Auth session checks, login, logout, article list/detail loading, original-link navigation, and delete confirmation.
+- Force-delete visibility and confirmation driven by Gateway `canForceDelete` metadata.
 - Client-side rendering of `summaryMarkdown` and `contentMarkdown` without executing raw article HTML or scripts.
 - Frontend automated tests and browser/screenshot validation against the design assets.
-
-## Out of Scope
-
-Not included:
-
-- Gateway auth endpoint implementation, owned by `authn`.
-- Gateway article list/detail/delete endpoint implementation, owned by `ui-endpoints`.
-- Changing Gateway route contracts to include an `/api` prefix.
-- Retry or requeue actions.
-- Search, filtering, sorting controls, tagging controls, structured summary fields, account management, password rotation, password reset, roles, tenants, PWA/offline behavior, or full-text search.
-- Reading SQLite or `/data` artifacts directly from the UI.
+- Gateway auth endpoint implementation is owned by `authn`.
+- Gateway article list/detail/delete endpoint implementation is owned by `ui-endpoints`.
+- Gateway route contracts remain unprefixed; the UI uses the configured API base path for browser calls.
+- Retry/requeue actions, search, filtering, sorting controls, tagging controls, structured summary fields, account management, password rotation, password reset, roles, tenants, PWA/offline behavior, full-text search, direct SQLite reads, and direct `/data` artifact reads are excluded from this feature.
 
 ## Users / Actors
 
@@ -82,21 +76,26 @@ Not included:
 - REQ-027: A failed article must show the persisted `errorMessage` in red, centered in the detail pane.
 - REQ-028: The detail view for a selected article must expose `Delete` whenever article metadata is available, including ready, queued, and failed states.
 - REQ-029: The detail view must expose `Original` when an original or canonical URL is available.
-- REQ-030: `Retry` must not be implemented or displayed in v0.
+- REQ-030: `Retry` must not be implemented or displayed.
 - REQ-031: Delete must first show a modal with the exact question `Are you sure?` and the exact options `Yes` and `Nevermind`.
 - REQ-032: Choosing `Nevermind` must close the modal without calling the API.
 - REQ-033: Choosing `Yes` must call `DELETE ${apiBasePath}/articles/{id}`.
 - REQ-034: Successful delete must reset the URL to `/articles`, clear the detail pane, and remove the deleted article from the master list.
 - REQ-035: Delete failure must leave the current URL selected and show the failure text in red in the detail pane.
-- REQ-036: Markdown rendering must not execute raw article HTML, scripts, inline event handlers, or `javascript:` links.
-- REQ-037: Frontend tests must cover API base path usage, login success, invalid-login black page navigation, session `401`, logout, route update on article selection, no-id detail state, loading, ready, queued, failed, fetch-error, and delete confirm/cancel behavior.
-- REQ-038: Manual browser validation must capture `/login`, `/login/failed`, `/articles`, and `/articles/<article_id>` and compare them against `docs/design/DESIGN.md` plus the two screenshots.
-- REQ-039: On desktop and tablet article routes, the header and footer must be solid black, the article shell must remain viewport-framed without document scrolling, and the master and detail panes must scroll independently inside the shell.
-- REQ-040: On mobile article routes targeting a 430x960 CSS-pixel viewport, the master/detail view must stack vertically in normal document flow; the master article list must have a reasonable max height and scroll internally when needed, while the detail article content remains unbounded in page flow.
-- REQ-041: The shared footer must keep a fixed 40px chrome-row height, and its version label must stay on one line and truncate with an ellipsis when the configured version string is too long for the viewport.
-- REQ-042: `/login`, `/articles`, and `/articles/<article_id>` must use a shared application layout containing header, main content, and footer regions.
-- REQ-043: `/login/failed` and transient blank auth/session-check states must not render the shared application layout and must remain blank black.
-- REQ-044: On mobile routes targeting a 430x960 CSS-pixel viewport, the shared header and footer must participate in normal document flow rather than sticky or fixed positioning, and the login form must not be vertically centered.
+- REQ-036: Article detail must expose `Force Delete` only when `canForceDelete` is true.
+- REQ-037: Force delete must require a separate destructive confirmation before calling the API.
+- REQ-038: Confirmed force delete must call `DELETE ${apiBasePath}/articles/{id}/force`.
+- REQ-039: Successful force delete must reset the URL to `/articles`, clear the detail pane, and remove the deleted article from the master list.
+- REQ-040: Force-delete failure must leave the current URL selected and show the failure text in red in the detail pane.
+- REQ-041: Markdown rendering must not execute raw article HTML, scripts, inline event handlers, or `javascript:` links.
+- REQ-042: Frontend tests must cover API base path usage, login success, invalid-login black page navigation, session `401`, logout, route update on article selection, no-id detail state, loading, ready, queued, failed, fetch-error, delete confirm/cancel behavior, force-delete visibility, force-delete confirm/cancel behavior, and force-delete failure.
+- REQ-043: Manual browser validation must capture `/login`, `/login/failed`, `/articles`, and `/articles/<article_id>` and compare them against `docs/design/DESIGN.md` plus the two screenshots.
+- REQ-044: On desktop and tablet article routes, the header and footer must be solid black, the article shell must remain viewport-framed without document scrolling, and the master and detail panes must scroll independently inside the shell.
+- REQ-045: On mobile article routes targeting a 430x960 CSS-pixel viewport, the master/detail view must stack vertically in normal document flow; the master article list must have a reasonable max height and scroll internally when needed, while the detail article content remains unbounded in page flow.
+- REQ-046: The shared footer must keep a fixed 40px chrome-row height, and its version label must stay on one line and truncate with an ellipsis when the configured version string is too long for the viewport.
+- REQ-047: `/login`, `/articles`, and `/articles/<article_id>` must use a shared application layout containing header, main content, and footer regions.
+- REQ-048: `/login/failed` and transient blank auth/session-check states must not render the shared application layout and must remain blank black.
+- REQ-049: On mobile routes targeting a 430x960 CSS-pixel viewport, the shared header and footer must participate in normal document flow rather than sticky or fixed positioning, and the login form must not be vertically centered.
 
 ## Acceptance Criteria
 
@@ -178,6 +177,23 @@ Scenario: Delete succeeds
   Then the UI sends DELETE to the configured API base article endpoint
   And navigates to /articles
   And clears the detail pane
+
+Scenario: Force delete is visible when allowed
+  Given the selected article detail has canForceDelete true
+  When the UI renders the selected article
+  Then a Force Delete action is visible
+
+Scenario: Force delete is hidden when unavailable
+  Given the selected article detail has canForceDelete false
+  When the UI renders the selected article
+  Then no Force Delete action is visible
+
+Scenario: Force delete succeeds
+  Given Force Delete is visible
+  When the user confirms the force-delete dialog
+  Then the UI sends DELETE to the configured API base force-delete endpoint
+  And navigates to /articles
+  And clears the detail pane
 ```
 
 ## Data and State
@@ -206,6 +222,7 @@ Article detail consumes the list metadata plus:
 
 - `summaryMarkdown`
 - `contentMarkdown`
+- `canForceDelete`
 
 ## Interfaces
 
@@ -228,6 +245,7 @@ API calls:
 - `GET ${apiBasePath}/articles`
 - `GET ${apiBasePath}/articles/{id}`
 - `DELETE ${apiBasePath}/articles/{id}`
+- `DELETE ${apiBasePath}/articles/{id}/force`
 
 All API calls must include credentials.
 
@@ -236,7 +254,7 @@ All API calls must include credentials.
 Depends on:
 
 - `authn` for `POST /login`, `POST /logout`, `GET /auth/session`, cookie authentication, and `401` behavior.
-- `ui-endpoints` for article list/detail/delete contracts.
+- `ui-endpoints` for article list/detail/delete/force-delete contracts.
 - `docs/design/DESIGN.md`
 - `docs/design/login.png`, superseded only for the intentionally added shared header chrome
 - `docs/design/view.png`
@@ -260,7 +278,6 @@ Impacts:
 - Mobile login uses normal page flow and must not vertically center the login form.
 - Article routes use a viewport-framed shell on desktop/tablet with independently scrollable master and detail panes. Mobile uses stacked document flow with a capped, internally scrollable master list and unbounded detail content.
 - The shared footer has a fixed 40px visual height even when route content is short. It may truncate long version labels, including full commit hashes, with CSS-only ellipsis.
-- Do not implement Retry until a future feature defines a backend retry/requeue contract.
 - Markdown rendering must treat article content as untrusted input.
 
 ## Security / Privacy Notes
@@ -282,10 +299,5 @@ Impacts:
 ## Related Documents
 
 - `./PLAN.md`
-- `./DIARY.md`
-- `./tasks/UI-001-create-canonical-ui-artifacts.md`
 - `./tasks/UI-002-ui-routing-design-system-api-base-auth-shell.md`
 - `./tasks/UI-003-article-master-detail-and-delete-workflow.md`
-- `./tasks/UI-004-final-ui-validation-pass.md`
-- `./plans/UI-002-ui-routing-design-system-api-base-auth-shell.execplan.md`
-- `./plans/UI-003-article-master-detail-and-delete-workflow.execplan.md`

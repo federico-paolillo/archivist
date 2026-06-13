@@ -3,10 +3,10 @@ id: MDEXT-004
 feature: markdown-extraction
 title: Worker Jina Reader Fallback
 status: done
-depends_on: [MDEXT-001]
+depends_on: []
 blocks: [MDEXT-005]
 parallel: true
-exec_plan: ../plans/MDEXT-004-worker-jina-reader-fallback.execplan.md
+exec_plan: null
 canonical: true
 ---
 
@@ -36,22 +36,11 @@ This task includes:
 - Mapping insufficient balance failures to `ARC-011` when exposed by status, code, or response body.
 - Tests for successful fallback, general failure, timeout/transport failure, insufficient balance, bounded response reads, and non-text success responses.
 
-## Out of Scope
-
-This task does not include:
-
-- Local go-readability extraction.
-- Artifact writes.
-- SQLite job state transitions.
-- Gateway notification behavior.
-- ReaderLM-v2 usage by default.
-- Untagged or low-adoption third-party wrapper dependencies.
 
 ## Inputs
 
 Required inputs, existing files, interfaces, or decisions:
 
-- Completed `MDEXT-001`.
 - Jina Reader API documentation.
 - `docs/ERRORS.md`
 - `.agents/skills/archivist-general/SKILL.md`
@@ -116,7 +105,7 @@ Scenario: Jina reports insufficient balance
 
 ## Done When
 
-- Jina SDK availability is verified and recorded in the task diary entry.
+- Jina SDK availability is verified and recorded in this task or the owning feature spec.
 - Jina fallback implements `MarkdownExtractor`.
 - Worker pipeline code does not import Jina SDK/client or adapter types.
 - Jina fallback can return Markdown from the canonical URL.
@@ -125,7 +114,6 @@ Scenario: Jina reports insufficient balance
 - Jina failures map to ARC-coded public errors.
 - Tests cover success, general failure, and insufficient balance.
 - Task status and `PLAN.md` are updated if the task is completed.
-- `DIARY.md` has an entry if implementation is performed.
 
 ## Validation
 
@@ -146,8 +134,6 @@ Manual validation, if any:
 
 Depends on:
 
-- `MDEXT-001`
-
 Blocks:
 
 - `MDEXT-005`
@@ -157,7 +143,7 @@ Blocks:
 ExecPlan:
 
 ```text
-../plans/MDEXT-004-worker-jina-reader-fallback.execplan.md
+null
 ```
 
 ## Open Questions
@@ -168,6 +154,5 @@ ExecPlan:
 
 - Current planning verification found `github.com/jina-ai/client-go`, but it targets older Jina client semantics and is not a Reader-specific SDK.
 - `JinaExtractor` does not accept a logger and must not emit structured log entries. Structured logging for provider attempt, selected provider, ARC code, duration, and artifact write result is owned by MDEXT-005 pipeline orchestration per `.agents/skills/archivist-worker/SKILL.md`.
-- Worker runtime configuration key reconciliation is corrected by `docs/specs/worker-runtime-configuration/tasks/WCFG-001-canonical-worker-config-loading.md`; rebuilds must use the canonical `ARCHIVIST_` mapping there instead of historical implementation notes.
 - Jina Reader responses must be read through hard limits: successful Markdown responses are capped at 10 MiB and non-OK diagnostic bodies are capped at 64 KiB. Successful responses must have a text Markdown-compatible content type (`text/plain`, `text/markdown`, or `text/x-markdown`). Oversized bodies, missing or invalid success content types, and non-text success content types map to `ARC-010`.
 - Jina insufficient balance must map to `ARC-011` when exposed by HTTP 402 or by bounded non-OK response text/JSON containing known insufficient-balance markers. Other non-OK responses remain `ARC-010`.

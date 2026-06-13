@@ -14,15 +14,12 @@ This file prevents scattered feature folders from becoming unmanageable.
 | `authn` | UI/API Authentication | done | `telegram-ingestion` | [`SPEC.md`](./authn/SPEC.md) | [`PLAN.md`](./authn/PLAN.md) |
 | `article-processing` | URL-To-Article Processing Pipeline | done | `telegram-ingestion` | [`SPEC.md`](./article-processing/SPEC.md) | [`PLAN.md`](./article-processing/PLAN.md) |
 | `markdown-extraction` | Markdown Extraction With Fallbacks | done | `article-processing` | [`SPEC.md`](./markdown-extraction/SPEC.md) | [`PLAN.md`](./markdown-extraction/PLAN.md) |
-| `worker-runtime-configuration` | Worker Runtime Configuration | done | `markdown-extraction` | [`SPEC.md`](./worker-runtime-configuration/SPEC.md) | [`PLAN.md`](./worker-runtime-configuration/PLAN.md) |
-| `summary-generation` | Summary Generation | done | `markdown-extraction`, `worker-runtime-configuration` | [`SPEC.md`](./summary-generation/SPEC.md) | [`PLAN.md`](./summary-generation/PLAN.md) |
+| `summary-generation` | Summary Generation | done | `markdown-extraction` | [`SPEC.md`](./summary-generation/SPEC.md) | [`PLAN.md`](./summary-generation/PLAN.md) |
 | `ui-endpoints` | UI Article Endpoints | done | `authn`, `telegram-ingestion`, `summary-generation` | [`SPEC.md`](./ui-endpoints/SPEC.md) | [`PLAN.md`](./ui-endpoints/PLAN.md) |
 | `ui` | Final Browser UI | done | `authn`, `ui-endpoints` | [`SPEC.md`](./ui/SPEC.md) | [`PLAN.md`](./ui/PLAN.md) |
-| `job-recovery` | Job Recovery And Worker Logging | done | `ui`, `ui-endpoints`, `summary-generation` | [`SPEC.md`](./job-recovery/SPEC.md) | [`PLAN.md`](./job-recovery/PLAN.md) |
-| `snapshotter` | Snapshotter | done | `job-recovery` | [`SPEC.md`](./snapshotter/SPEC.md) | [`PLAN.md`](./snapshotter/PLAN.md) |
+| `snapshotter` | Snapshotter | done | `summary-generation`, `ui-endpoints` | [`SPEC.md`](./snapshotter/SPEC.md) | [`PLAN.md`](./snapshotter/PLAN.md) |
 | `otel-observability` | OpenTelemetry Observability | done | `snapshotter` | [`SPEC.md`](./otel-observability/SPEC.md) | [`PLAN.md`](./otel-observability/PLAN.md) |
-| `user-id-parameterization` | User ID Parameterization | done | `otel-observability` | [`SPEC.md`](./user-id-parameterization/SPEC.md) | [`PLAN.md`](./user-id-parameterization/PLAN.md) |
 
-Status values: `draft` \| `in_progress` \| `done` \| `blocked` \| `skipped`
+Status values: `draft` \| `ready` \| `blocked` \| `in_progress` \| `done`
 
 ---

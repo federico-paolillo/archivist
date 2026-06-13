@@ -9,7 +9,7 @@ depends_on:
 blocks:
   - SNAP-006
 parallel: false
-exec_plan: ../plans/SNAP-005-daemon.execplan.md
+exec_plan: null
 canonical: true
 ---
 

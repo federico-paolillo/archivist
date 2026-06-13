@@ -3,7 +3,7 @@ id: SUMGEN-002
 feature: summary-generation
 title: Worker Summary Artifact Access
 status: done
-depends_on: [SUMGEN-001, MDEXT-005, WCFG-001, WCFG-002]
+depends_on: [MDEXT-002]
 blocks: [SUMGEN-004]
 parallel: true
 exec_plan: null
@@ -32,24 +32,12 @@ This task includes:
 - Mapping summary write failures to `ARC-016`.
 - Tests for deterministic path behavior, missing `content.md`, atomic writes, failed-write cleanup, and traversal rejection.
 
-## Out of Scope
-
-This task does not include:
-
-- Markdown extraction.
-- Summarizer provider calls.
-- SQLite job state transitions.
-- Gateway artifact reads.
-- Writing `summary.json` or metadata artifacts.
 
 ## Inputs
 
 Required inputs, existing files, interfaces, or decisions:
 
-- Completed `SUMGEN-001`.
-- Completed `MDEXT-005`.
-- Completed `WCFG-001`.
-- Completed `WCFG-002`.
+- Completed `MDEXT-002`.
 - `docs/ARTIFACTS.md`
 - `docs/ERRORS.md`
 - `.agents/skills/archivist-worker/SKILL.md`
@@ -79,9 +67,6 @@ Read before execution:
 - `.agents/skills/archivist-general/SKILL.md`
 - `.agents/skills/archivist-worker/SKILL.md`
 - `docs/specs/markdown-extraction/tasks/MDEXT-002-worker-markdown-artifact-access.md`
-- `docs/specs/markdown-extraction/tasks/MDEXT-005-worker-markdown-pipeline-integration.md`
-- `docs/specs/worker-runtime-configuration/tasks/WCFG-001-canonical-worker-config-loading.md`
-- `docs/specs/worker-runtime-configuration/tasks/WCFG-002-non-optional-worker-composition.md`
 
 Do not load unrelated feature folders unless listed here or required by dependencies.
 
@@ -115,7 +100,6 @@ Scenario: Artifact access rejects traversal
 - No placeholder `summary.json` artifact is created.
 - Tests cover deterministic path, atomic write, failed-write cleanup, missing input, and traversal rejection.
 - Task status and `PLAN.md` are updated if the task is completed.
-- `DIARY.md` has an entry if implementation is performed.
 
 ## Validation
 
@@ -142,11 +126,7 @@ Validation completed on 2026-05-20:
 ## Dependencies
 
 Depends on:
-
-- `SUMGEN-001`
-- `MDEXT-005`
-- `WCFG-001`
-- `WCFG-002`
+- `MDEXT-002`
 
 Blocks:
 

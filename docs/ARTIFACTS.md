@@ -2,7 +2,7 @@
 
 Defines deterministic filesystem artifact conventions for article processing.
 
-Artifact paths are stable contracts between Worker, Gateway, UI, backups, and rebuild documentation. SQLite stores article and job state; it does not store artifact path columns in v0.
+Artifact paths are stable contracts between Worker, Gateway, UI, backups, and rebuild documentation. SQLite stores article and job state; it does not store artifact path columns.
 
 ---
 
@@ -22,11 +22,9 @@ Filesystem access scoped to `DATA_DIR` should use traversal-resistant APIs such 
 
 | Artifact | Path | Producer | Required For |
 |---|---|---|---|
-| HTML snapshot | `{DATA_DIR}/articles/{article_id}/snapshot.html` | Worker HTML snapshot stage | Markdown extraction and future reprocessing |
+| HTML snapshot | `{DATA_DIR}/articles/{article_id}/snapshot.html` | Worker HTML snapshot stage | Markdown extraction and diagnostics |
 | Markdown content | `{DATA_DIR}/articles/{article_id}/content.md` | Worker Markdown extraction stage | Summary generation input |
-| Summary Markdown | `{DATA_DIR}/articles/{article_id}/summary.md` | Worker summary generation stage | Final v0 article success, Telegram completion replies, and UI summary display |
-| Summary JSON | `{DATA_DIR}/articles/{article_id}/summary.json` | Future structured summary stage | Future structured summary display |
-| Metadata | `{DATA_DIR}/articles/{article_id}/metadata.json` | Future metadata stage | Future diagnostics or enrichment |
+| Summary Markdown | `{DATA_DIR}/articles/{article_id}/summary.md` | Worker summary generation stage | Article success, Telegram completion replies, and UI summary display |
 
 ## Access Interface
 
@@ -41,17 +39,17 @@ The artifact access layer is operation-first. It exposes per-artifact `Open<Arti
 - Artifact writes must be atomic: write to a temporary file in the article artifact directory, then rename into place.
 - A failed write must not promote a partial final artifact.
 - Temporary files should be named so cleanup can identify them as internal artifacts.
-- Do not create placeholder artifacts for future stages.
+- Do not create placeholder artifacts.
 - The artifact access layer must not log write results itself. It must surface sufficient information (success, failure, bytes written or equivalent) in its return value so the calling pipeline stage can emit a structured log entry for the artifact write result.
-- `summary.md` is the v0 summary artifact. Do not write `summary.json` unless a future canonical spec reintroduces structured summary output.
-- Do not add artifact path columns to SQLite unless a future canonical spec changes this convention.
+- `summary.md` is the summary artifact.
+- Do not add artifact path columns to SQLite unless a canonical spec changes this convention.
 - Delete or cleanup behavior that removes article state must remove the article artifact directory through the same deterministic root.
 
 ## Delete Consistency Limit
 
 Gateway hard delete removes SQLite rows and the deterministic article artifact directory under `DATA_DIR`. SQLite transactions cannot include filesystem deletion. Normal delete and force delete keep SQLite deletes inside a write transaction, perform artifact directory cleanup before commit, and roll back the SQLite deletes if artifact cleanup fails.
 
-If artifact cleanup succeeds but the later SQLite commit fails, rollback cannot restore the deleted artifact directory. Archivist accepts this rare v0 cross-resource atomicity limitation. Operators repair that state by deleting the now-artifactless article state through an operational SQLite fix, or by restoring `{DATA_DIR}/articles/{article_id}` from a Snapshotter/object-storage backup before retrying.
+If artifact cleanup succeeds but the subsequent SQLite commit fails, rollback cannot restore the deleted artifact directory. Archivist accepts this rare cross-resource atomicity limitation. Operators repair that state by deleting the now-artifactless article state through an operational SQLite fix, or by restoring `{DATA_DIR}/articles/{article_id}` from a Snapshotter/object-storage backup before retrying.
 
 ## Rebuild Notes
 
@@ -100,4 +98,4 @@ Manual restore contract:
 3. replace the `/data` volume contents with the archive's `data/` contents;
 4. start Archivist services.
 
-Snapshotter does not provide an automated restore command in v0.
+Restore is manual through the archive download and service-stop procedure above.

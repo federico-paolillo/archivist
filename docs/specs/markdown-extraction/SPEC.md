@@ -17,7 +17,7 @@ Extract readable Markdown from successfully snapshotted article HTML, persist it
 
 ## Motivation
 
-HTML snapshotting preserves source material but does not produce the readable Markdown content needed by the UI or future summarization. The Worker needs a low-cost extraction stage that starts locally with go-readability v2, pays for Jina Reader only when local readability rejects the document, and fails clearly when neither provider can produce Markdown.
+HTML snapshotting preserves source material but does not produce the readable Markdown content needed by the UI or summarization. The Worker needs a low-cost extraction stage that starts locally with go-readability v2, pays for Jina Reader only when local readability rejects the document, and fails clearly when neither provider can produce Markdown.
 
 ## Scope
 
@@ -32,24 +32,11 @@ In scope:
 - Small internal Jina Reader adapter only when no suitable official Reader SDK exists.
 - A Worker-owned `MarkdownExtractor` abstraction for local and external extraction providers.
 - Atomic Markdown artifact writes to `{DATA_DIR}/articles/{article_id}/content.md`.
-- Final-v0 Markdown handoff to summary generation without article/job success or success notification creation.
+- Markdown handoff to summary generation without article/job success or success notification creation.
 - Worker terminal failure when both local extraction and Jina fallback fail.
 - ARC-coded public errors for local extraction, Jina fallback, Jina insufficient balance, and Markdown writes.
 - Structured Worker logs for critical extraction decisions and provider fallback.
-- Markdown-stage success notification work remains skipped because final v0 success notification is summary-based.
-
-## Out of Scope
-
-Not included:
-
-- LLM summarization.
-- Summary artifact creation.
-- Extraction candidate scoring or quality thresholds.
-- ReaderLM-v2 use by default.
-- Browser rendering, Playwright, or JavaScript execution.
-- Automatic retries.
-- New article, job, notification, or extraction telemetry schema columns.
-- SQLite artifact path columns.
+- LLM summarization, summary artifact creation, extraction candidate scoring, ReaderLM-v2 default use, browser rendering, automatic retries, new article/job/notification states, extraction telemetry columns, and SQLite artifact path columns are not part of this feature's behavior.
 
 ## Users / Actors
 
@@ -80,12 +67,12 @@ Not included:
 - REQ-012D: The Worker must persist Markdown to `{DATA_DIR}/articles/{article_id}/content.md`.
 - REQ-012E: When Markdown extraction discovers a non-empty article title, the Worker must best-effort persist it to `articles.title`. The title must prefer extractor metadata, fall back to the first Markdown H1, trim surrounding whitespace, and leave `articles.title` null when neither source is available. Title persistence failure must be logged and must not fail an otherwise successful archive.
 - REQ-013: Markdown writes must be atomic: write a temporary file, then rename into place.
-- REQ-014: Markdown success must continue to summary generation and must not set `articles.status = ready`, set `jobs.status = succeeded`, or insert a success notification in final v0.
+- REQ-014: Markdown success must continue to summary generation and must not set `articles.status = ready`, set `jobs.status = succeeded`, or insert a success notification at the Markdown boundary.
 - REQ-015: Markdown failure must set `articles.status = failed`, set `articles.error_message` to an ARC-coded public error, set `jobs.status = failed`, persist job error context, set terminal timestamps/TTL, and insert exactly one pending notification in one SQLite transaction.
 - REQ-016: Persisted public article errors must use codes defined in `docs/ERRORS.md`.
 - REQ-017: The Worker must log provider attempts, fallback reason, selected provider, ARC code on failure, `article_id`, `job_id`, canonical URL, duration, and artifact write result when available.
-- REQ-018: Gateway Markdown-stage success notification work is skipped in final v0; success notification content is summary-based and owned by `summary-generation`.
-- REQ-019: Snapshot-stage and Markdown-stage success notifications are superseded by summary-complete success in final v0.
+- REQ-018: Success notification content is summary-based and owned by `summary-generation`.
+- REQ-019: Snapshot-stage and Markdown-stage success notifications are not produced; terminal success follows `snapshot.html` -> `content.md` -> `summary.md`.
 - REQ-020: This feature must not call an LLM summarizer.
 
 ## Acceptance Criteria
@@ -98,10 +85,10 @@ Scenario: go-readability extracts Markdown successfully
   And go-readability v2 CheckDocument returns true
   When the Worker extracts Markdown
   Then the Worker stores content.md under DATA_DIR/articles/{article_id}/
-  And summary generation is invoked when the downstream summary stage is implemented
-  And articles.status is not set to "ready" at the Markdown boundary in final v0
-  And jobs.status is not set to "succeeded" at the Markdown boundary in final v0
-  And no success notification is inserted at the Markdown boundary in final v0
+  And summary generation is invoked
+  And articles.status is not set to "ready" at the Markdown boundary
+  And jobs.status is not set to "succeeded" at the Markdown boundary
+  And no success notification is inserted at the Markdown boundary
 
 Scenario: go-readability rejects the document and Jina succeeds
   Given a queued article-processing job has a stored snapshot.html
@@ -110,7 +97,7 @@ Scenario: go-readability rejects the document and Jina succeeds
   When the Worker extracts Markdown
   Then the Worker logs that it switched from go-readability to Jina
   And the Worker stores content.md under DATA_DIR/articles/{article_id}/
-  And the job continues to summary generation in final v0
+  And the job continues to summary generation
 
 Scenario: go-readability fails and Jina succeeds
   Given a queued article-processing job has a stored snapshot.html
@@ -119,7 +106,7 @@ Scenario: go-readability fails and Jina succeeds
   When the Worker extracts Markdown
   Then the Worker logs the local failure and fallback provider
   And the Worker stores content.md under DATA_DIR/articles/{article_id}/
-  And the job continues to summary generation in final v0
+  And the job continues to summary generation
 
 Scenario: both local extraction and Jina fail
   Given a queued article-processing job has a stored snapshot.html
@@ -148,8 +135,8 @@ Scenario: Markdown artifact write fails
   And jobs.status is "failed"
   And no partial content.md is promoted
 
-Scenario: Markdown boundary is not terminal success in final v0
-  Given summary generation is part of the final v0 pipeline
+Scenario: Markdown boundary continues the current pipeline
+  Given summary generation is part of the current pipeline
   When the Worker stores content.md successfully
   Then the job continues to downstream summary generation
   And Gateway success notification content is not selected from Markdown completion
@@ -159,13 +146,13 @@ Scenario: Markdown boundary is not terminal success in final v0
 
 This feature uses the existing `users`, `articles`, `jobs`, and `notifications` schema.
 
-Successful Markdown extraction in final v0 has these effects:
+Successful Markdown extraction in the current pipeline has these effects:
 
 - filesystem: atomically written `{DATA_DIR}/articles/{article_id}/content.md`.
 - `articles.title`: best-effort title from extractor metadata or the first Markdown H1 when available.
 - downstream pipeline: the job remains non-terminal and proceeds to summary generation.
 
-Successful Markdown extraction must not set `articles.status = ready`, set `jobs.status = succeeded`, set terminal timestamps/TTL, or insert a success notification row in final v0.
+Successful Markdown extraction must not set `articles.status = ready`, set `jobs.status = succeeded`, set terminal timestamps/TTL, or insert a success notification row.
 
 Failed Markdown extraction updates:
 
@@ -188,7 +175,7 @@ No artifact paths, provider telemetry columns, failure-code columns, score colum
 - Local Markdown conversion library: `github.com/JohannesKaufmann/html-to-markdown/v2`.
 - Jina fallback: Reader API through an official Reader Go SDK if available, otherwise a small internal adapter.
 - Worker extractor contract: `MarkdownExtractor` implementations return success, local unreadable, or ARC-coded failure without exposing provider SDK types to orchestration.
-- Worker stage contract: write `content.md` and hand off to summary generation in final v0.
+- Worker stage contract: write `content.md` and hand off to summary generation.
 - Worker terminal failure contract: article update, job update, and notification insert in one transaction.
 - Gateway notification dispatcher: sends failure replies from job error text; final success replies are summary-based and owned by `summary-generation`.
 
@@ -215,11 +202,11 @@ Impacts:
 ## Rebuild Notes
 
 - Existing code is not authoritative; rebuilds must follow this spec and linked tasks.
-- Markdown completion is an intermediate stage once `summary-generation` is implemented. Final v0 success is summary-complete.
-- Do not restore candidate scoring for v0 unless a future canonical decision changes the extraction strategy.
+- Markdown completion is an intermediate stage. Terminal success is summary-complete after `snapshot.html`, `content.md`, and `summary.md` are produced.
+- Do not restore candidate scoring unless a canonical decision changes the extraction strategy.
 - Do not add article artifact path columns.
 - Do not call an LLM summarizer from this feature.
-- Do not generate article titles from URLs, summaries, or LLM calls in v0; only extractor metadata and Markdown H1 are title sources.
+- Do not generate article titles from URLs, summaries, or LLM calls; only extractor metadata and Markdown H1 are title sources.
 
 ## Security / Privacy Notes
 
@@ -234,7 +221,7 @@ Impacts:
 - Log selected provider on success.
 - Log ARC code and provider failure class on failure.
 - Logs should include `article_id`, `job_id`, canonical URL, provider, fallback reason, duration, status, artifact path kind, and artifact write result when available.
-- A dedicated observability stack is out of scope for v0.
+- No dedicated observability stack is required by this feature.
 
 ## Open Questions
 
@@ -243,11 +230,7 @@ Impacts:
 ## Related Documents
 
 - `./PLAN.md`
-- `./DIARY.md`
-- `./tasks/MDEXT-001-create-feature-artifacts-and-contracts.md`
 - `./tasks/MDEXT-002-worker-markdown-artifact-access.md`
 - `./tasks/MDEXT-003-worker-go-readability-extraction.md`
 - `./tasks/MDEXT-004-worker-jina-reader-fallback.md`
 - `./tasks/MDEXT-005-worker-markdown-pipeline-integration.md`
-- `./tasks/MDEXT-006-gateway-markdown-success-notification.md`
-- `./plans/MDEXT-005-worker-markdown-pipeline-integration.execplan.md`

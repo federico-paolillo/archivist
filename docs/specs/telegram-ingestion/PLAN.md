@@ -44,10 +44,10 @@ TELING-003 -> TELING-004
 
 | ID | Task | Status | Depends On | Blocks | Parallel | ExecPlan |
 |---|---|---|---|---|---|---|
-| `TELING-001` | Persistence contracts | done | - | `TELING-002`, `TELING-003` | no | `plans/TELING-001-persistence-contracts.execplan.md` |
+| `TELING-001` | Persistence contracts | done | - | `TELING-002`, `TELING-003` | no | null |
 | `TELING-002` | Telegram webhook ingestion | done | `TELING-001` | `TELING-004` | yes | - |
 | `TELING-003` | Worker terminal notification contract | done | `TELING-001` | `TELING-004` | yes | - |
-| `TELING-004` | Telegram notification dispatcher | done | `TELING-002`, `TELING-003` | - | no | `plans/TELING-004-telegram-notification-dispatcher.execplan.md` |
+| `TELING-004` | Telegram notification dispatcher | done | `TELING-002`, `TELING-003` | - | no | null |
 
 ---
 
@@ -105,9 +105,8 @@ cd src/worker && go tool lefthook run test
 
 The feature is complete when:
 
-- all required tasks are `done` or explicitly `skipped`;
+- all required tasks are `done`;
 - acceptance criteria in `SPEC.md` are satisfied;
 - validation sequence passes;
 - durable implementation decisions have been promoted to canonical documents;
-- `DIARY.md` contains final implementation notes;
 - `docs/specs/INDEX.md` reflects the final feature status.

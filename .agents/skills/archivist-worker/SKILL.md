@@ -22,7 +22,7 @@ docs/specs/INDEX.md
 
 Load additional context by trigger:
 
-- `docs/BOOKKEEPING.md`: changing task status, `PLAN.md`, `DIARY.md`, specs, ExecPlans, or dependency/concurrency state.
+- `docs/BOOKKEEPING.md`: changing task status, `PLAN.md`, specs, ExecPlans, or dependency/concurrency state.
 - `docs/ARCHITECTURE.md`: changing executables, service boundaries, storage, integrations, deployment, runtime topology, or configuration semantics.
 - `docs/DESIGN.md`: relying on or changing durable decisions or rebuild-relevant tradeoffs.
 - `docs/ERRORS.md`: changing persisted article-processing failure behavior, ARC codes, public messages, or error classification.
@@ -36,8 +36,8 @@ Do not load unrelated feature folders unless dependencies or canonical docs requ
 - Canonical Markdown controls required behavior. Existing Go code is implementation evidence, not source of truth.
 - Work only on tasks marked `ready` or explicitly assigned by the user.
 - Do not invent durable behavior. If the task lacks required behavior, update the relevant spec/task or mark the task blocked.
-- Promote durable changes to canonical docs, not just skills, code comments, or diary entries.
-- After material task implementation, update task frontmatter, the feature `PLAN.md`, and append to the feature `DIARY.md` when AGENTS/BOOKKEEPING require it.
+- Promote durable changes to canonical docs, not just skills, code comments, or coordinator notes.
+- After material task implementation, update task frontmatter and the feature `PLAN.md` when AGENTS/BOOKKEEPING require it. Diary or coordinator notes are optional non-canonical coordination only.
 
 ## Worker Stack
 
@@ -52,7 +52,7 @@ Worker code lives under `src/worker/` and targets Go 1.26.
 ## Modern Go Standards
 
 - Prefer simple, explicit designs over premature abstraction.
-- Make lightweight interfaces at consumer boundaries to aid testing. Do not introduce interfaces for speculative future variation.
+- Make lightweight interfaces at consumer boundaries to aid testing. Do not introduce interfaces for unsupported variation.
 - Apply SOLID and GRASP only where they reduce coupling or clarify ownership; KISS and YAGNI are stronger defaults.
 - Prefer explicit constructor injection over globals, service locators, or hidden runtime resolution.
 - Keep package boundaries narrow. Do not leak third-party SDK types across owned domain or orchestration interfaces unless that is the documented public contract.
@@ -99,9 +99,9 @@ Worker configuration is loaded from environment variables or equivalent deployme
 - Use configuro in `src/worker/pkg/app/config`.
 - Load environment variables with the `ARCHIVIST_` prefix.
 - Canonical deployment variables include `ARCHIVIST_SQLITE_PATH`, `ARCHIVIST_DATA_DIR`, `ARCHIVIST_JINA_API_KEY`, `ARCHIVIST_LLM_PROVIDER`, `ARCHIVIST_LLM_API_KEY`, and `ARCHIVIST_LLM_MODEL`.
-- Because configuro maps underscores to nested keys, use the canonical nested shape from WCFG-001: `SQLite.Path`, `Data.Dir`, `Jina.API.Key`, `LLM.Provider`, `LLM.API.Key`, and `LLM.Model`.
+- Because configuro maps underscores to nested keys, use the canonical nested shape documented by Worker architecture and current Worker feature specs: `SQLite.Path`, `Data.Dir`, `Jina.API.Key`, `LLM.Provider`, `LLM.API.Key`, and `LLM.Model`.
 - `SQLITE_PATH`, `DATA_DIR`, `JINA_API_KEY`, and `LLM_API_KEY` when `LLM_PROVIDER=anthropic` are required at `config.Load()` time.
-- `LLM_PROVIDER=anthropic` is the only supported v0 provider value.
+- `LLM_PROVIDER=anthropic` is the only currently supported provider value.
 - `LLM_MODEL` defaults to `claude-3-5-haiku-20241022`.
 - `pkg/app.NewApp` validates config before constructing services and returns either an error or a fully wired Worker composition root.
 - Worker command handlers must not re-check for missing DB, artifact store, provider adapters, or processing pipeline services that `NewApp` guarantees.
@@ -125,7 +125,7 @@ Worker configuration is loaded from environment variables or equivalent deployme
 - Summary generation uses a Worker-owned `SummarizerService` abstraction. Claude/Anthropic is the first provider implementation and should use `github.com/anthropics/anthropic-sdk-go`.
 - Pipeline code must not import or expose external provider SDK request/response types.
 - Use official SDKs when suitable SDKs exist. If no suitable official SDK exists, a small internal adapter is acceptable.
-- Snapshot and Markdown stages are intermediate pipeline stages. Final Worker success for v0 means `summary.md` has been atomically promoted and the article/job/notification terminal state has been committed.
+- Snapshot and Markdown stages are intermediate pipeline stages. Final Worker success means `summary.md` has been atomically promoted and the article/job/notification terminal state has been committed.
 
 ## HTTP Client
 
@@ -133,14 +133,14 @@ Worker configuration is loaded from environment variables or equivalent deployme
 - Direct outbound `net/http` is forbidden except in tests or SDK bridge cases that require a plain `*http.Client`; use `reqClient.GetClient()` for those bridge cases.
 - Never use the package-level global client `req.C()`.
 - Construct owned `*req.Client` instances in the composition root and inject them.
-- The composition root owns shared concerns such as user-agent, timeout, and future middleware.
+- The composition root owns shared concerns such as user-agent, timeout, and HTTP middleware.
 - Adapters receive a preconfigured client and must not mutate it or set global options.
 - Article fetching must use the composition-root SSRF-guarded client defined by canonical specs/tasks.
 - Tests construct isolated `*req.Client` instances and must not share or mutate another test's client.
 
 ## Structured Logging
 
-- v0 logs to stdout using Go `log/slog`.
+- The Worker logs to stdout using Go `log/slog`.
 - Pipeline orchestration owns structured log entries for article-processing stages.
 - Provider adapters must not accept a `*slog.Logger` and must not emit `slog.Info` or `slog.Error`.
 - Adapter `slog.Debug` is allowed only for low-value diagnostics orchestration cannot observe.
@@ -174,7 +174,7 @@ go tool lefthook run lint
 go tool lefthook run test
 ```
 
-Before marking a task done, record validation in the task and diary according to repository bookkeeping rules. If validation cannot run, record the exact reason in both places.
+Before marking a task done, record validation in the task according to repository bookkeeping rules. If validation cannot run, record the exact reason in the task.
 
 ## Output
 

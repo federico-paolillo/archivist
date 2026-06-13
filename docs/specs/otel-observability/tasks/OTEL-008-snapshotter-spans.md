@@ -6,7 +6,6 @@ status: done
 depends_on:
   - OTEL-007
 blocks:
-  - OTEL-010
 parallel: false
 exec_plan: null
 canonical: true
@@ -31,5 +30,3 @@ Required checks:
 ```bash
 cd src/snapshotter && uv run pytest
 ```
-
-Result: passed on 2026-06-03.

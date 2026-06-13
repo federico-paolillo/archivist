@@ -6,7 +6,7 @@ status: done
 depends_on: [SUMGEN-004, TELING-004]
 blocks: []
 parallel: false
-exec_plan: ../plans/SUMGEN-005-gateway-summary-notification.execplan.md
+exec_plan: null
 canonical: true
 ---
 
@@ -32,15 +32,6 @@ This task includes:
 - Tests proving Gateway artifact access cannot write, create, rename, or delete files.
 - Tests covering summary-complete success notification and ARC-coded failure notification preservation.
 
-## Out of Scope
-
-This task does not include:
-
-- Worker summary generation.
-- Worker artifact writes.
-- SQLite schema changes.
-- UI article detail rendering.
-- Notification retries.
 
 ## Inputs
 
@@ -79,7 +70,6 @@ Read before execution:
 - `docs/specs/telegram-ingestion/PLAN.md`
 - `docs/specs/telegram-ingestion/tasks/TELING-004-telegram-notification-dispatcher.md`
 - `./SUMGEN-004-worker-summary-pipeline-integration.md`
-- `../plans/SUMGEN-005-gateway-summary-notification.execplan.md`
 
 Do not load unrelated feature folders unless listed here or required by dependencies.
 
@@ -111,12 +101,11 @@ Scenario: Summary artifact is missing
 ## Done When
 
 - Summary-complete success notifications are supported.
-- Markdown-complete and snapshot-only success notifications are no longer the final v0 success notification path.
+- Markdown-complete and snapshot-only success notifications are no longer the final success notification path.
 - Gateway artifact abstraction is read-only.
 - Missing or unreadable `summary.md` fails notification delivery without mutating article/job state.
 - Tests cover summary success, read-only access, missing summary artifact, deterministic truncation, and ARC-coded failure preservation.
 - Task status and `PLAN.md` are updated if the task is completed.
-- `DIARY.md` has an entry if implementation is performed.
 
 ## Validation
 
@@ -154,7 +143,7 @@ Blocks:
 ExecPlan:
 
 ```text
-../plans/SUMGEN-005-gateway-summary-notification.execplan.md
+null
 ```
 
 ## Open Questions

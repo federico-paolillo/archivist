@@ -3,7 +3,7 @@ id: MDEXT-002
 feature: markdown-extraction
 title: Worker Markdown Artifact Access
 status: done
-depends_on: [MDEXT-001, ARTPROC-003]
+depends_on: [ARTPROC-003]
 blocks: [MDEXT-005]
 parallel: true
 exec_plan: null
@@ -30,22 +30,11 @@ This task includes:
 - Traversal-resistant access using `os.Root` or `os.OpenInRoot` where functionally correct.
 - Tests for deterministic path behavior, atomic writes, failed-write cleanup, and traversal rejection.
 
-## Out of Scope
-
-This task does not include:
-
-- HTML fetching.
-- Markdown extraction.
-- Jina Reader fallback.
-- SQLite state updates.
-- Gateway artifact reads.
-- Writing `summary.json`, `summary.md`, or `metadata.json`.
 
 ## Inputs
 
 Required inputs, existing files, interfaces, or decisions:
 
-- Completed `MDEXT-001`.
 - Completed `ARTPROC-003`.
 - `docs/ARTIFACTS.md`
 - `.agents/skills/archivist-worker/SKILL.md`
@@ -97,9 +86,8 @@ Scenario: Artifact access rejects traversal
 - Worker artifact access supports atomic `content.md` writes.
 - Artifact paths match `docs/ARTIFACTS.md`.
 - Tests cover deterministic path, atomic write, failed-write cleanup, and traversal rejection.
-- No placeholder future artifacts are created.
+- No placeholder artifacts are created for unimplemented pipeline stages.
 - Task status and `PLAN.md` are updated if the task is completed.
-- `DIARY.md` has an entry if implementation is performed.
 
 ## Validation
 
@@ -119,8 +107,6 @@ Manual validation, if any:
 ## Dependencies
 
 Depends on:
-
-- `MDEXT-001`
 - `ARTPROC-003`
 
 Blocks:

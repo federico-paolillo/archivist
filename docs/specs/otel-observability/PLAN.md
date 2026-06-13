@@ -12,38 +12,23 @@ This file controls implementation of OpenTelemetry traces/logs, async trace cont
 
 ## Task DAG
 
-```text
-OTEL-001 -> OTEL-002
-OTEL-001 -> OTEL-003 -> OTEL-004
-OTEL-001 -> OTEL-005 -> OTEL-006
-OTEL-001 -> OTEL-007 -> OTEL-008
-OTEL-002 -> OTEL-009 -> OTEL-010
-OTEL-004 -> OTEL-006 -> OTEL-010
-OTEL-008 -> OTEL-010
-OTEL-006 -> OTEL-011
-OTEL-011 -> OTEL-012
-```
+No remaining intra-feature task edges are required beyond the task table and cross-feature dependencies.
 
 ## Tasks
 
 | ID | Task | Status | Depends On | Blocks | Parallel | ExecPlan |
 |---|---|---|---|---|---|---|
-| `OTEL-001` | Create roadmap and canonical docs | done | - | `OTEL-002`, `OTEL-003`, `OTEL-005`, `OTEL-007` | no | - |
-| `OTEL-002` | Add Collector and local LGTM deployment | done | `OTEL-001` | `OTEL-009` | yes | - |
-| `OTEL-003` | Add Gateway OTEL foundation | done | `OTEL-001` | `OTEL-004` | yes | - |
+| `OTEL-002` | Add Collector and local LGTM deployment | done | - | `OTEL-009` | yes | - |
+| `OTEL-003` | Add Gateway OTEL foundation | done | - | `OTEL-004` | yes | - |
 | `OTEL-004` | Add Gateway spans and job carrier injection | done | `OTEL-003` | `OTEL-006` | no | - |
-| `OTEL-005` | Add Worker OTEL foundation | done | `OTEL-001` | `OTEL-006` | yes | - |
-| `OTEL-006` | Add Worker async continuation and pipeline spans | done | `OTEL-004`, `OTEL-005` | `OTEL-010` | no | - |
-| `OTEL-007` | Add Snapshotter OTEL foundation | done | `OTEL-001` | `OTEL-008` | yes | - |
-| `OTEL-008` | Add Snapshotter backup and upload spans | done | `OTEL-007` | `OTEL-010` | no | - |
-| `OTEL-009` | Update README deployment instructions | done | `OTEL-002` | `OTEL-010` | yes | - |
-| `OTEL-010` | Document manual OTEL validation | done | `OTEL-006`, `OTEL-008`, `OTEL-009` | - | no | - |
-| `OTEL-011` | De-noise empty Worker queue claim spans | done | `OTEL-006` | - | no | - |
-| `OTEL-012` | De-noise Worker heartbeat logs and filter debug OTLP logs | done | `OTEL-011` | - | no | - |
+| `OTEL-005` | Add Worker OTEL foundation | done | - | `OTEL-006` | yes | - |
+| `OTEL-006` | Add Worker async continuation and pipeline spans | done | `OTEL-004`, `OTEL-005` | - | no | - |
+| `OTEL-007` | Add Snapshotter OTEL foundation | done | - | `OTEL-008` | yes | - |
+| `OTEL-008` | Add Snapshotter backup and upload spans | done | `OTEL-007` | - | no | - |
+| `OTEL-009` | Update README deployment instructions | done | `OTEL-002` | - | yes | - |
 
 ## Concurrency Rules
 
-- Gateway, Worker, Snapshotter, and deployment slices can be developed in parallel after `OTEL-001`.
 - The SQLite carrier schema and Gateway/Worker queue code must be sequenced because both modules share the same `jobs` contract.
 - Release packaging and README deployment instructions depend on the final Compose shape.
 
@@ -70,10 +55,8 @@ docker compose --env-file release/compose/.env --env-file release/compose/.env.i
 git diff --check
 ```
 
-Manual validation is described in `ROADMAP.md` and `README.md`.
-
-Docker-based Compose validation was not executed in this environment because the `docker` CLI is unavailable. Release packaging and focused non-Docker validation passed. The generated production release `.env`, Compose files, and `otelcol-config.yaml` were inspected for no development LGTM backend default, removed OTEL environment key, app-side trace/log exporter toggles, or deployment environment resource attribute, then `release/` was removed.
+Manual validation expectations are defined in `SPEC.md`. README may summarize the operator workflow but does not define canonical validation behavior.
 
 ## Completion Criteria
 
-The feature is complete when Gateway, Worker, Snapshotter, Compose, release packaging, and documentation changes are implemented; automated validation passes or failures are recorded; and manual validation steps are documented.
+The feature is complete when Gateway, Worker, Snapshotter, Compose, release packaging, and documentation changes are implemented; automated validation passes or failures are recorded in the task being executed; and manual validation expectations are documented in canonical feature notes.

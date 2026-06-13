@@ -3,7 +3,7 @@ id: ARTPROC-002
 feature: article-processing
 title: Define Shared ARC Error-Code Convention
 status: done
-depends_on: [ARTPROC-001]
+depends_on: []
 blocks: [ARTPROC-004]
 parallel: true
 exec_plan: null
@@ -28,13 +28,6 @@ This task includes:
 - Initial `ARC-001` through `ARC-007` and `ARC-999` catalog.
 - Convention updates requiring persisted article-processing errors to use ARC codes.
 
-## Out of Scope
-
-This task does not include:
-
-- Worker failure mapping implementation.
-- UI rendering of error codes.
-- Adding database failure-code columns.
 
 ## Inputs
 
@@ -102,8 +95,6 @@ Manual validation, if any:
 ## Dependencies
 
 Depends on:
-
-- `ARTPROC-001`
 
 Blocks:
 

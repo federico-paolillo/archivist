@@ -15,14 +15,9 @@ This file is the feature-level implementation control board for article processi
 ## Task DAG
 
 ```text
-ARTPROC-001 -> ARTPROC-002
-ARTPROC-001 -> ARTPROC-003
 ARTPROC-002 -> ARTPROC-004
 ARTPROC-003 -> ARTPROC-004
 ARTPROC-004 -> ARTPROC-005
-ARTPROC-005 -> ARTPROC-006
-ARTPROC-005 -> ARTPROC-007
-ARTPROC-007 -> ARTPROC-008 -> ARTPROC-009
 ARTPROC-005 -> MDEXT-005
 ```
 
@@ -31,7 +26,6 @@ Cross-feature dependency:
 ```text
 TELING-001 -> ARTPROC-005
 TELING-003 -> ARTPROC-005
-TELING-004 -> ARTPROC-006
 ```
 
 ---
@@ -40,20 +34,16 @@ TELING-004 -> ARTPROC-006
 
 ### Phase 1: Canonical Planning And Standards
 
-- `ARTPROC-001` creates the feature ALM artifacts.
 - `ARTPROC-002` defines the shared ARC error-code catalog.
 
 ### Phase 2: Worker Foundations
 
 - `ARTPROC-003` builds the reusable Worker filesystem artifact access layer.
-- `ARTPROC-004` implements URL resolution, HTML fetching, limits, and ARC failure mapping.
+- `ARTPROC-004` implements URL resolution, HTML fetching, Worker SSRF policy, direct guarded dialing, conservative limits, and ARC failure mapping.
 
-### Phase 3: Processing And Notifications
+### Phase 3: Processing Pipeline
 
-- `ARTPROC-005` implements Worker orchestration and transactional terminal state changes.
-- `ARTPROC-006` remains skipped because downstream features supersede snapshot-stage success; final v0 success notification is owned by `SUMGEN-005`.
-- `ARTPROC-007` retrofits the Worker executable command surface so production invocation reaches the processing pipeline.
-- `ARTPROC-008` hardens Worker article fetching against SSRF with a reusable guard, one redirect, HTTPS-only policy, and ARC-017 monitoring.
+- `ARTPROC-005` exposes `archivist-worker process`, claims queued jobs, writes `snapshot.html`, hands successful jobs to Markdown extraction, and leaves terminal success to summary-complete processing.
 
 ---
 
@@ -61,27 +51,17 @@ TELING-004 -> ARTPROC-006
 
 | ID | Task | Status | Depends On | Blocks | Parallel | ExecPlan |
 |---|---|---|---|---|---|---|
-| `ARTPROC-001` | Create feature spec and plan artifacts | done | - | `ARTPROC-002`, `ARTPROC-003` | no | - |
-| `ARTPROC-002` | Define shared ARC error-code convention | done | `ARTPROC-001` | `ARTPROC-004` | yes | - |
-| `ARTPROC-003` | Worker filesystem artifact access layer | done | `ARTPROC-001` | `ARTPROC-004` | yes | - |
+| `ARTPROC-002` | Define shared ARC error-code convention | done | - | `ARTPROC-004` | yes | - |
+| `ARTPROC-003` | Worker filesystem artifact access layer | done | - | `ARTPROC-004` | yes | - |
 | `ARTPROC-004` | Worker URL resolver and HTML fetcher | done | `ARTPROC-002`, `ARTPROC-003` | `ARTPROC-005` | no | - |
-| `ARTPROC-005` | Worker snapshot pipeline orchestration | done | `ARTPROC-004`, `TELING-001`, `TELING-003` | `ARTPROC-006`, `ARTPROC-007`, `MDEXT-005` | no | `plans/ARTPROC-005-worker-snapshot-pipeline-orchestration.execplan.md` |
-| `ARTPROC-006` | Gateway snapshot success notification bridge | skipped | `ARTPROC-005`, `TELING-004` | - | no | - |
-| `ARTPROC-007` | Worker executable processing command | done | `ARTPROC-005` | - | no | `plans/ARTPROC-007-worker-executable-processing-command.execplan.md` |
-| `ARTPROC-008` | Worker SSRF fetch policy | done | `ARTPROC-007` | `ARTPROC-009` | no | `plans/ARTPROC-008-worker-ssrf-fetch-policy.execplan.md` |
-| `ARTPROC-009` | Worker SSRF proxy hardening | done | `ARTPROC-008` | - | no | - |
+| `ARTPROC-005` | Worker executable processing pipeline orchestration | done | `ARTPROC-004`, `TELING-001`, `TELING-003` | `MDEXT-005` | no | null |
 
 ---
 
 ## Concurrency Rules
 
-- `ARTPROC-003` may run after `ARTPROC-001` because it only owns Worker artifact access code.
-- `ARTPROC-004` must wait for `ARTPROC-002` and `ARTPROC-003` because fetch failures must map to canonical ARC codes and snapshot size handling depends on artifact boundaries.
+- `ARTPROC-004` must wait for `ARTPROC-002` and `ARTPROC-003` because fetch failures must map to canonical ARC codes and guarded fetch size handling depends on artifact boundaries.
 - `ARTPROC-005` must run after Worker fetch and after Telegram ingestion persistence/outbox contracts are implemented.
-- `ARTPROC-006` is skipped when downstream pipeline stages are planned before snapshot-only notification work, because `SUMGEN-005` owns the final success notification contract.
-- `ARTPROC-007` must run after `ARTPROC-005` because the executable command invokes the composed snapshot pipeline.
-- `ARTPROC-008` is a corrective hardening task after executable processing is in place; it changes shared Worker outbound HTTP wiring and must not run concurrently with other Worker HTTP-client or fetcher changes.
-- `ARTPROC-009` follows `ARTPROC-008` and closes the ambient-proxy SSRF hardening review finding; it must not run concurrently with other Worker HTTP-client or fetcher changes.
 - Worker repository, SQLite terminal-transition code, and Gateway dispatcher behavior must not be modified concurrently by multiple tasks.
 
 ---
@@ -93,7 +73,7 @@ TELING-004 -> ARTPROC-006
 - ARC error-code catalog in `docs/ERRORS.md`.
 - Worker HTTP fetch and SSRF policy using `github.com/imroc/req/v3` and `src/worker/internal/ssrf`.
 - Worker executable command surface: `archivist-worker process`.
-- Snapshot-only Gateway success notification is superseded by summary-complete notification in `summary-generation`.
+- Snapshot success hands off to Markdown extraction; summary-complete notification is owned by `summary-generation`.
 
 ---
 
@@ -130,9 +110,8 @@ cd src/gateway && dotnet test
 
 The feature is complete when:
 
-- all required tasks are `done` or explicitly `skipped`;
+- all required tasks are `done`;
 - acceptance criteria in `SPEC.md` are satisfied;
 - validation sequence passes;
 - durable implementation decisions have been promoted to canonical documents;
-- `DIARY.md` contains final implementation notes;
 - `docs/specs/INDEX.md` reflects the final feature status.

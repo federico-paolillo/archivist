@@ -4,9 +4,9 @@ feature: ui
 title: Article master-detail view and delete workflow
 status: done
 depends_on: [UI-002, UIEND-002, UIEND-003]
-blocks: [UI-004]
+blocks: []
 parallel: false
-exec_plan: ../plans/UI-003-article-master-detail-and-delete-workflow.execplan.md
+exec_plan: null
 canonical: true
 ---
 
@@ -14,11 +14,11 @@ canonical: true
 
 ## Objective
 
-Implement the authenticated article master-detail view, article detail states, safe Markdown rendering, Original action, and delete confirmation workflow.
+Implement the authenticated article master-detail view, article detail states, safe Markdown rendering, Original action, normal delete confirmation workflow, and stale force-delete workflow.
 
 ## Story / Context
 
-As the personal Archivist user, I want to scan archived articles, open a selected article, see processing or failure state, open the source URL, and delete records I no longer need.
+As the personal Archivist user, I want to scan archived articles, open a selected article, see processing or failure state, open the source URL, delete records I no longer need, and clean up stale running-job state when Gateway says recovery is available.
 
 ## Scope
 
@@ -37,24 +37,18 @@ This task includes:
 - `Original` action using `canonicalUrl` when present, otherwise `originalUrl`.
 - `Delete` action and confirmation modal.
 - Delete cancel and confirm behavior.
+- `Force Delete` action visible only when `canForceDelete` is true.
+- Separate force-delete confirmation and API call to `DELETE ${apiBasePath}/articles/{id}/force`.
+- Force-delete success and failure behavior.
 - List/detail state reset after successful delete.
-- Frontend tests for article states and delete behavior.
+- Frontend tests for article states, delete behavior, and force-delete behavior.
 
-## Out of Scope
-
-This task does not include:
-
-- Auth endpoint implementation.
-- Article endpoint implementation.
-- Retry or requeue behavior.
-- Search, filtering, sorting controls, or pagination UI beyond the first fixed page.
-- Direct SQLite or filesystem access.
 
 ## Inputs
 
 Required inputs, existing files, interfaces, or decisions:
 
-- `GET /articles`, `GET /articles/{id}`, and `DELETE /articles/{id}` from `ui-endpoints`.
+- `GET /articles`, `GET /articles/{id}`, `DELETE /articles/{id}`, `DELETE /articles/{id}/force`, and `canForceDelete` from `ui-endpoints`.
 - Auth shell and API client from `UI-002`.
 - `docs/design/DESIGN.md`
 - `docs/design/view.png`
@@ -67,6 +61,7 @@ Expected outputs, files, behavior, or interfaces:
 - Selecting an article updates the route and detail state.
 - Ready, queued/non-ready, failed, and error states match `SPEC.md`.
 - Delete confirmation calls the API only on `Yes` and resets the route on success.
+- Force Delete is available only from `canForceDelete`, uses its own confirmation path, calls the force-delete API only on confirmation, and resets the route on success.
 
 ## Expected Affected Areas
 
@@ -84,7 +79,6 @@ Read before execution:
 
 - `../SPEC.md`
 - `../PLAN.md`
-- `../plans/UI-003-article-master-detail-and-delete-workflow.execplan.md`
 - `.agents/skills/archivist-general/SKILL.md`
 - `.agents/skills/archivist-ui/SKILL.md`
 - `docs/specs/ui-endpoints/SPEC.md`
@@ -108,7 +102,7 @@ Scenario: Article selection loads detail
   Then the URL changes to /articles/{article_id}
   And a spinner appears until detail loading completes or fails
 
-Scenario: Queued article says to return later
+Scenario: Queued article detail message
   Given the selected article has status queued
   When detail loading succeeds
   Then the detail pane shows centered white text "Come back later."
@@ -124,14 +118,31 @@ Scenario: Delete confirmation controls API call
   Then no DELETE request is sent
   When the user clicks Delete and chooses Yes
   Then DELETE is sent to the configured API base article endpoint
+
+Scenario: Force delete visibility follows Gateway metadata
+  Given the selected article detail has canForceDelete true
+  When the article detail renders
+  Then Force Delete is visible
+  Given the selected article detail has canForceDelete false
+  When the article detail renders
+  Then Force Delete is not visible
+
+Scenario: Force delete confirmation controls API call
+  Given Force Delete is visible
+  When the user opens the force-delete confirmation and cancels
+  Then no force-delete request is sent
+  When the user confirms force delete
+  Then DELETE is sent to the configured API base force-delete endpoint
+  And the route resets to /articles after success
 ```
 
 ## Done When
 
 - Article master-detail UI is implemented.
 - Delete modal behavior is implemented.
+- Force-delete visibility, modal behavior, success, and failure behavior are implemented.
 - Markdown content rendering cannot execute raw article HTML or scripts.
-- Tests cover route update, loading, ready, queued, failed, fetch-error, no-id, and delete confirm/cancel states.
+- Tests cover route update, loading, ready, queued, failed, fetch-error, no-id, delete confirm/cancel states, force-delete visibility, force-delete confirm/cancel states, force-delete success, and force-delete failure.
 - Validation passes or failures are recorded.
 
 ## Validation
@@ -145,26 +156,9 @@ cd src/ui && npm run build
 cd src/ui && npm run test
 ```
 
-Validation completed on 2026-05-28:
-
-- `cd src/ui && npm run format`: passed.
-- `cd src/ui && npm run lint`: passed.
-- `cd src/ui && npm run build`: passed.
-- `cd src/ui && npm run test`: passed, 2 test files and 19 tests.
-
 Manual validation:
 
 - Capture `/articles` and `/articles/<article_id>` in a browser and compare against `docs/design/view.png` and `docs/design/DESIGN.md`.
-
-Manual validation completed on 2026-05-28:
-
-- Served the built UI with a temporary same-origin mock API for auth/session and article data.
-- Browser-checked `/articles`: master list rendered, detail pane remained blank black with no selected id.
-- Browser-checked `/articles/01HREADY000000000000000000`: ready detail rendered title, summary/content Markdown, `Delete`, and `Original`; no `Retry` control appeared; rendered Markdown contained no `javascript:` link or raw script/image nodes.
-
-Status transition:
-
-- `blocked` -> `done` by explicit Wave 9 user assignment after `UIEND-002` and `UIEND-003` were already marked `done`.
 
 ## Dependencies
 
@@ -176,14 +170,12 @@ Depends on:
 
 Blocks:
 
-- `UI-004`
-
 ## ExecPlan
 
 ExecPlan:
 
 ```text
-../plans/UI-003-article-master-detail-and-delete-workflow.execplan.md
+null
 ```
 
 ## Open Questions

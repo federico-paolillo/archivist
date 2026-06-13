@@ -55,7 +55,7 @@ Load canonical docs by task trigger:
 - Put shared component utility classes in `@layer components` in `app.css`.
 - Reuse existing classes such as `btn-primary`, `btn-secondary`, `btn-outline`, and `input-field`.
 - Preserve semantic HTML, accessible names, keyboard behavior, focus states, and responsive layout.
-- For v0 personal-use UI fixes, prefer minimal standards-compliant accessibility semantics that match existing interactions over heavyweight ARIA patterns. Do not declare ARIA roles such as `menu`, `listbox`, or `grid` unless the full keyboard and focus-management pattern is implemented.
+- For personal-use UI fixes, prefer minimal standards-compliant accessibility semantics that match existing interactions over heavyweight ARIA patterns. Do not declare ARIA roles such as `menu`, `listbox`, or `grid` unless the full keyboard and focus-management pattern is implemented.
 
 ## API, Auth, And Markdown
 
@@ -66,7 +66,7 @@ Load canonical docs by task trigger:
 - The UI must not store passwords in local storage, session storage, IndexedDB, or URL state.
 - Markdown article content is untrusted. Render with raw HTML disabled or sanitized; do not execute raw HTML, scripts, inline event handlers, or `javascript:` links.
 - Rendered Markdown links opened in a new browsing context must use `rel="noopener noreferrer"`.
-- Retry/requeue controls are out of scope until a backend retry contract exists.
+- Retry/requeue controls require a backend retry contract before UI implementation.
 
 ## Testing And Validation
 

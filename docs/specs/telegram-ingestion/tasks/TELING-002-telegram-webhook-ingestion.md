@@ -14,7 +14,7 @@ canonical: true
 
 ## Objective
 
-Implement the gateway Telegram webhook endpoint that validates Telegram requests, authorizes the configured user, validates URL-only text messages, records sender identity metadata, enqueues valid URLs, and sends immediate Telegram replies for accepted and invalid authorized messages.
+Implement the gateway Telegram webhook endpoint that validates Telegram requests, authorizes senders by existing `users.telegram_user_id` mapping, validates URL-only text messages, records sender identity metadata, enqueues valid URLs, and sends immediate Telegram replies for accepted and invalid authorized messages.
 
 ## Story / Context
 
@@ -31,19 +31,12 @@ This task includes:
 - Invalid authorized message reply: `Nope, you must send only an URL`.
 - Valid queued acknowledgement reply: `Ok, I will have a look`.
 - Extraction of Telegram sender user ID from the message sender, not from `chat_id`.
-- Persistence of `telegram_user_id` on the personal user and queued job through the `TELING-001` contract.
+- Persistence of `telegram_user_id` on the queued job through the `TELING-001` contract.
+- No user creation, update, or mapping reassignment by Telegram ingestion.
 - Atomic use of the persistence contract from `TELING-001`.
 - Idempotent duplicate `update_id` handling.
 - Gateway integration tests for the webhook behavior.
 
-## Out of Scope
-
-This task does not include:
-
-- Terminal success/failure notification dispatch.
-- Worker terminal state writes.
-- Article processing implementation.
-- UI changes.
 
 ## Inputs
 
@@ -51,14 +44,14 @@ Required inputs, existing files, interfaces, or decisions:
 
 - Completed `TELING-001` persistence contract.
 - Telegram Bot API send-message behavior.
-- Gateway configuration for Telegram token, allowed user ID, and webhook secret.
+- Gateway configuration for Telegram token and webhook secret.
 
 ## Outputs
 
 Expected outputs, files, behavior, or interfaces:
 
 - Gateway route and handlers under the Telegram feature area.
-- Gateway application services for validating updates, ensuring the personal user row, creating articles/jobs, and sending immediate replies.
+- Gateway application services for validating updates, resolving the existing mapped user, creating articles/jobs, and sending immediate replies.
 - Gateway parsing that keeps Telegram sender user ID distinct from Telegram chat ID.
 - Integration tests with a fake Telegram client.
 
@@ -89,18 +82,18 @@ Do not load unrelated feature folders unless required by discovered dependencies
 ```gherkin
 Scenario: Valid authorized URL is queued
   Given the webhook secret is valid
-  And the Telegram sender is the configured allowed user
+  And the Telegram sender maps to an existing users.telegram_user_id row
   And the message text is exactly "https://example.com/article"
   When Telegram posts the update
-  Then the personal user row exists
-  And one article is created with status "queued"
-  And one queued job is created for that article
+  Then one article is created with the resolved user_id and status "queued"
+  And one queued job is created for that article with the same user_id
   And telegram_user_id is persisted from the message sender
+  And no users row is created, updated, or reassigned
   And Telegram receives the reply "Ok, I will have a look"
 
 Scenario: Invalid authorized message is rejected
   Given the webhook secret is valid
-  And the Telegram sender is the configured allowed user
+  And the Telegram sender maps to an existing users.telegram_user_id row
   And the message text is not exactly one absolute http or https URL
   When Telegram posts the update
   Then no article is created
@@ -109,7 +102,7 @@ Scenario: Invalid authorized message is rejected
 
 Scenario: Unauthorized user is ignored
   Given the webhook secret is valid
-  And the Telegram sender is not the configured allowed user
+  And the Telegram sender does not map to a users.telegram_user_id row
   When Telegram posts the update
   Then no article is created
   And no job is created
@@ -118,7 +111,7 @@ Scenario: Unauthorized user is ignored
 
 Scenario: Sender ID and chat ID differ
   Given the webhook secret is valid
-  And the Telegram sender is the configured allowed user
+  And the Telegram sender maps to an existing users.telegram_user_id row
   And the sender user ID differs from the chat ID
   When Telegram posts a valid URL update
   Then telegram_user_id is persisted from the sender user ID
@@ -140,7 +133,6 @@ Scenario: Acknowledgement send fails after enqueue
 - Valid URL enqueue commits before acknowledgement is sent.
 - Acknowledgement failure does not roll back ingestion.
 - Task status and `PLAN.md` are updated if the task is completed.
-- `DIARY.md` has an entry if implementation is performed.
 
 ## Validation
 

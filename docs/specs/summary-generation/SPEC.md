@@ -4,7 +4,7 @@ slug: summary-generation
 title: Summary Generation
 status: done
 owner: null
-depends_on: [markdown-extraction, worker-runtime-configuration]
+depends_on: [markdown-extraction]
 impacts: [worker, gateway, filesystem, sqlite]
 canonical: true
 ---
@@ -13,11 +13,11 @@ canonical: true
 
 ## Intent
 
-Generate a text-only LLM summary from extracted article Markdown, persist it as the final v0 summary artifact, and make summary completion the final success point for article-processing jobs.
+Generate a text-only LLM summary from extracted article Markdown, persist it as the summary artifact, and make summary completion the terminal success point for article-processing jobs.
 
 ## Motivation
 
-Markdown extraction produces readable article content, but the Telegram completion reply and review surfaces need a concise summary. The system should start with Claude through Anthropic while keeping provider-specific APIs behind an Archivist-owned abstraction so another summarizer provider can replace it later without rewriting Worker orchestration.
+Markdown extraction produces readable article content, but the Telegram completion reply and review surfaces need a concise summary. The system uses Claude through Anthropic while keeping provider-specific APIs behind an Archivist-owned abstraction so provider replacement does not require Worker orchestration changes.
 
 ## Scope
 
@@ -29,25 +29,14 @@ In scope:
 - Official Anthropic SDK usage when a suitable SDK exists; in Go, prefer `github.com/anthropics/anthropic-sdk-go`.
 - Default summarizer configuration with `LLM_PROVIDER=anthropic`, `LLM_MODEL=claude-3-5-haiku-20241022`, and required `LLM_API_KEY`.
 - Fixed summary system prompt that requests text-only output.
-- Terminal failure when Markdown exceeds context or request limits; v0 does not chunk or truncate source Markdown.
+- Terminal failure when Markdown exceeds context or request limits; the Worker does not chunk or truncate source Markdown.
 - Atomic summary artifact writes to `{DATA_DIR}/articles/{article_id}/summary.md`.
-- Summary success as the final v0 success criterion for `articles.status`, `jobs.status`, and success notification creation.
+- Summary success as the terminal success criterion for `articles.status`, `jobs.status`, and success notification creation.
 - ARC-coded public failures for summarizer provider failure, context/request too large, billing failure, and summary artifact write failure.
 - Gateway read-only artifact access for `/data`.
 - Gateway Telegram success reply using `summary.md` with the prefix `Archived. Summary is:`.
-
-## Out of Scope
-
-Not included:
-
-- Structured summary JSON.
-- SQLite summary columns.
-- Artifact path columns.
-- Summary tags, key points, or template version fields.
-- Chunked, map-reduce, or truncated summarization.
-- Automatic retries.
-- Multi-provider routing beyond the provider abstraction and first Anthropic implementation.
-- UI implementation beyond contracts needed for future summary display.
+- Summary JSON, SQLite summary columns, artifact path columns, summary tags, key points, template version fields, chunked/map-reduce/truncated summarization, automatic retries, and multi-provider routing beyond the provider abstraction and first Anthropic implementation are not part of this feature's behavior.
+- UI rendering is owned by the `ui` feature.
 
 ## Users / Actors
 
@@ -70,8 +59,8 @@ Not included:
 - REQ-008: The default model must be `claude-3-5-haiku-20241022`.
 - REQ-009: `LLM_API_KEY` must be required when `LLM_PROVIDER=anthropic`.
 - REQ-010: The Worker must send the extracted Markdown as source content with a fixed system prompt that requests text-only summary output.
-- REQ-011: The Worker must not request structured JSON for v0 summaries.
-- REQ-012: The Worker must not chunk or truncate Markdown in v0.
+- REQ-011: The Worker must not request structured JSON for summaries.
+- REQ-012: The Worker must not chunk or truncate Markdown.
 - REQ-013: Context-window overflow, request-too-large responses, or preflight size checks that prove the request cannot fit must fail with `ARC-014`.
 - REQ-014: Anthropic HTTP 402 `billing_error` must map to `ARC-015`.
 - REQ-015: Anthropic HTTP 413 `request_too_large` must map to `ARC-014`.
@@ -207,11 +196,11 @@ Impacts:
 ## Rebuild Notes
 
 - Existing code is not authoritative; rebuilds must follow this spec and linked tasks.
-- Summary generation is the final v0 success point.
-- Snapshot and Markdown completion are intermediate stages once this feature is implemented.
+- Summary generation is the terminal success point.
+- Snapshot and Markdown completion are intermediate stages.
 - Do not mark an article `ready`, job `succeeded`, or success notification pending before `summary.md` is promoted.
-- Do not create `summary.json` or SQLite summary columns in v0.
-- Do not chunk or truncate Markdown for summarization in v0.
+- Do not create `summary.json` or SQLite summary columns.
+- Do not chunk or truncate Markdown for summarization.
 - Provider-specific SDK types must stay inside provider adapters.
 
 ## Security / Privacy Notes
@@ -224,7 +213,7 @@ Impacts:
 ## Observability / Logging Notes
 
 - Log summarizer provider, model, provider request ID when available, `article_id`, `job_id`, canonical URL, duration, status, ARC code on failure, and artifact write result.
-- A dedicated observability stack is out of scope for v0.
+- No dedicated observability stack is required by this feature.
 
 ## Open Questions
 
@@ -233,12 +222,7 @@ Impacts:
 ## Related Documents
 
 - `./PLAN.md`
-- `./DIARY.md`
-- `./tasks/SUMGEN-001-create-feature-artifacts-and-contracts.md`
 - `./tasks/SUMGEN-002-worker-summary-artifact-access.md`
 - `./tasks/SUMGEN-003-summarizer-provider-adapter.md`
 - `./tasks/SUMGEN-004-worker-summary-pipeline-integration.md`
 - `./tasks/SUMGEN-005-gateway-summary-notification.md`
-- `./plans/SUMGEN-003-summarizer-provider-adapter.execplan.md`
-- `./plans/SUMGEN-004-worker-summary-pipeline-integration.execplan.md`
-- `./plans/SUMGEN-005-gateway-summary-notification.execplan.md`

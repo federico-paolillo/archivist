@@ -7,9 +7,8 @@ depends_on:
   - SNAP-006
   - SNAP-007
 blocks:
-  - SNAP-009
 parallel: false
-exec_plan: ../plans/SNAP-008-release.execplan.md
+exec_plan: null
 canonical: true
 ---
 

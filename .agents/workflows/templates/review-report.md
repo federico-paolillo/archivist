@@ -9,8 +9,6 @@ This file is non-canonical coordination state. Findings must still be resolved i
 - Branch reviewed:
 - Reviewer role:
 - Worker role:
-- Diff base:
-- Review date:
 
 ## Findings
 
@@ -29,7 +27,7 @@ Required fix: <concrete correction>
 
 ## Approval
 
-- Status: `approved` | `approved with nits` | `changes requested`
+- Decision: `approved` | `approved with nits` | `changes requested`
 - Waivers requested:
 - Residual risks:
 

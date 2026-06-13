@@ -4,7 +4,7 @@ feature: authn
 title: Protect UI API and validate auth client contract
 status: done
 depends_on: [AUTHN-003]
-blocks: [AUTHN-006, UI-002]
+blocks: [UIEND-002, UIEND-003, UI-002]
 parallel: false
 exec_plan: null
 canonical: true
@@ -14,7 +14,7 @@ canonical: true
 
 ## Objective
 
-Validate Gateway auth endpoint behavior for UI clients and ensure protected UI API behavior.
+Validate the final Gateway auth contract consumed by UI clients and protected UI-facing APIs.
 
 ## Scope
 
@@ -25,16 +25,11 @@ This task includes:
 - `POST /logout` `204` and cookie clearing behavior.
 - Protected UI-facing Gateway route behavior.
 - A protected gateway route used to validate cookie enforcement.
+- Trusted reverse-proxy forwarded-header behavior for browser auth requests.
+- Effective public HTTPS validation for `POST /login`.
+- Same-origin unsafe-method rejection using post-forwarding scheme, host, and effective port.
+- Authenticated user identity from session `ClaimTypes.NameIdentifier`.
 
-## Out of Scope
-
-This task does not include:
-
-- Preact login form rendering.
-- `/login/failed` browser route.
-- Article list/detail UI.
-- Password reset or rotation UI.
-- PWA/offline behavior.
 
 ## Required Context
 
@@ -57,17 +52,25 @@ Scenario: Session endpoint confirms authenticated request
   Given the request has a valid app-cookie session
   When the browser calls GET /auth/session
   Then the response status is 204
+
+Scenario: Login succeeds behind trusted reverse proxy
+  Given trusted forwarded headers set the effective public scheme to https
+  And the request Origin matches the effective public origin
+  When the browser calls POST /login with valid credentials
+  Then the response status is 204
+  And the auth cookie attributes match the final auth contract
+
+Scenario: Unsafe origin mismatch is rejected
+  Given the request has a valid app-cookie session
+  When the browser calls an unsafe protected route with a mismatched Origin
+  Then the response status is 403
 ```
 
 ## Done When
 
 - Gateway protected route test passes.
-- Auth endpoints retain the contracts consumed by `docs/specs/ui/SPEC.md`.
-
-## Implementation Notes
-
-- Status transitioned from `blocked` to `done` by explicit user assignment for Wave 4.
-- No placeholder `/articles` route was added in this task. The concrete UI article endpoint contracts are owned by `ui-endpoints`; this task validates the existing authenticated Gateway route contract through `GET /auth/session` and preserves the auth client contract required by `docs/specs/ui/SPEC.md`.
+- Auth endpoints retain the contracts consumed by `docs/specs/ui/SPEC.md` and `docs/specs/ui-endpoints/SPEC.md`.
+- Reverse-proxy effective scheme, host, port, and same-origin behavior are covered by Gateway tests.
 
 ## Validation
 
@@ -75,12 +78,6 @@ Required checks:
 
 ```bash
 cd src/gateway && dotnet test
-```
-
-Result on 2026-05-12:
-
-```text
-Passed! - Failed: 0, Passed: 101, Skipped: 0, Total: 101
 ```
 
 ## Dependencies
@@ -91,4 +88,6 @@ Depends on:
 
 Blocks:
 
-- `AUTHN-006`
+- `UIEND-002`
+- `UIEND-003`
+- `UI-002`

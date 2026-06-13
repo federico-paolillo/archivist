@@ -1,6 +1,6 @@
 ---
 name: planner-agent
-description: Turn a feature idea or product note into the repository's Markdown ALM structure. Produces SPEC.md, PLAN.md, DIARY.md, task files, optional ExecPlans, and updates to the feature INDEX.
+description: Turn a feature idea or product note into the repository's Markdown ALM structure. Produces SPEC.md, PLAN.md, task files, optional ExecPlans, and updates to the feature INDEX.
 when_to_use: Use when creating a feature specification, decomposing a feature into tasks, producing an implementation plan, identifying task dependencies, deciding on concurrency, creating ExecPlans, or preparing artifacts for full rebuilds.
 allowed-tools: Read Write Edit Grep Glob Bash(ls *)
 effort: high
@@ -15,7 +15,6 @@ Use this skill to help a human turn a feature idea, product note, or rough plan 
 The planner agent produces or updates:
 
 - `docs/specs/<feature-slug>/SPEC.md`
-- `docs/specs/<feature-slug>/DIARY.md`
 - `docs/specs/<feature-slug>/tasks/*.md`
 - `docs/specs/<feature-slug>/PLAN.md`
 - optional `docs/specs/<feature-slug>/plans/*.execplan.md`
@@ -55,7 +54,7 @@ Then classify the planning request by affected feature, module or modules, and d
 
 Load additional context by trigger:
 
-- `docs/BOOKKEEPING.md`: creating or updating ALM artifacts, task dependencies, task status, ExecPlans, or diaries.
+- `docs/BOOKKEEPING.md`: creating or updating ALM artifacts, task dependencies, task status, or ExecPlans.
 - `docs/ARCHITECTURE.md`: planning executables, service boundaries, storage, runtime topology, integrations, authentication boundaries, or deployment assumptions.
 - `docs/DESIGN.md`: planning durable cross-task decisions, decision changes, or rebuild-relevant rationale.
 - `docs/ERRORS.md`: planning persisted public ARC error-code changes.
@@ -67,7 +66,6 @@ If planning an existing feature, also read:
 docs/specs/<feature-slug>/SPEC.md
 docs/specs/<feature-slug>/PLAN.md
 docs/specs/<feature-slug>/tasks/*.md
-docs/specs/<feature-slug>/DIARY.md
 ```
 
 Read only related feature specs listed in `INDEX.md`, `SPEC.md`, or `PLAN.md`. Do not load unrelated feature folders by default.
@@ -124,15 +122,17 @@ admin-ui
 
 If the feature already exists, reuse its folder.
 
-When creating a new feature folder, create `DIARY.md` from `docs/templates/DIARY.md` along with `SPEC.md`, `PLAN.md`, `tasks/`, and `plans/`.
+When creating a new feature folder, create `SPEC.md`, `PLAN.md`, `tasks/`, and `plans/`. Diary or coordinator notes are optional non-canonical coordination artifacts only; they are never rebuild requirements or completion gates.
 
 ### 2. Classify Scope
 
 Separate:
 
-- in scope;
-- out of scope;
-- future work;
+- current intended behavior;
+- current negative requirements;
+- assumptions;
+- constraints;
+- risks;
 - open questions;
 - global standards or conventions discovered during planning.
 
@@ -144,8 +144,11 @@ The feature spec must include:
 
 - intent;
 - motivation;
-- scope;
-- out of scope;
+- current intended behavior;
+- current negative requirements;
+- assumptions;
+- constraints;
+- risks;
 - requirements;
 - acceptance criteria;
 - data and interface implications;
@@ -165,7 +168,8 @@ Promote these to canonical docs when needed:
 - durable decisions → `docs/DESIGN.md`
 - persisted public ARC error changes → `docs/ERRORS.md`
 - artifact path/access/write/delete contracts → `docs/ARTIFACTS.md`
-- feature-specific behavior → the relevant feature `SPEC.md`, `PLAN.md`, task, or ExecPlan
+- feature-specific behavior → the relevant feature `SPEC.md`, `PLAN.md`, or task
+- implementation sequencing for complex tasks → an accepted linked ExecPlan
 
 Development practice belongs in `.agents/skills`; rebuild-critical contracts belong in canonical docs. Do not bury standards or contracts inside tasks when they affect multiple tasks.
 
@@ -289,7 +293,7 @@ Use checklist criteria for non-behavioral tasks:
 
 ## ExecPlan Output Rules
 
-Use `docs/templates/EXECPLAN.md` as the base. An ExecPlan must not contradict the task. If a contradiction is found, update the task first.
+Use `docs/templates/EXECPLAN.md` as the base. Proposed ExecPlans are non-authoritative drafts. An ExecPlan must not contradict the task or add requirements beyond the current spec, plan, and task. If a contradiction or missing requirement is found, update the spec, plan, or task first.
 
 See `AGENTS.md` § ExecPlan Rules and `docs/BOOKKEEPING.md` § Linking ExecPlans to Tasks for the structure and frontmatter format.
 
@@ -331,7 +335,7 @@ Do not:
 - put global architecture decisions only in task files;
 - create tasks without stable IDs;
 - create unlinked ExecPlans;
-- use the implementation diary as a source of requirements;
+- use diary or coordinator notes as a source of requirements;
 - infer cross-feature dependencies without documenting them;
 - generate many tiny tasks with no independent validation boundary;
 - treat existing code as canonical unless the user explicitly asks for a brownfield reconciliation.

@@ -4,13 +4,11 @@ feature: snapshotter
 title: Add Docker and Compose integration
 status: done
 depends_on:
-  - SNAP-001
   - SNAP-005
 blocks:
   - SNAP-008
-  - SNAP-009
 parallel: false
-exec_plan: ../plans/SNAP-006-deployment.execplan.md
+exec_plan: null
 canonical: true
 ---
 

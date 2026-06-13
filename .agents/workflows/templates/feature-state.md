@@ -7,13 +7,10 @@ This file is non-canonical coordination state for a multi-agent run. Durable beh
 - Feature id:
 - User goal:
 - Canonical feature:
-- Coordinator:
-- Created:
-- Last updated:
 
 ## Branches And Worktrees
 
-| Role | Branch | Worktree | Status |
+| Role | Branch | Worktree | State |
 |---|---|---|---|
 | coordinator |  |  |  |
 | gateway-worker |  |  |  |
@@ -23,13 +20,13 @@ This file is non-canonical coordination state for a multi-agent run. Durable beh
 
 ## Task Assignments
 
-| Task | Role | Write Scope | Forbidden Paths | Validation | Status |
+| Task | Role | Write Scope | Forbidden Paths | Validation | State |
 |---|---|---|---|---|---|
 |  |  |  |  |  |  |
 
 ## Reviews
 
-| Task | Reviewer | Finding Status | Approval | Report |
+| Task | Reviewer | Findings | Approval | Report |
 |---|---|---|---|---|
 |  |  |  |  |  |
 
@@ -49,4 +46,4 @@ This file is non-canonical coordination state for a multi-agent run. Durable beh
 
 - Branches safe to delete:
 - Worktrees safe to remove:
-- Deferred cleanup:
+- Cleanup blockers:
