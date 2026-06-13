@@ -26,6 +26,9 @@ class JsonLogger:
     def __init__(self, stream: TextIO | None = None) -> None:
         self._stream = sys.stdout if stream is None else stream
 
+    def debug(self, event: str, **fields: object) -> None:
+        self._write("debug", event, fields)
+
     def info(self, event: str, **fields: object) -> None:
         self._write("info", event, fields)
 
@@ -81,9 +84,13 @@ def _json_safe(value: object) -> object:
 
 
 def _emit_otel_log(level: str, event: str, payload: Mapping[str, object]) -> None:
+    severity = OTEL_SEVERITY_BY_LEVEL.get(level)
+    if severity is None:
+        return
+
     with suppress(Exception):
         _logs.get_logger(INSTRUMENTATION_NAME).emit(
-            severity_number=OTEL_SEVERITY_BY_LEVEL[level],
+            severity_number=severity,
             severity_text=level.upper(),
             body=event,
             attributes=_otel_attributes(payload),

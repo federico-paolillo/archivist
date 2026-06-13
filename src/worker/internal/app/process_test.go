@@ -181,10 +181,26 @@ func TestProcessLoopLogsIterationStartAndIdlePollResult(t *testing.T) {
 	require.True(t, exit)
 
 	logText := logs.String()
+	assert.Contains(t, logText, `"level":"DEBUG"`)
 	assert.Contains(t, logText, `"stage":"process_loop"`)
 	assert.Contains(t, logText, `"status":"start"`)
 	assert.Contains(t, logText, `"status":"idle"`)
 	assert.Contains(t, logText, `"processed":false`)
+}
+
+func TestProcessLoopHeartbeatLogsAreSuppressedAtInfoLevel(t *testing.T) {
+	var logs bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&logs, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	application, _ := newProcessTestAppWithLogger(t, logger)
+
+	exit, err := runProcessLoopIteration(t.Context(), application, true, time.Second)
+	require.NoError(t, err)
+	require.True(t, exit)
+
+	logText := logs.String()
+	assert.NotContains(t, logText, `"stage":"process_loop"`)
+	assert.NotContains(t, logText, `"status":"start"`)
+	assert.NotContains(t, logText, `"status":"idle"`)
 }
 
 func newProcessTestApp(t *testing.T) (*pkgapp.App, *config.Root) {

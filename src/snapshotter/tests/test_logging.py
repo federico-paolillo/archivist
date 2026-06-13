@@ -6,6 +6,7 @@ import json
 from opentelemetry import trace
 from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags, TraceState, use_span
 
+from archivist_snapshotter import logging as logging_module
 from archivist_snapshotter.config import ConfigError
 from archivist_snapshotter.logging import JsonLogger
 
@@ -66,3 +67,23 @@ def test_logger_includes_active_span_ids() -> None:
     payload = json.loads(logs.getvalue())
     assert payload["trace_id"] == trace.format_trace_id(span_context.trace_id)
     assert payload["span_id"] == trace.format_span_id(span_context.span_id)
+
+
+def test_debug_logger_writes_stdout_without_emitting_otel(monkeypatch) -> None:
+    logs = io.StringIO()
+    otel_calls = 0
+
+    def get_logger(_name: str) -> object:
+        nonlocal otel_calls
+        otel_calls += 1
+        raise AssertionError("debug logs must not touch the OTEL logger")
+
+    monkeypatch.setattr(logging_module._logs, "get_logger", get_logger)
+
+    JsonLogger(logs).debug("heartbeat", status="idle")
+
+    payload = json.loads(logs.getvalue())
+    assert payload["level"] == "debug"
+    assert payload["event"] == "heartbeat"
+    assert payload["status"] == "idle"
+    assert otel_calls == 0

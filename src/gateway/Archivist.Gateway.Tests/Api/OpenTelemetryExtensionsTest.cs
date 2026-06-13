@@ -1,6 +1,9 @@
 using Archivist.Gateway.Api.Observability;
 
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
+
+using OpenTelemetry.Logs;
 
 namespace Archivist.Gateway.Tests.Api;
 
@@ -43,6 +46,24 @@ public sealed class OpenTelemetryExtensionsTest
             static descriptor => descriptor.ServiceType.FullName == "OpenTelemetry.Trace.TracerProvider")
             .ServiceType;
         Assert.NotNull(provider.GetService(tracerProviderServiceType));
+    }
+
+    [Fact]
+    public void AddArchivistOpenTelemetryFilters_DropsLogsBelowInformationForOpenTelemetryProvider()
+    {
+        var services = new ServiceCollection();
+
+        services.AddLogging(logging => logging.AddArchivistOpenTelemetryFilters());
+
+        using var provider = services.BuildServiceProvider();
+        var options = provider.GetRequiredService<IOptions<LoggerFilterOptions>>().Value;
+
+        Assert.Contains(
+            options.Rules,
+            static rule =>
+                rule.ProviderName == typeof(OpenTelemetryLoggerProvider).FullName
+                && rule.CategoryName == "*"
+                && rule.LogLevel == LogLevel.Information);
     }
 
     private sealed class EnvironmentVariables : IDisposable

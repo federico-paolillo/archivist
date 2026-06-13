@@ -42,16 +42,20 @@ func TestTraceContextHandlerOmitsTraceFieldsWithoutSpan(t *testing.T) {
 	assert.NotContains(t, logText, "span_id")
 }
 
-func TestTeeHandlerSkipsDisabledHandlers(t *testing.T) {
-	var enabledLogs bytes.Buffer
-	var disabledLogs bytes.Buffer
+func TestMinLevelHandlerDropsRecordsBelowMinimum(t *testing.T) {
+	var logs bytes.Buffer
 
-	enabledHandler := slog.NewJSONHandler(&enabledLogs, &slog.HandlerOptions{Level: slog.LevelInfo})
-	disabledHandler := slog.NewJSONHandler(&disabledLogs, &slog.HandlerOptions{Level: slog.LevelError})
-	logger := slog.New(observability.NewTeeHandler(disabledHandler, enabledHandler))
+	logger := slog.New(observability.NewMinLevelHandler(
+		slog.NewJSONHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug}),
+		slog.LevelInfo,
+	))
 
-	logger.InfoContext(t.Context(), "test message")
+	logger.DebugContext(t.Context(), "debug message")
+	logger.InfoContext(t.Context(), "info message")
+	logger.ErrorContext(t.Context(), "error message")
 
-	assert.Contains(t, enabledLogs.String(), `"msg":"test message"`)
-	assert.Empty(t, disabledLogs.String())
+	logText := logs.String()
+	assert.NotContains(t, logText, "debug message")
+	assert.Contains(t, logText, "info message")
+	assert.Contains(t, logText, "error message")
 }

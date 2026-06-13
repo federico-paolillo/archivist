@@ -57,11 +57,13 @@ func (p *SnapshotPipeline) ProcessOne(ctx context.Context) (bool, error) {
 
 	job, claimErr := p.repo.ClaimQueued(claimCtx)
 	if claimErr != nil {
-		observability.EndSpan(claimSpan, claimErr)
-
 		if errors.Is(claimErr, sql.ErrNoRows) {
+			claimSpan.End()
+
 			return false, nil
 		}
+
+		observability.EndSpan(claimSpan, claimErr)
 
 		return false, fmt.Errorf("pipeline: claim queued job: %w", claimErr)
 	}

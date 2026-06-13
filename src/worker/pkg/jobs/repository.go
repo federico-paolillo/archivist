@@ -188,7 +188,14 @@ func ensureDefaultUserExists(ctx context.Context, tx *sql.Tx) error {
 //nolint:nonamedreturns // Deferred span completion records the returned error.
 func (r *SQLiteRepository) ClaimQueued(ctx context.Context) (job *Job, err error) {
 	ctx, span := observability.Tracer().Start(ctx, "worker.jobs.claim", trace.WithSpanKind(trace.SpanKindConsumer))
+
 	defer func() {
+		if errors.Is(err, sql.ErrNoRows) {
+			span.End()
+
+			return
+		}
+
 		observability.EndSpan(span, err)
 	}()
 

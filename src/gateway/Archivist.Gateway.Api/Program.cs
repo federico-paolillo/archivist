@@ -28,6 +28,7 @@ builder.Logging.AddSimpleConsole(options =>
 );
 
 builder.Logging.AddFilter("Microsoft.EntityFramework", LogLevel.Warning);
+builder.Logging.AddArchivistOpenTelemetryFilters();
 
 builder.Services.AddAuth(builder.Configuration);
 builder.Services.AddForwardedHeaders(builder.Configuration, builder.Environment);

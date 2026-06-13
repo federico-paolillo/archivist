@@ -12,6 +12,15 @@ namespace Archivist.Gateway.Api.Observability;
 /// </summary>
 public static class OpenTelemetryExtensions
 {
+    public static ILoggingBuilder AddArchivistOpenTelemetryFilters(this ILoggingBuilder logging)
+    {
+        ArgumentNullException.ThrowIfNull(logging);
+
+        logging.AddFilter<OpenTelemetryLoggerProvider>("*", LogLevel.Information);
+
+        return logging;
+    }
+
     public static IServiceCollection AddArchivistOpenTelemetry(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);

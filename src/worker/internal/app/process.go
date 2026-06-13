@@ -39,7 +39,7 @@ func runProcessLoopIteration(
 		return true, nil
 	}
 
-	a.Logger.Info(
+	a.Logger.Debug(
 		"worker: process loop iteration started",
 		slog.String("stage", "process_loop"),
 		slog.String("status", "start"),
@@ -57,7 +57,7 @@ func runProcessLoopIteration(
 
 	if once {
 		if !processed {
-			a.Logger.Info(
+			a.Logger.Debug(
 				"worker: process poll result",
 				slog.String("stage", "process_loop"),
 				slog.String("status", "idle"),
@@ -72,7 +72,7 @@ func runProcessLoopIteration(
 		return false, nil
 	}
 
-	a.Logger.Info(
+	a.Logger.Debug(
 		"worker: process poll result",
 		slog.String("stage", "process_loop"),
 		slog.String("status", "idle"),

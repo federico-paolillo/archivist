@@ -69,12 +69,15 @@ func Setup(ctx context.Context, stdoutHandler slog.Handler) (*Providers, error) 
 		sdklog.WithProcessor(sdklog.NewBatchProcessor(logExporter)),
 	)
 
-	handlers = append(handlers, otelslog.NewHandler(
-		ServiceName,
-		otelslog.WithLoggerProvider(providers.loggerProvider),
+	handlers = append(handlers, NewMinLevelHandler(
+		otelslog.NewHandler(
+			ServiceName,
+			otelslog.WithLoggerProvider(providers.loggerProvider),
+		),
+		slog.LevelInfo,
 	))
 
-	providers.Logger = slog.New(NewTeeHandler(handlers...))
+	providers.Logger = slog.New(slog.NewMultiHandler(handlers...))
 
 	return providers, nil
 }

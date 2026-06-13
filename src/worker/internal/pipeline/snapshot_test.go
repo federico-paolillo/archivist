@@ -23,6 +23,10 @@ import (
 	"github.com/imroc/req/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/codes"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 )
 
 const (
@@ -501,6 +505,7 @@ func TestSnapshotTransactionRollbackOnNotificationFailure(t *testing.T) {
 func TestSnapshotNoQueuedJobReturnsFalse(t *testing.T) {
 	database := openTestDB(t)
 	seedUser(t, database)
+	spanRecorder := installSpanRecorder(t)
 
 	store, err := artifacts.NewStore(t.TempDir())
 	require.NoError(t, err)
@@ -514,6 +519,8 @@ func TestSnapshotNoQueuedJobReturnsFalse(t *testing.T) {
 	processed, err := p.ProcessOne(t.Context())
 	require.NoError(t, err)
 	require.False(t, processed)
+	requireSpanStatusNotError(t, spanRecorder.Ended(), "worker.pipeline.claim")
+	requireSpanStatusNotError(t, spanRecorder.Ended(), "worker.jobs.claim")
 }
 
 // TestMarkdownHandoffIsCalledOnSnapshotSuccess verifies that the MarkdownHandoff
@@ -661,4 +668,36 @@ func (r *claimBeforeURLLoadRepo) UpdateCanonicalURL(context.Context, string, str
 
 func (r *claimBeforeURLLoadRepo) UpdateArticleTitle(context.Context, string, string, string) error {
 	return nil
+}
+
+func installSpanRecorder(t *testing.T) *tracetest.SpanRecorder {
+	t.Helper()
+
+	spanRecorder := tracetest.NewSpanRecorder()
+	tracerProvider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(spanRecorder))
+	previous := otel.GetTracerProvider()
+	otel.SetTracerProvider(tracerProvider)
+
+	t.Cleanup(func() {
+		otel.SetTracerProvider(previous)
+		require.NoError(t, tracerProvider.Shutdown(context.Background()))
+	})
+
+	return spanRecorder
+}
+
+func requireSpanStatusNotError(t *testing.T, spans []sdktrace.ReadOnlySpan, spanName string) {
+	t.Helper()
+
+	for _, span := range spans {
+		if span.Name() != spanName {
+			continue
+		}
+
+		assert.NotEqual(t, codes.Error, span.Status().Code)
+
+		return
+	}
+
+	t.Fatalf("span %q was not recorded", spanName)
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 )
@@ -432,6 +433,7 @@ func scalarInt(t *testing.T, database *sql.DB, query string, args ...any) int {
 func TestClaimQueuedReturnsErrNoRowsWhenNoJobExists(t *testing.T) {
 	database := openTestDB(t)
 	seedUser(t, database)
+	spanRecorder := installSpanRecorder(t)
 
 	repo := jobs.NewSQLiteRepository(database, newTestIDGenerator())
 
@@ -441,6 +443,7 @@ func TestClaimQueuedReturnsErrNoRowsWhenNoJobExists(t *testing.T) {
 
 	require.ErrorIs(t, err, sql.ErrNoRows)
 	assert.Nil(t, claimed)
+	requireSpanStatusNotError(t, spanRecorder.Ended(), "worker.jobs.claim")
 }
 
 func TestClaimQueuedReturnsErrNoRowsForOrphanQueuedJob(t *testing.T) {
@@ -983,6 +986,38 @@ func requireUserAttribute(t *testing.T, spans []sdktrace.ReadOnlySpan, spanName 
 		}
 
 		t.Fatalf("span %q did not include user_id attribute", spanName)
+	}
+
+	t.Fatalf("span %q was not recorded", spanName)
+}
+
+func installSpanRecorder(t *testing.T) *tracetest.SpanRecorder {
+	t.Helper()
+
+	spanRecorder := tracetest.NewSpanRecorder()
+	tracerProvider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(spanRecorder))
+	previous := otel.GetTracerProvider()
+	otel.SetTracerProvider(tracerProvider)
+
+	t.Cleanup(func() {
+		otel.SetTracerProvider(previous)
+		require.NoError(t, tracerProvider.Shutdown(context.Background()))
+	})
+
+	return spanRecorder
+}
+
+func requireSpanStatusNotError(t *testing.T, spans []sdktrace.ReadOnlySpan, spanName string) {
+	t.Helper()
+
+	for _, span := range spans {
+		if span.Name() != spanName {
+			continue
+		}
+
+		assert.NotEqual(t, codes.Error, span.Status().Code)
+
+		return
 	}
 
 	t.Fatalf("span %q was not recorded", spanName)
