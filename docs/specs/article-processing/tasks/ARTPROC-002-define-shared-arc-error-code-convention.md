@@ -2,14 +2,12 @@
 id: ARTPROC-002
 feature: article-processing
 title: Define Shared ARC Error-Code Convention
-status: done
 depends_on: []
 blocks: [ARTPROC-004]
 parallel: true
-exec_plan: null
+requires_exec_plan: false
 canonical: true
 ---
-
 # ARTPROC-002: Define Shared ARC Error-Code Convention
 
 ## Objective
@@ -100,18 +98,10 @@ Blocks:
 
 - `ARTPROC-004`
 
-## ExecPlan
+## ExecPlan Requirement
 
-ExecPlan:
-
-```text
-null
-```
+Requires ExecPlan: false
 
 ## Open Questions
 
 - None.
-
-## Notes
-
-- This task was completed during feature planning artifact creation.

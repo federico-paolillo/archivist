@@ -2,14 +2,12 @@
 id: <TASK-ID>
 feature: <feature-slug>
 title: <Task Title>
-status: draft
 depends_on: []
 blocks: []
 parallel: true
-exec_plan: null
+requires_exec_plan: false
 canonical: true
 ---
-
 # <TASK-ID>: <Task Title>
 
 ## Objective
@@ -112,15 +110,9 @@ Blocks:
 
 - TODO
 
-## ExecPlan
+## ExecPlan Requirement
 
-ExecPlan:
-
-```text
-TODO: null or ../plans/<TASK-ID>-<task-slug>.execplan.md
-```
-
-Create an ExecPlan if this task is complex, risky, cross-cutting, or affects architecture, storage, schemas, APIs, authentication, deployment, or shared contracts.
+`requires_exec_plan` is `true` when this task is complex, risky, cross-cutting, or affects architecture, storage, schemas, APIs, authentication, deployment, or shared contracts. Otherwise use `false`.
 
 ## Open Questions
 

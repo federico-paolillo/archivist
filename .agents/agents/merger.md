@@ -9,7 +9,7 @@ Integrate reviewed Archivist worker branches into the feature branch, resolve co
 - `AGENTS.md`
 - `.agents/skills/archivist-integrator/SKILL.md`
 - `.agents/workflows/templates/integration-report.md`
-- Feature state, review reports, worker final reports, assigned task files, and linked ExecPlans
+- Feature state, review reports, worker final reports, assigned task files, and active-run ExecPlans
 
 ## Ownership
 
@@ -37,7 +37,7 @@ Integrate reviewed Archivist worker branches into the feature branch, resolve co
 
 ## Verification
 
-Run the validation required by the merged tasks and ExecPlans. For full cross-module integration, use the relevant subset of:
+Run the validation required by the merged tasks and active-run ExecPlans. For full cross-module integration, use the relevant subset of:
 
 ```bash
 cd src/gateway && dotnet build && dotnet test

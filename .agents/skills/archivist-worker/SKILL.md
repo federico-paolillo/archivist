@@ -22,22 +22,22 @@ docs/specs/INDEX.md
 
 Load additional context by trigger:
 
-- `docs/BOOKKEEPING.md`: changing task status, `PLAN.md`, specs, ExecPlans, or dependency/concurrency state.
+- `docs/BOOKKEEPING.md`: changing `PLAN.md`, specs, ExecPlan requirements, or dependency/concurrency state.
 - `docs/ARCHITECTURE.md`: changing executables, service boundaries, storage, integrations, deployment, runtime topology, or configuration semantics.
 - `docs/DESIGN.md`: relying on or changing durable decisions or rebuild-relevant tradeoffs.
 - `docs/ERRORS.md`: changing persisted article-processing failure behavior, ARC codes, public messages, or error classification.
 - `docs/ARTIFACTS.md`: changing artifact paths, filenames, atomic writes, or article data layout.
-- Relevant feature `SPEC.md`, `PLAN.md`, task files, and linked ExecPlans before implementing a task.
+- Relevant feature `SPEC.md`, `PLAN.md`, task files, and active-run ExecPlans before implementing a task.
 
 Do not load unrelated feature folders unless dependencies or canonical docs require them.
 
 ## Source-Of-Truth Rules
 
 - Canonical Markdown controls required behavior. Existing Go code is implementation evidence, not source of truth.
-- Work only on tasks marked `ready` or explicitly assigned by the user.
-- Do not invent durable behavior. If the task lacks required behavior, update the relevant spec/task or mark the task blocked.
+- Work only on tasks explicitly assigned by the user or selected by non-canonical run state.
+- Do not invent durable behavior. If the task lacks required behavior, update the relevant spec/task or record the blocker in non-canonical run state.
 - Promote durable changes to canonical docs, not just skills, code comments, or coordinator notes.
-- After material task implementation, update task frontmatter and the feature `PLAN.md` when AGENTS/BOOKKEEPING require it. Diary or coordinator notes are optional non-canonical coordination only.
+- After material task implementation, update canonical docs only for durable behavior changes. Diary, coordinator notes, and run state are non-canonical coordination only.
 
 ## Worker Stack
 
@@ -165,7 +165,7 @@ Worker configuration is loaded from environment variables or equivalent deployme
 
 ## Validation
 
-Run Worker validation from `src/worker/` unless the task or ExecPlan specifies a narrower or broader command set:
+Run Worker validation from `src/worker/` unless the task or active-run ExecPlan specifies a narrower or broader command set:
 
 ```bash
 go tool lefthook run build
@@ -174,7 +174,7 @@ go tool lefthook run lint
 go tool lefthook run test
 ```
 
-Before marking a task done, record validation in the task according to repository bookkeeping rules. If validation cannot run, record the exact reason in the task.
+Before marking a task complete in non-canonical run state, run or record the validation evidence in that run state. If validation cannot run because of a durable constraint, promote the constraint to the relevant canonical doc.
 
 ## Output
 

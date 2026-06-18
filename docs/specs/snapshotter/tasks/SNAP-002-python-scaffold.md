@@ -2,17 +2,15 @@
 id: SNAP-002
 feature: snapshotter
 title: Scaffold Python snapshotter project
-status: done
-depends_on:
+depends_on: []
 blocks:
   - SNAP-003
   - SNAP-004
   - SNAP-007
 parallel: true
-exec_plan: null
+requires_exec_plan: false
 canonical: true
 ---
-
 # SNAP-002: Scaffold Python Snapshotter Project
 
 ## Objective

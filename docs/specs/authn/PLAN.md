@@ -1,9 +1,7 @@
 ---
 feature: authn
-status: done
 canonical: true
 ---
-
 # Feature Plan: UI/API Authentication
 
 ## Purpose
@@ -35,17 +33,17 @@ AUTHN-004 -> UI-002
 
 ### Phase 3: Final Auth Contract Validation
 
-- `AUTHN-004` validates the protected UI-facing Gateway contract consumed by `ui-endpoints` and `ui`, including authenticated API `401/403` behavior, auth endpoint behavior, effective public scheme/host/port handling, cookie attributes, and same-origin rejection.
+- `AUTHN-004` validates the protected UI-facing Gateway contract consumed by `ui-endpoints` and `ui`, including authenticated API `401/403` behavior, auth endpoint behavior, effective public scheme/host/port handling, cookie attributes, and same-origin rejection. Any protected probe route used for this gate is test-only and is not a production API surface.
 
 ---
 
 ## Tasks
 
-| ID | Task | Status | Depends On | Blocks | Parallel | ExecPlan |
-|---|---|---|---|---|---|---|
-| `AUTHN-002` | Password persistence and bootstrap | done | `TELING-001` | `AUTHN-003` | no | null |
-| `AUTHN-003` | Gateway opaque session cookie authentication | done | `AUTHN-002` | `AUTHN-004` | no | null |
-| `AUTHN-004` | Protect UI API and validate auth client contract | done | `AUTHN-003` | `UIEND-002`, `UIEND-003`, `UI-002` | no | null |
+| ID | Task | Depends On | Blocks | Parallel | Requires ExecPlan |
+|---|---|---|---|---|---|
+| `AUTHN-002` | Password persistence and bootstrap | `TELING-001` | `AUTHN-003` | no | no |
+| `AUTHN-003` | Gateway opaque session cookie authentication | `AUTHN-002` | `AUTHN-004` | no | no |
+| `AUTHN-004` | Protect UI API and validate auth client contract | `AUTHN-003` | `UIEND-002`, `UIEND-003`, `UI-002` | no | no |
 
 ---
 
@@ -101,8 +99,7 @@ cd src/gateway && dotnet test
 
 The feature is complete when:
 
-- all required tasks are `done`;
+- all task acceptance criteria are satisfied;
 - acceptance criteria in `SPEC.md` are satisfied;
 - validation sequence passes or failures are recorded;
 - durable implementation decisions have been promoted to canonical documents;
-- `docs/specs/INDEX.md` reflects the final feature status.

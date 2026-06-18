@@ -2,15 +2,17 @@
 id: OTEL-009
 feature: otel-observability
 title: Update README deployment instructions
-status: done
 depends_on:
   - OTEL-002
+  - OTEL-004
+  - OTEL-006
+  - OTEL-008
 blocks:
-parallel: true
-exec_plan: null
+  - OTEL-011
+parallel: false
+requires_exec_plan: false
 canonical: true
 ---
-
 # OTEL-009: Update README deployment instructions
 
 ## Objective

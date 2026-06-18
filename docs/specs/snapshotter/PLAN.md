@@ -1,9 +1,7 @@
 ---
 feature: snapshotter
-status: done
 canonical: true
 ---
-
 # Feature Plan: Snapshotter
 
 ## Purpose
@@ -21,6 +19,7 @@ SNAP-003 -> SNAP-005
 SNAP-004 -> SNAP-005
 SNAP-005 -> SNAP-006
 SNAP-002 -> SNAP-007
+SNAP-006 -> SNAP-007
 SNAP-006 -> SNAP-008
 SNAP-007 -> SNAP-008
 ```
@@ -39,29 +38,29 @@ SNAP-007 -> SNAP-008
 ### Phase 2: Deployment And Automation
 
 - `SNAP-006` adds the Docker image, Compose service, and env examples.
-- `SNAP-007` adds local and CI Python validation.
+- `SNAP-007` adds local and CI Python validation plus Docker build validation after the Dockerfile exists.
 - `SNAP-008` extends CD image build, attestations, release package, and release notes.
 
 ---
 
 ## Tasks
 
-| ID | Task | Status | Depends On | Blocks | Parallel | ExecPlan |
-|---|---|---|---|---|---|---|
-| `SNAP-002` | Scaffold Python snapshotter project | done | - | `SNAP-003`, `SNAP-004`, `SNAP-007` | yes | null |
-| `SNAP-003` | Implement snapshot archive capture | done | `SNAP-002` | `SNAP-005` | no | null |
-| `SNAP-004` | Implement S3-compatible upload | done | `SNAP-002` | `SNAP-005` | yes | null |
-| `SNAP-005` | Implement interval daemon behavior | done | `SNAP-003`, `SNAP-004` | `SNAP-006` | no | null |
-| `SNAP-006` | Add Docker and Compose integration | done | `SNAP-005` | `SNAP-008` | no | null |
-| `SNAP-007` | Add Python validation to lefthook and CI | done | `SNAP-002` | `SNAP-008` | yes | - |
-| `SNAP-008` | Extend CD release automation | done | `SNAP-006`, `SNAP-007` | - | no | null |
+| ID | Task | Depends On | Blocks | Parallel | Requires ExecPlan |
+|---|---|---|---|---|---|
+| `SNAP-002` | Scaffold Python snapshotter project | - | `SNAP-003`, `SNAP-004`, `SNAP-007` | yes | no |
+| `SNAP-003` | Implement snapshot archive capture | `SNAP-002` | `SNAP-005` | no | no |
+| `SNAP-004` | Implement S3-compatible upload | `SNAP-002` | `SNAP-005` | yes | no |
+| `SNAP-005` | Implement interval daemon behavior | `SNAP-003`, `SNAP-004` | `SNAP-006` | no | no |
+| `SNAP-006` | Add Docker and Compose integration | `SNAP-005` | `SNAP-007`, `SNAP-008` | no | no |
+| `SNAP-007` | Add Python validation to lefthook and CI | `SNAP-002`, `SNAP-006` | `SNAP-008` | no | no |
+| `SNAP-008` | Extend CD release automation | `SNAP-006`, `SNAP-007` | - | no | no |
 
 ---
 
 ## Concurrency Rules
 
 - `SNAP-002` through `SNAP-005` modify the Snapshotter Python service and tests under `src/snapshotter/**`.
-- `SNAP-006` through `SNAP-008` modify deployment, Compose, env examples, CI/CD, release scripts, and validation wiring.
+- `SNAP-006` through `SNAP-008` modify deployment, Compose, env examples, CI/CD, release scripts, and validation wiring. `SNAP-007` is sequenced after `SNAP-006` because it requires the Dockerfile before CI can validate Docker builds.
 - Do not run concurrent task work against the same write scope.
 
 ---
@@ -83,7 +82,7 @@ SNAP-007 -> SNAP-008
 2. Snapshot archive unit tests and upload stub tests.
 3. Docker image build smoke.
 4. Local Compose config validation.
-5. Production Compose config validation with generated image env.
+5. Production Compose config validation with explicit image env, including `ARCHIVIST_SNAPSHOTTER_IMAGE`.
 6. Full diff hygiene.
 
 Validation commands:
@@ -96,6 +95,7 @@ cd src/snapshotter && uv run ty check .
 cd src/snapshotter && uv run pytest
 docker buildx build --file snapshotter.Dockerfile --platform linux/amd64 --load --tag archivist-snapshotter:test .
 docker compose --env-file .env.local.example -f docker-compose.yaml -f docker-compose.local.yaml config --quiet
+ARCHIVIST_GATEWAY_IMAGE=gateway ARCHIVIST_WORKER_IMAGE=worker ARCHIVIST_UI_IMAGE=ui ARCHIVIST_SNAPSHOTTER_IMAGE=snapshotter docker compose --env-file .env.example -f docker-compose.yaml -f docker-compose.prod.yaml config --quiet
 docker compose --env-file release/compose/.env --env-file release/compose/.env.images -f release/compose/docker-compose.yaml -f release/compose/docker-compose.prod.yaml config --quiet
 git diff --check
 ```
@@ -112,8 +112,7 @@ git diff --check
 
 The feature is complete when:
 
-- all required tasks are `done`;
+- all task acceptance criteria are satisfied;
 - acceptance criteria in `SPEC.md` are satisfied;
 - validation sequence passes or failures are recorded;
 - durable implementation decisions have been promoted to canonical documents;
-- `docs/specs/INDEX.md` reflects the final feature status.

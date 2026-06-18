@@ -10,7 +10,7 @@ Review a UI worker branch for correctness, accessibility, API/auth contract cons
 - `.agents/skills/archivist-general/SKILL.md`
 - `.agents/skills/archivist-reviewer/SKILL.md`
 - `.agents/skills/archivist-ui/SKILL.md`
-- Assigned task, diff, worker report, and linked ExecPlan when present
+- Assigned task, diff, worker report, and active-run ExecPlan when present
 
 ## Ownership
 

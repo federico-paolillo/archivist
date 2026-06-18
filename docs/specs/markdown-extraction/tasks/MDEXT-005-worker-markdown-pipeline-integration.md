@@ -2,32 +2,30 @@
 id: MDEXT-005
 feature: markdown-extraction
 title: Worker Markdown Pipeline Integration
-status: done
 depends_on: [ARTPROC-005, MDEXT-002, MDEXT-003, MDEXT-004]
 blocks: [SUMGEN-004]
 parallel: false
-exec_plan: null
+requires_exec_plan: false
 canonical: true
 ---
-
 # MDEXT-005: Worker Markdown Pipeline Integration
 
 ## Objective
 
-Integrate Markdown extraction as the intermediate Worker pipeline stage through the `MarkdownExtractor` abstraction so `content.md` is atomically written before summary generation runs.
+Integrate Markdown extraction as the intermediate Worker pipeline stage through the `MarkdownExtractor` abstraction so `content.md` is atomically written before the summary-continuation boundary is reached.
 
 ## Story / Context
 
-As the Worker, I need the article-processing pipeline to progress from HTML snapshotting into Markdown extraction before summary generation produces the final success state.
+As the Worker, I need the article-processing pipeline to progress from HTML snapshotting into Markdown extraction, then expose the continuation point consumed by summary generation without implementing summary generation in this task.
 
 ## Scope
 
 This task includes:
 
-- Pipeline sequence after HTML snapshotting: local extractor, mandatory Jina extractor fallback, Markdown artifact write, and summary-generation handoff.
+- Pipeline sequence after HTML snapshotting: local extractor, mandatory Jina extractor fallback, Markdown artifact write, and summary-continuation boundary.
 - Calling only the Worker-owned `MarkdownExtractor` contract from orchestration code.
 - Structured logs for provider attempts, fallback decisions, selected provider, ARC code, and artifact write result.
-- Markdown-success continuation to summary generation after `content.md` is promoted.
+- Markdown-success continuation boundary after `content.md` is promoted.
 - Markdown-failure transaction updating article failure state, job failure state, TTL, and notification row.
 - Tests for abstraction usage, success, fallback, provider failure, artifact failure, logging, and transactional behavior.
 
@@ -36,17 +34,17 @@ This task includes:
 
 Required inputs, existing files, interfaces, or decisions:
 
-- Completed `ARTPROC-005`.
-- Completed `MDEXT-002`.
-- Completed `MDEXT-003`.
-- Completed `MDEXT-004`.
+- Requires `ARTPROC-005`.
+- Requires `MDEXT-002`.
+- Requires `MDEXT-003`.
+- Requires `MDEXT-004`.
 
 ## Outputs
 
 Expected outputs, files, behavior, or interfaces:
 
 - Worker pipeline orchestration with Markdown extraction through `MarkdownExtractor`.
-- Pipeline continuation after Markdown success and transactional terminal state persistence after Markdown failure.
+- Pipeline continuation boundary after Markdown success and transactional terminal state persistence after Markdown failure.
 - Tests for Markdown-stage handoff behavior.
 
 ## Expected Affected Areas
@@ -72,6 +70,7 @@ Read before execution:
 - `docs/specs/article-processing/SPEC.md`
 - `docs/specs/article-processing/PLAN.md`
 - `docs/specs/article-processing/tasks/ARTPROC-005-worker-snapshot-pipeline-orchestration.md`
+- `./MDEXT-001-worker-markdown-extractor-contract.md`
 - `./MDEXT-002-worker-markdown-artifact-access.md`
 - `./MDEXT-003-worker-go-readability-extraction.md`
 - `./MDEXT-004-worker-jina-reader-fallback.md`
@@ -81,11 +80,11 @@ Do not load unrelated feature folders unless listed here or required by dependen
 ## Acceptance Criteria
 
 ```gherkin
-Scenario: Markdown success hands off to summary generation
+Scenario: Markdown success reaches summary continuation
   Given a running article-processing job has stored snapshot.html
   And local extraction produces Markdown
   When the Worker stores content.md successfully
-  Then summary generation is invoked
+  Then the summary-continuation boundary is reached
   And articles.status is not set to ready at the Markdown boundary
   And jobs.status is not set to succeeded at the Markdown boundary
   And no success notification row exists for the job at the Markdown boundary
@@ -96,7 +95,7 @@ Scenario: local unreadable result falls back to Jina
   When the Worker processes Markdown extraction
   Then it logs the fallback reason
   And stores content.md
-  And hands off to summary generation without terminal success at the Markdown boundary
+  And reaches the summary-continuation boundary without terminal success at the Markdown boundary
 
 Scenario: extraction failure is committed transactionally
   Given local extraction cannot produce Markdown
@@ -117,7 +116,6 @@ Scenario: extraction failure is committed transactionally
 - Failure sets article failed, stores ARC-coded public error, sets job failed, and inserts notification in one transaction.
 - Logs capture provider attempt, fallback reason, selected provider, ARC code, and artifact write result.
 - Tests cover local success, Jina fallback success, provider failure, Markdown write failure, notification creation, and transaction rollback behavior.
-- Task status and `PLAN.md` are updated if the task is completed.
 
 ## Validation
 
@@ -147,13 +145,9 @@ Blocks:
 
 - `SUMGEN-004`
 
-## ExecPlan
+## ExecPlan Requirement
 
-ExecPlan:
-
-```text
-null
-```
+Requires ExecPlan: false
 
 ## Open Questions
 
@@ -161,5 +155,5 @@ null
 
 ## Notes
 
-- Summary-complete processing is the final success criterion; Markdown success is only the handoff into summary generation.
+- Summary-complete processing is the final success criterion; Markdown success is only the continuation boundary into summary generation.
 - MDEXT-005 is the sole owner of structured log entries for the Markdown extraction pipeline: provider attempt, fallback reason, selected provider, ARC code on failure, `article_id`, `job_id`, canonical URL, duration (measured by orchestration around the adapter call), and artifact write result. Adapters do not log; they return result types with sufficient fields. See `.agents/skills/archivist-worker/SKILL.md` §Structured Logging.

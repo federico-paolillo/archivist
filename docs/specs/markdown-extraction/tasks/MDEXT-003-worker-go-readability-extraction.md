@@ -2,14 +2,12 @@
 id: MDEXT-003
 feature: markdown-extraction
 title: Worker Go-Readability Extraction
-status: done
-depends_on: []
+depends_on: [MDEXT-001]
 blocks: [MDEXT-005]
 parallel: true
-exec_plan: null
+requires_exec_plan: false
 canonical: true
 ---
-
 # MDEXT-003: Worker Go-Readability Extraction
 
 ## Objective
@@ -41,6 +39,7 @@ Required inputs, existing files, interfaces, or decisions:
 
 - `../SPEC.md`
 - `docs/ERRORS.md`
+- Requires `MDEXT-001`.
 - `.agents/skills/archivist-worker/SKILL.md`
 
 ## Outputs
@@ -66,6 +65,7 @@ Read before execution:
 - `docs/ERRORS.md`
 - `.agents/skills/archivist-general/SKILL.md`
 - `.agents/skills/archivist-worker/SKILL.md`
+- `./MDEXT-001-worker-markdown-extractor-contract.md`
 
 Do not load unrelated feature folders unless listed here or required by dependencies.
 
@@ -101,7 +101,6 @@ Scenario: local conversion fails
 - Local extraction output is Markdown, not raw HTML.
 - Local unreadable documents are distinguishable from unknown failures.
 - Tests cover readable, unreadable, parse failure, and conversion failure behavior.
-- Task status and `PLAN.md` are updated if the task is completed.
 
 ## Validation
 
@@ -122,17 +121,15 @@ Manual validation, if any:
 
 Depends on:
 
+- `MDEXT-001`
+
 Blocks:
 
 - `MDEXT-005`
 
-## ExecPlan
+## ExecPlan Requirement
 
-ExecPlan:
-
-```text
-null
-```
+Requires ExecPlan: false
 
 ## Open Questions
 

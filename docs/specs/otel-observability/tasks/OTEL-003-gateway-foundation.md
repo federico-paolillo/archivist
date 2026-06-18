@@ -2,15 +2,13 @@
 id: OTEL-003
 feature: otel-observability
 title: Add Gateway OTEL foundation
-status: done
-depends_on:
+depends_on: []
 blocks:
   - OTEL-004
 parallel: true
-exec_plan: null
+requires_exec_plan: false
 canonical: true
 ---
-
 # OTEL-003: Add Gateway OTEL foundation
 
 ## Objective

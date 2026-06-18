@@ -27,8 +27,15 @@ docs/specs/INDEX.md
 docs/specs/*/SPEC.md
 docs/specs/*/PLAN.md
 docs/specs/*/tasks/*.md
-docs/specs/*/plans/*.execplan.md
 ```
+
+---
+
+## Excluded Run State
+
+Canonical rebuild artifacts do not include execution/run state, task completion history, DIARY files, agent-local run/state directories, or ExecPlan files.
+
+ExecPlans are active-run planning artifacts created only when a canonical task has `requires_exec_plan: true` or when the execution coordinator needs additional implementation sequencing. They are not retained as durable rebuild history by default.
 
 ---
 
@@ -73,7 +80,6 @@ Read documents in this order:
 10. feature `SPEC.md` files in dependency order
 11. feature `PLAN.md` files in dependency order
 12. task files in executable order
-13. linked ExecPlans when present
 
 Repo-local skills under `.agents/skills/` are development guidance, not rebuild artifacts. They may help an implementation agent work idiomatically, but required rebuild behavior must be present in the canonical files above.
 
@@ -109,9 +115,21 @@ Task-level cross-feature dependencies in feature `PLAN.md` files further constra
 
 ---
 
+## Run State Initialization
+
+Before executing a rebuild run, initialize run state outside the canonical rebuild artifact set:
+
+1. read `docs/specs/INDEX.md`, each feature `PLAN.md`, and task frontmatter;
+2. build the task DAG from `depends_on` and `blocks`;
+3. initialize task run state in the external tracker;
+4. compute readiness from the external run state and satisfied dependencies;
+5. create active-run ExecPlans for tasks with `requires_exec_plan: true` before execution.
+
+---
+
 ## Task Execution Rule
 
-Agents may execute only tasks marked `ready`, unless explicitly assigned by the user.
+Agents may execute only tasks selected by explicit user assignment or by non-canonical run state initialized from the DAG.
 
 Before executing a task, read:
 
@@ -121,11 +139,7 @@ docs/specs/<feature>/PLAN.md
 docs/specs/<feature>/tasks/<task>.md
 ```
 
-If the task has an ExecPlan, also read:
-
-```text
-docs/specs/<feature>/plans/<task>.execplan.md
-```
+If the task has `requires_exec_plan: true`, create or read the active-run ExecPlan before implementation.
 
 ---
 
@@ -134,9 +148,8 @@ docs/specs/<feature>/plans/<task>.execplan.md
 If an agent cannot implement a task because required information is missing:
 
 1. add an open question to the relevant task or feature spec;
-2. mark the task `blocked` if necessary;
-3. update `PLAN.md`;
-4. do not invent durable behavior in code.
+2. record the blocker in non-canonical run state if necessary;
+3. do not invent durable behavior in code.
 
 ---
 
@@ -144,7 +157,7 @@ If an agent cannot implement a task because required information is missing:
 
 A rebuild is not complete until:
 
-1. all required feature tasks are `done`;
+1. all task acceptance criteria are satisfied;
 2. all acceptance criteria are satisfied;
 3. the validation suite passes;
 4. deployment or runtime smoke tests pass, if applicable;
@@ -187,4 +200,4 @@ A rebuild is complete when:
 - configured tests pass;
 - feature acceptance criteria are satisfied;
 - no required behavior exists only in code;
-- `docs/specs/INDEX.md` reflects final feature status.
+- feature dependencies in `docs/specs/INDEX.md` remain accurate.

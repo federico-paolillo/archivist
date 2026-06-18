@@ -1,13 +1,11 @@
 ---
 id: <TASK-ID>-PLAN
 task: ../tasks/<TASK-ID>-<task-slug>.md
-status: proposed
-canonical: true
+canonical: false
 ---
-
 # ExecPlan: <TASK-ID> <Task Title>
 
-Proposed ExecPlans are non-authoritative drafts. Set `status: accepted` before using this plan to guide a `ready` task. This plan must not add requirements beyond the linked task, feature spec, and feature plan.
+ExecPlans are active-run planning artifacts, not canonical rebuild artifacts. Create one when the linked task has `requires_exec_plan: true` or when the execution coordinator needs stepwise implementation guidance. This plan must not add requirements beyond the linked task, feature spec, and feature plan.
 
 ## Objective
 

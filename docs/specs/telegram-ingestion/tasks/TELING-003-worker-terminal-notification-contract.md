@@ -2,14 +2,12 @@
 id: TELING-003
 feature: telegram-ingestion
 title: Worker terminal notification contract
-status: done
 depends_on: [TELING-001]
-blocks: [TELING-004]
+blocks: [TELING-004, ARTPROC-005]
 parallel: true
-exec_plan: null
+requires_exec_plan: false
 canonical: true
 ---
-
 # TELING-003: Worker Terminal Notification Contract
 
 ## Objective
@@ -25,6 +23,7 @@ As the worker, I need to report terminal job outcomes through SQLite so the gate
 This task includes:
 
 - Claiming queued jobs atomically with `UPDATE ... RETURNING`.
+- Operational ownership of worker queue claim and terminal persistence through the `TELING-001` contract.
 - Detecting when a terminal job originated from Telegram.
 - Updating article status to `ready` or `failed`.
 - Updating job status to `succeeded` or `failed`.
@@ -40,7 +39,7 @@ This task includes:
 
 Required inputs, existing files, interfaces, or decisions:
 
-- Completed `TELING-001` persistence contract.
+- Requires `TELING-001` persistence contract.
 - Worker job terminal state model.
 - Text summary artifact contract from summary generation when available.
 
@@ -126,7 +125,6 @@ Scenario: Non-Telegram job reaches terminal state
 - Failure persists final error and marks article/job failure.
 - Article-processing failures preserve ARC-coded public error text for downstream Gateway notification dispatch.
 - No worker retry state or retry scheduling exists.
-- Task status and `PLAN.md` are updated if the task is completed.
 
 ## Validation
 
@@ -152,14 +150,11 @@ Depends on:
 Blocks:
 
 - `TELING-004`
+- `ARTPROC-005`
 
-## ExecPlan
+## ExecPlan Requirement
 
-ExecPlan:
-
-```text
-null
-```
+Requires ExecPlan: false
 
 ## Open Questions
 

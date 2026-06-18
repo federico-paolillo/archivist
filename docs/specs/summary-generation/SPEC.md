@@ -2,13 +2,11 @@
 id: SUMGEN
 slug: summary-generation
 title: Summary Generation
-status: done
 owner: null
 depends_on: [markdown-extraction]
 impacts: [worker, gateway, filesystem, sqlite]
 canonical: true
 ---
-
 # Feature: Summary Generation
 
 ## Intent

@@ -10,7 +10,7 @@ Review a Worker branch for correctness, idiomatic Go, provider boundary safety, 
 - `.agents/skills/archivist-general/SKILL.md`
 - `.agents/skills/archivist-reviewer/SKILL.md`
 - `.agents/skills/archivist-worker/SKILL.md`
-- Assigned task, diff, worker report, and linked ExecPlan when present
+- Assigned task, diff, worker report, and active-run ExecPlan when present
 
 ## Ownership
 

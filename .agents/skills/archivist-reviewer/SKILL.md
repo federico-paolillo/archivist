@@ -29,7 +29,7 @@ Review against the relevant implementation skill:
 - Tests cover meaningful success and failure paths for new behavior.
 - New abstractions are justified by external boundaries, meaningful tests, or real reuse.
 - The branch avoids unrelated refactors and formatting churn.
-- Task status and feature `PLAN.md` updates are present when the task claims completion. Diary or coordinator notes are optional non-canonical coordination only and must not be treated as completion gates.
+- Canonical docs are updated only when durable behavior changed. Task completion state, validation evidence, diary entries, and coordinator notes remain non-canonical coordination state and must not be treated as rebuild contracts.
 - Validation commands match the changed surface.
 
 ## Finding Format

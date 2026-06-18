@@ -2,15 +2,14 @@
 id: OTEL-002
 feature: otel-observability
 title: Add Collector and local LGTM deployment
-status: done
-depends_on:
+depends_on: []
 blocks:
   - OTEL-009
+  - OTEL-011
 parallel: true
-exec_plan: null
+requires_exec_plan: false
 canonical: true
 ---
-
 # OTEL-002: Add Collector and local LGTM deployment
 
 ## Objective

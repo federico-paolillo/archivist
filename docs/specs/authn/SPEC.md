@@ -2,13 +2,11 @@
 id: AUTHN
 slug: authn
 title: UI/API Authentication
-status: done
 owner: null
 depends_on: [telegram-ingestion]
 impacts: [gateway, ui, sqlite]
 canonical: true
 ---
-
 # Feature: UI/API Authentication
 
 ## Intent

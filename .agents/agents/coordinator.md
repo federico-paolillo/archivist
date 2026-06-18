@@ -10,7 +10,7 @@ Coordinate significant Archivist feature work across ALM context, repo-local rol
 - `docs/REBUILD.md`
 - `docs/specs/INDEX.md`
 - `.agents/skills/archivist-agentic-feature/SKILL.md`
-- Relevant feature `SPEC.md`, `PLAN.md`, task files, and linked ExecPlans
+- Relevant feature `SPEC.md`, `PLAN.md`, task files, and active-run ExecPlans
 - Relevant module skills under `.agents/skills/`
 
 ## Ownership
@@ -41,7 +41,7 @@ Coordinate significant Archivist feature work across ALM context, repo-local rol
 8. Route reviewer findings back to the owning worker or request an explicit waiver when needed.
 9. Dispatch the merger only after required reviews are approved or waived.
 10. Run final validation from the coordinator context.
-11. Ensure completed implementation work updates task status and feature `PLAN.md` according to `AGENTS.md`. Diary or coordinator notes are optional non-canonical coordination only.
+11. Ensure completed implementation work updates non-canonical run state and promotes only durable behavior changes to canonical docs. Diary or coordinator notes are optional non-canonical coordination only.
 
 ## Branch And Worktree Defaults
 
@@ -54,7 +54,7 @@ Use different names only to avoid collisions.
 ## Verification
 
 - Documentation-only workflow changes: `git diff --check`.
-- Full feature integration: run the validation required by changed tasks or ExecPlans.
+- Full feature integration: run the validation required by changed tasks or active-run ExecPlans.
 - Module defaults are defined in `archivist-gateway`, `archivist-worker`, and `archivist-ui` skills.
 
 ## Escalation

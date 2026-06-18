@@ -2,17 +2,15 @@
 id: SNAP-005
 feature: snapshotter
 title: Implement interval daemon behavior
-status: done
 depends_on:
   - SNAP-003
   - SNAP-004
 blocks:
   - SNAP-006
 parallel: false
-exec_plan: null
+requires_exec_plan: false
 canonical: true
 ---
-
 # SNAP-005: Implement Interval Daemon Behavior
 
 ## Objective
@@ -32,14 +30,15 @@ Scenario: Daemon sleeps first and continues after failure
 ## Done When
 
 - Tests cover interval validation and failure continuation with injectable sleep/snapshot/upload functions.
-- Executable entrypoint runs through the service composition boundary.
+- Validation reaches the real `archivist-snapshotter` executable entrypoint through a controlled subprocess or integration test path. A `--help` invocation alone is not sufficient executable-boundary validation.
 
 ## Validation
 
 ```bash
 cd src/snapshotter && uv run pytest
-cd src/snapshotter && uv run archivist-snapshotter --help
 ```
+
+The pytest suite must include a bounded subprocess or integration test that invokes the real `archivist-snapshotter` entrypoint with controlled configuration and prevents unbounded daemon execution through test-controlled sleep, snapshot, or upload boundaries.
 
 ## Required Context
 

@@ -2,14 +2,12 @@
 id: UIEND-002
 feature: ui-endpoints
 title: Gateway article read API
-status: done
 depends_on: [AUTHN-004, TELING-001, SUMGEN-005]
 blocks: [UIEND-003, UI-003]
 parallel: false
-exec_plan: null
+requires_exec_plan: false
 canonical: true
 ---
-
 # UIEND-002: Gateway Article Read API
 
 ## Objective
@@ -27,7 +25,7 @@ This task includes:
 - Lower-camel JSON DTOs for list and detail responses.
 - Authenticated session user scoping.
 - Read-only artifact reads for `summary.md` and `content.md`.
-- Server-computed `canForceDelete` article detail metadata.
+- Server-computed `canForceDelete` article detail metadata through the shared Gateway force-delete eligibility service or predicate also used by `UIEND-003`.
 - Gateway integration tests for auth, pagination, detail, and artifact behavior.
 
 
@@ -72,6 +70,11 @@ Scenario: Article detail reports force-delete metadata
   When the browser requests GET /articles/{id}
   Then the response contains canForceDelete true
 
+Scenario: Article detail uses the shared force-delete rule
+  Given Gateway evaluates article job state for canForceDelete
+  When the detail response is produced
+  Then it uses the same application service or predicate as force-delete enforcement
+
 Scenario: Article detail enforces ownership
   Given user "U1" owns an article
   And user "U2" is authenticated
@@ -83,8 +86,8 @@ Scenario: Article detail enforces ownership
 
 - `GET /articles` and `GET /articles/{id}` are implemented.
 - Detail responses include `canForceDelete`.
-- Tests cover unauthenticated access, ownership scoping, pagination, invalid cursors, missing article, malformed IDs, ULID normalization, ready article artifacts, queued/failed nullable artifacts, and force-delete eligibility metadata.
-- Validation passes or failures are recorded.
+- Tests cover unauthenticated access, ownership scoping, pagination, invalid cursors, missing article, malformed IDs, ULID normalization, ready article artifacts, queued/failed nullable artifacts, force-delete eligibility metadata, and shared predicate/service coverage proving detail `canForceDelete` uses the same rules as force-delete enforcement.
+- Required validation passes.
 
 ## Validation
 
@@ -108,13 +111,9 @@ Blocks:
 - `UIEND-003`
 - `UI-003`
 
-## ExecPlan
+## ExecPlan Requirement
 
-ExecPlan:
-
-```text
-null
-```
+Requires ExecPlan: false
 
 ## Open Questions
 

@@ -2,14 +2,12 @@
 id: SUMGEN-002
 feature: summary-generation
 title: Worker Summary Artifact Access
-status: done
 depends_on: [MDEXT-002]
 blocks: [SUMGEN-004]
 parallel: true
-exec_plan: null
+requires_exec_plan: false
 canonical: true
 ---
-
 # SUMGEN-002: Worker Summary Artifact Access
 
 ## Objective
@@ -37,7 +35,7 @@ This task includes:
 
 Required inputs, existing files, interfaces, or decisions:
 
-- Completed `MDEXT-002`.
+- Requires `MDEXT-002`.
 - `docs/ARTIFACTS.md`
 - `docs/ERRORS.md`
 - `.agents/skills/archivist-worker/SKILL.md`
@@ -99,7 +97,6 @@ Scenario: Artifact access rejects traversal
 - Artifact paths match `docs/ARTIFACTS.md`.
 - No placeholder `summary.json` artifact is created.
 - Tests cover deterministic path, atomic write, failed-write cleanup, missing input, and traversal rejection.
-- Task status and `PLAN.md` are updated if the task is completed.
 
 ## Validation
 
@@ -116,12 +113,6 @@ Manual validation, if any:
 
 - Inspect a test artifact directory to confirm only expected artifacts are written.
 
-Validation completed on 2026-05-20:
-
-- `cd src/worker && go tool lefthook run build` — passed.
-- `cd src/worker && go tool lefthook run format` — passed.
-- `cd src/worker && go tool lefthook run lint` — passed.
-- `cd src/worker && go tool lefthook run test` — passed.
 
 ## Dependencies
 
@@ -132,13 +123,9 @@ Blocks:
 
 - `SUMGEN-004`
 
-## ExecPlan
+## ExecPlan Requirement
 
-ExecPlan:
-
-```text
-null
-```
+Requires ExecPlan: false
 
 ## Open Questions
 

@@ -1,14 +1,12 @@
 ---
 feature: article-processing
-status: done
 canonical: true
 ---
-
 # Feature Plan: URL-To-Article Processing Pipeline
 
 ## Purpose
 
-This file is the feature-level implementation control board for article processing. It defines task order, dependencies, concurrency rules, validation sequence, and execution status.
+This file is the feature-level implementation control board for article processing. It defines task order, dependencies, concurrency rules, validation sequence, and validation requirements.
 
 ---
 
@@ -17,6 +15,7 @@ This file is the feature-level implementation control board for article processi
 ```text
 ARTPROC-002 -> ARTPROC-004
 ARTPROC-003 -> ARTPROC-004
+ARTPROC-003 -> MDEXT-002
 ARTPROC-004 -> ARTPROC-005
 ARTPROC-005 -> MDEXT-005
 ```
@@ -38,23 +37,23 @@ TELING-003 -> ARTPROC-005
 
 ### Phase 2: Worker Foundations
 
-- `ARTPROC-003` builds the reusable Worker filesystem artifact access layer.
+- `ARTPROC-003` builds the reusable Worker filesystem artifact access layer and blocks downstream Markdown artifact access.
 - `ARTPROC-004` implements URL resolution, HTML fetching, Worker SSRF policy, direct guarded dialing, conservative limits, and ARC failure mapping.
 
 ### Phase 3: Processing Pipeline
 
-- `ARTPROC-005` exposes `archivist-worker process`, claims queued jobs, writes `snapshot.html`, hands successful jobs to Markdown extraction, and leaves terminal success to summary-complete processing.
+- `ARTPROC-005` exposes `archivist-worker process`, claims queued jobs, resolves and fetches HTML, writes `snapshot.html`, records terminal failure when snapshotting cannot continue, and reaches the downstream Markdown continuation boundary.
 
 ---
 
 ## Tasks
 
-| ID | Task | Status | Depends On | Blocks | Parallel | ExecPlan |
-|---|---|---|---|---|---|---|
-| `ARTPROC-002` | Define shared ARC error-code convention | done | - | `ARTPROC-004` | yes | - |
-| `ARTPROC-003` | Worker filesystem artifact access layer | done | - | `ARTPROC-004` | yes | - |
-| `ARTPROC-004` | Worker URL resolver and HTML fetcher | done | `ARTPROC-002`, `ARTPROC-003` | `ARTPROC-005` | no | - |
-| `ARTPROC-005` | Worker executable processing pipeline orchestration | done | `ARTPROC-004`, `TELING-001`, `TELING-003` | `MDEXT-005` | no | null |
+| ID | Task | Depends On | Blocks | Parallel | Requires ExecPlan |
+|---|---|---|---|---|---|
+| `ARTPROC-002` | Define shared ARC error-code convention | - | `ARTPROC-004` | yes | no |
+| `ARTPROC-003` | Worker filesystem artifact access layer | - | `ARTPROC-004`, `MDEXT-002` | yes | no |
+| `ARTPROC-004` | Worker URL resolver and HTML fetcher | `ARTPROC-002`, `ARTPROC-003` | `ARTPROC-005` | no | no |
+| `ARTPROC-005` | Worker executable processing pipeline orchestration | `ARTPROC-004`, `TELING-001`, `TELING-003` | `MDEXT-005`, `UIEND-003` | no | no |
 
 ---
 
@@ -73,7 +72,7 @@ TELING-003 -> ARTPROC-005
 - ARC error-code catalog in `docs/ERRORS.md`.
 - Worker HTTP fetch and SSRF policy using `github.com/imroc/req/v3` and `src/worker/internal/ssrf`.
 - Worker executable command surface: `archivist-worker process`.
-- Snapshot success hands off to Markdown extraction; summary-complete notification is owned by `summary-generation`.
+- Snapshot success reaches the downstream Markdown continuation boundary; summary-complete notification is owned by `summary-generation`.
 
 ---
 
@@ -110,8 +109,7 @@ cd src/gateway && dotnet test
 
 The feature is complete when:
 
-- all required tasks are `done`;
+- all task acceptance criteria are satisfied;
 - acceptance criteria in `SPEC.md` are satisfied;
 - validation sequence passes;
 - durable implementation decisions have been promoted to canonical documents;
-- `docs/specs/INDEX.md` reflects the final feature status.

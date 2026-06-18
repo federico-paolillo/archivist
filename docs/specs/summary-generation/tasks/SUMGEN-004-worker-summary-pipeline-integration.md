@@ -2,14 +2,12 @@
 id: SUMGEN-004
 feature: summary-generation
 title: Worker Summary Pipeline Integration
-status: done
 depends_on: [MDEXT-005, SUMGEN-002, SUMGEN-003]
 blocks: [SUMGEN-005]
 parallel: false
-exec_plan: null
+requires_exec_plan: false
 canonical: true
 ---
-
 # SUMGEN-004: Worker Summary Pipeline Integration
 
 ## Objective
@@ -37,9 +35,9 @@ This task includes:
 
 Required inputs, existing files, interfaces, or decisions:
 
-- Completed `SUMGEN-002`.
-- Completed `SUMGEN-003`.
-- Completed `MDEXT-005`.
+- Requires `SUMGEN-002`.
+- Requires `SUMGEN-003`.
+- Requires `MDEXT-005`.
 
 ## Outputs
 
@@ -110,11 +108,10 @@ Scenario: summarizer failure is committed transactionally
 ## Done When
 
 - Worker pipeline marks success only after `summary.md` is promoted.
-- Snapshot and Markdown stages are intermediate in the completed pipeline.
+- Snapshot and Markdown stages are intermediate in the full pipeline.
 - Failure sets article failed, stores ARC-coded public error, sets job failed, and inserts notification in one transaction.
 - Logs capture summarizer provider, model, request ID when available, ARC code, and artifact write result.
 - Tests cover summary success, provider failure, context/request-too-large failure, billing failure, summary write failure, notification creation, and transaction rollback behavior.
-- Task status and `PLAN.md` are updated if the task is completed.
 
 ## Validation
 
@@ -131,14 +128,6 @@ Manual validation, if any:
 
 - Inspect SQLite state and artifact directory for one successful local fixture job.
 
-Validation performed on 2026-05-23:
-
-- `cd src/worker && go test ./...` — passed.
-- `cd src/worker && go tool lefthook run build` — passed.
-- `cd src/worker && go tool lefthook run format` — passed.
-- `cd src/worker && go tool lefthook run lint` — passed.
-- `cd src/worker && go tool lefthook run test` — passed.
-- SQLite terminal state and `summary.md` artifact outcomes were validated by Worker pipeline and executable-surface tests.
 
 ## Dependencies
 
@@ -152,13 +141,9 @@ Blocks:
 
 - `SUMGEN-005`
 
-## ExecPlan
+## ExecPlan Requirement
 
-ExecPlan:
-
-```text
-null
-```
+Requires ExecPlan: false
 
 ## Open Questions
 
@@ -167,5 +152,4 @@ null
 ## Notes
 
 - Do not call Telegram APIs from the Worker.
-- Status is `done`; implementation, review fixes, and required Worker validation are complete.
 - SUMGEN-004 is the sole owner of structured log entries for the summarization pipeline: provider, model, provider request id, ARC code on failure, `article_id`, `job_id`, canonical URL, duration (measured by orchestration around the adapter call), and artifact write result. Adapters do not log. See `.agents/skills/archivist-worker/SKILL.md` §Structured Logging.

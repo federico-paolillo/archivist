@@ -2,14 +2,12 @@
 id: ARTPROC-004
 feature: article-processing
 title: Worker URL Resolver And HTML Fetcher
-status: done
 depends_on: [ARTPROC-002, ARTPROC-003]
 blocks: [ARTPROC-005]
 parallel: false
-exec_plan: null
+requires_exec_plan: false
 canonical: true
 ---
-
 # ARTPROC-004: Worker URL Resolver And HTML Fetcher
 
 ## Objective
@@ -44,8 +42,8 @@ This task includes:
 Required inputs, existing files, interfaces, or decisions:
 
 - `../SPEC.md`
-- Completed `ARTPROC-002`
-- Completed `ARTPROC-003`
+- Requires `ARTPROC-002`
+- Requires `ARTPROC-003`
 - `docs/ERRORS.md`
 - `.agents/skills/archivist-worker/SKILL.md`
 
@@ -147,7 +145,6 @@ Scenario: Response exceeds size limit
 - Worker article fetching rejects suspicious URL targets, validates DNS and direct dial targets, and ignores ambient proxy environment variables.
 - Failure classes map to ARC-coded public errors.
 - Tests cover allowed redirects, rejected second redirects, blocked redirect targets, SSRF policy blocks, DNS failures, 401/403, 404, non-specialized HTTP failures such as 410, timeout/5xx, non-HTML, and max body size.
-- Task status and `PLAN.md` are updated if the task is completed.
 
 ## Validation
 
@@ -175,13 +172,9 @@ Blocks:
 
 - `ARTPROC-005`
 
-## ExecPlan
+## ExecPlan Requirement
 
-ExecPlan:
-
-```text
-null
-```
+Requires ExecPlan: false
 
 ## Open Questions
 

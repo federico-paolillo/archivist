@@ -2,21 +2,22 @@
 id: SNAP-007
 feature: snapshotter
 title: Add Python validation to lefthook and CI
-status: done
 depends_on:
   - SNAP-002
+  - SNAP-006
 blocks:
   - SNAP-008
-parallel: true
-exec_plan: null
+parallel: false
+requires_exec_plan: false
 canonical: true
 ---
-
 # SNAP-007: Add Python Validation To Lefthook And CI
 
 ## Objective
 
 Extend local lefthook and GitHub Actions CI so Snapshotter format, lint, type check, tests, and Docker build validation are required.
+
+Docker build validation is sequenced after `SNAP-006`; this task must not wire CI to build `snapshotter.Dockerfile` before the Dockerfile and Compose integration exist.
 
 ## Acceptance Criteria
 

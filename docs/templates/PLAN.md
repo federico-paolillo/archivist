@@ -1,14 +1,12 @@
 ---
 feature: <feature-slug>
-status: draft
 canonical: true
 ---
-
 # Feature Plan: <Feature Title>
 
 ## Purpose
 
-This file is the feature-level implementation control board. It defines task order, dependencies, concurrency rules, validation sequence, and execution status.
+This file is the feature-level rebuild contract for task order, dependencies, concurrency rules, validation sequence, and validation requirements.
 
 ---
 
@@ -41,11 +39,11 @@ This file is the feature-level implementation control board. It defines task ord
 
 ## Tasks
 
-| ID | Task | Status | Depends On | Blocks | Parallel | ExecPlan |
-|---|---|---|---|---|---|---|
-| `<TASK-001>` | TODO | draft | - | - | yes | - |
-| `<TASK-002>` | TODO | draft | - | - | yes | - |
-| `<TASK-003>` | TODO | blocked | `<TASK-001>`, `<TASK-002>` | - | no | `plans/<TASK-003>.execplan.md` |
+| ID | Task | Depends On | Blocks | Parallel | Requires ExecPlan |
+|---|---|---|---|---|---|
+| `<TASK-001>` | TODO | - | - | yes | no |
+| `<TASK-002>` | TODO | - | - | yes | no |
+| `<TASK-003>` | TODO | `<TASK-001>`, `<TASK-002>` | - | no | yes |
 
 ---
 
@@ -89,8 +87,7 @@ Validation commands:
 
 The feature is complete when:
 
-- all required tasks are `done`;
+- all task acceptance criteria are satisfied;
 - acceptance criteria in `SPEC.md` are satisfied;
 - validation sequence passes;
 - durable implementation decisions have been promoted to canonical documents;
-- `docs/specs/INDEX.md` reflects the final feature status.

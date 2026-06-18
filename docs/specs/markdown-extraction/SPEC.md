@@ -2,13 +2,11 @@
 id: MDEXT
 slug: markdown-extraction
 title: Markdown Extraction With Fallbacks
-status: done
 owner: null
 depends_on: [article-processing]
 impacts: [worker, gateway, filesystem, sqlite]
 canonical: true
 ---
-
 # Feature: Markdown Extraction With Fallbacks
 
 ## Intent
@@ -30,9 +28,9 @@ In scope:
 - Jina Reader fallback only when local extraction cannot produce Markdown.
 - Preference for an official Jina Reader Go SDK if one exists at implementation time.
 - Small internal Jina Reader adapter only when no suitable official Reader SDK exists.
-- A Worker-owned `MarkdownExtractor` abstraction for local and external extraction providers.
+- A Worker-owned `MarkdownExtractor` abstraction and result taxonomy for local and external extraction providers.
 - Atomic Markdown artifact writes to `{DATA_DIR}/articles/{article_id}/content.md`.
-- Markdown handoff to summary generation without article/job success or success notification creation.
+- Markdown continuation boundary for summary generation without article/job success or success notification creation.
 - Worker terminal failure when both local extraction and Jina fallback fail.
 - ARC-coded public errors for local extraction, Jina fallback, Jina insufficient balance, and Markdown writes.
 - Structured Worker logs for critical extraction decisions and provider fallback.
@@ -67,7 +65,7 @@ In scope:
 - REQ-012D: The Worker must persist Markdown to `{DATA_DIR}/articles/{article_id}/content.md`.
 - REQ-012E: When Markdown extraction discovers a non-empty article title, the Worker must best-effort persist it to `articles.title`. The title must prefer extractor metadata, fall back to the first Markdown H1, trim surrounding whitespace, and leave `articles.title` null when neither source is available. Title persistence failure must be logged and must not fail an otherwise successful archive.
 - REQ-013: Markdown writes must be atomic: write a temporary file, then rename into place.
-- REQ-014: Markdown success must continue to summary generation and must not set `articles.status = ready`, set `jobs.status = succeeded`, or insert a success notification at the Markdown boundary.
+- REQ-014: Markdown success must reach the summary-continuation boundary and must not set `articles.status = ready`, set `jobs.status = succeeded`, or insert a success notification at the Markdown boundary.
 - REQ-015: Markdown failure must set `articles.status = failed`, set `articles.error_message` to an ARC-coded public error, set `jobs.status = failed`, persist job error context, set terminal timestamps/TTL, and insert exactly one pending notification in one SQLite transaction.
 - REQ-016: Persisted public article errors must use codes defined in `docs/ERRORS.md`.
 - REQ-017: The Worker must log provider attempts, fallback reason, selected provider, ARC code on failure, `article_id`, `job_id`, canonical URL, duration, and artifact write result when available.
@@ -85,7 +83,7 @@ Scenario: go-readability extracts Markdown successfully
   And go-readability v2 CheckDocument returns true
   When the Worker extracts Markdown
   Then the Worker stores content.md under DATA_DIR/articles/{article_id}/
-  And summary generation is invoked
+  And the summary-continuation boundary is reached
   And articles.status is not set to "ready" at the Markdown boundary
   And jobs.status is not set to "succeeded" at the Markdown boundary
   And no success notification is inserted at the Markdown boundary
@@ -97,7 +95,7 @@ Scenario: go-readability rejects the document and Jina succeeds
   When the Worker extracts Markdown
   Then the Worker logs that it switched from go-readability to Jina
   And the Worker stores content.md under DATA_DIR/articles/{article_id}/
-  And the job continues to summary generation
+  And the job reaches the summary-continuation boundary
 
 Scenario: go-readability fails and Jina succeeds
   Given a queued article-processing job has a stored snapshot.html
@@ -106,7 +104,7 @@ Scenario: go-readability fails and Jina succeeds
   When the Worker extracts Markdown
   Then the Worker logs the local failure and fallback provider
   And the Worker stores content.md under DATA_DIR/articles/{article_id}/
-  And the job continues to summary generation
+  And the job reaches the summary-continuation boundary
 
 Scenario: both local extraction and Jina fail
   Given a queued article-processing job has a stored snapshot.html
@@ -135,10 +133,10 @@ Scenario: Markdown artifact write fails
   And jobs.status is "failed"
   And no partial content.md is promoted
 
-Scenario: Markdown boundary continues the current pipeline
-  Given summary generation is part of the current pipeline
+Scenario: Markdown boundary reaches summary continuation
+  Given summary generation is the downstream pipeline stage
   When the Worker stores content.md successfully
-  Then the job continues to downstream summary generation
+  Then the job reaches the summary-continuation boundary
   And Gateway success notification content is not selected from Markdown completion
 ```
 
@@ -150,7 +148,7 @@ Successful Markdown extraction in the current pipeline has these effects:
 
 - filesystem: atomically written `{DATA_DIR}/articles/{article_id}/content.md`.
 - `articles.title`: best-effort title from extractor metadata or the first Markdown H1 when available.
-- downstream pipeline: the job remains non-terminal and proceeds to summary generation.
+- downstream pipeline: the job remains non-terminal and reaches the summary-continuation boundary.
 
 Successful Markdown extraction must not set `articles.status = ready`, set `jobs.status = succeeded`, set terminal timestamps/TTL, or insert a success notification row.
 
@@ -175,7 +173,7 @@ No artifact paths, provider telemetry columns, failure-code columns, score colum
 - Local Markdown conversion library: `github.com/JohannesKaufmann/html-to-markdown/v2`.
 - Jina fallback: Reader API through an official Reader Go SDK if available, otherwise a small internal adapter.
 - Worker extractor contract: `MarkdownExtractor` implementations return success, local unreadable, or ARC-coded failure without exposing provider SDK types to orchestration.
-- Worker stage contract: write `content.md` and hand off to summary generation.
+- Worker stage contract: write `content.md` and expose the summary-continuation boundary.
 - Worker terminal failure contract: article update, job update, and notification insert in one transaction.
 - Gateway notification dispatcher: sends failure replies from job error text; final success replies are summary-based and owned by `summary-generation`.
 
@@ -230,6 +228,7 @@ Impacts:
 ## Related Documents
 
 - `./PLAN.md`
+- `./tasks/MDEXT-001-worker-markdown-extractor-contract.md`
 - `./tasks/MDEXT-002-worker-markdown-artifact-access.md`
 - `./tasks/MDEXT-003-worker-go-readability-extraction.md`
 - `./tasks/MDEXT-004-worker-jina-reader-fallback.md`

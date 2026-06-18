@@ -2,14 +2,12 @@
 id: AUTHN-003
 feature: authn
 title: Gateway opaque session cookie authentication
-status: done
 depends_on: [AUTHN-002]
 blocks: [AUTHN-004]
 parallel: false
-exec_plan: null
+requires_exec_plan: false
 canonical: true
 ---
-
 # AUTHN-003: Gateway Opaque Session Cookie Authentication
 
 ## Objective
@@ -125,10 +123,6 @@ Blocks:
 
 - `AUTHN-004`
 
-## ExecPlan
+## ExecPlan Requirement
 
-ExecPlan:
-
-```text
-null
-```
+Requires ExecPlan: false

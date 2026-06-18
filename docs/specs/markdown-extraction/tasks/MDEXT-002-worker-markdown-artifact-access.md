@@ -2,14 +2,12 @@
 id: MDEXT-002
 feature: markdown-extraction
 title: Worker Markdown Artifact Access
-status: done
 depends_on: [ARTPROC-003]
-blocks: [MDEXT-005]
+blocks: [MDEXT-005, SUMGEN-002]
 parallel: true
-exec_plan: null
+requires_exec_plan: false
 canonical: true
 ---
-
 # MDEXT-002: Worker Markdown Artifact Access
 
 ## Objective
@@ -35,7 +33,7 @@ This task includes:
 
 Required inputs, existing files, interfaces, or decisions:
 
-- Completed `ARTPROC-003`.
+- Requires `ARTPROC-003`.
 - `docs/ARTIFACTS.md`
 - `.agents/skills/archivist-worker/SKILL.md`
 
@@ -87,7 +85,6 @@ Scenario: Artifact access rejects traversal
 - Artifact paths match `docs/ARTIFACTS.md`.
 - Tests cover deterministic path, atomic write, failed-write cleanup, and traversal rejection.
 - No placeholder artifacts are created for unimplemented pipeline stages.
-- Task status and `PLAN.md` are updated if the task is completed.
 
 ## Validation
 
@@ -112,14 +109,11 @@ Depends on:
 Blocks:
 
 - `MDEXT-005`
+- `SUMGEN-002`
 
-## ExecPlan
+## ExecPlan Requirement
 
-ExecPlan:
-
-```text
-null
-```
+Requires ExecPlan: false
 
 ## Open Questions
 

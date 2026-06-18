@@ -54,7 +54,7 @@ Then classify the planning request by affected feature, module or modules, and d
 
 Load additional context by trigger:
 
-- `docs/BOOKKEEPING.md`: creating or updating ALM artifacts, task dependencies, task status, or ExecPlans.
+- `docs/BOOKKEEPING.md`: creating or updating ALM artifacts, task dependencies, or ExecPlan requirements.
 - `docs/ARCHITECTURE.md`: planning executables, service boundaries, storage, runtime topology, integrations, authentication boundaries, or deployment assumptions.
 - `docs/DESIGN.md`: planning durable cross-task decisions, decision changes, or rebuild-relevant rationale.
 - `docs/ERRORS.md`: planning persisted public ARC error-code changes.
@@ -122,7 +122,7 @@ admin-ui
 
 If the feature already exists, reuse its folder.
 
-When creating a new feature folder, create `SPEC.md`, `PLAN.md`, `tasks/`, and `plans/`. Diary or coordinator notes are optional non-canonical coordination artifacts only; they are never rebuild requirements or completion gates.
+When creating a new feature folder, create `SPEC.md`, `PLAN.md`, and `tasks/`. Diary or coordinator notes are optional non-canonical coordination artifacts only; they are never rebuild requirements or completion gates.
 
 ### 2. Classify Scope
 
@@ -169,7 +169,7 @@ Promote these to canonical docs when needed:
 - persisted public ARC error changes → `docs/ERRORS.md`
 - artifact path/access/write/delete contracts → `docs/ARTIFACTS.md`
 - feature-specific behavior → the relevant feature `SPEC.md`, `PLAN.md`, or task
-- implementation sequencing for complex tasks → an accepted linked ExecPlan
+- implementation sequencing for complex tasks → an active-run ExecPlan
 
 Development practice belongs in `.agents/skills`; rebuild-critical contracts belong in canonical docs. Do not bury standards or contracts inside tasks when they affect multiple tasks.
 
@@ -211,7 +211,6 @@ Classify tasks as:
 
 - independent;
 - blocking;
-- blocked;
 - parallel-safe;
 - requires sequencing.
 
@@ -223,7 +222,6 @@ The plan must include:
 
 - task DAG;
 - task table;
-- statuses;
 - dependencies;
 - concurrency rules;
 - execution phases;
@@ -245,7 +243,7 @@ Do not create ExecPlans for simple isolated tasks.
 
 ### 10. Update Index
 
-Update `docs/specs/INDEX.md` when a feature is created, renamed, changes status, or changes dependencies.
+Update `docs/specs/INDEX.md` when a feature is created, renamed, or changes dependencies.
 
 ---
 
@@ -293,9 +291,9 @@ Use checklist criteria for non-behavioral tasks:
 
 ## ExecPlan Output Rules
 
-Use `docs/templates/EXECPLAN.md` as the base. Proposed ExecPlans are non-authoritative drafts. An ExecPlan must not contradict the task or add requirements beyond the current spec, plan, and task. If a contradiction or missing requirement is found, update the spec, plan, or task first.
+Use `docs/templates/EXECPLAN.md` as the base for active-run implementation plans. An ExecPlan must not contradict the task or add requirements beyond the current spec, plan, and task. If a contradiction or missing requirement is found, update the spec, plan, or task first.
 
-See `AGENTS.md` § ExecPlan Rules and `docs/BOOKKEEPING.md` § Linking ExecPlans to Tasks for the structure and frontmatter format.
+See `AGENTS.md` § ExecPlan Rules and `docs/BOOKKEEPING.md` § ExecPlan Requirements for the structure and frontmatter format.
 
 ---
 
@@ -334,7 +332,7 @@ Do not:
 - skip `SPEC.md` and go directly to tasks;
 - put global architecture decisions only in task files;
 - create tasks without stable IDs;
-- create unlinked ExecPlans;
+- create ExecPlans that are not tied to an active run and a canonical task;
 - use diary or coordinator notes as a source of requirements;
 - infer cross-feature dependencies without documenting them;
 - generate many tiny tasks with no independent validation boundary;

@@ -2,19 +2,17 @@
 id: TELING-004
 feature: telegram-ingestion
 title: Telegram notification dispatcher
-status: done
 depends_on: [TELING-002, TELING-003]
-blocks: []
+blocks: [SUMGEN-005]
 parallel: false
-exec_plan: null
+requires_exec_plan: false
 canonical: true
 ---
-
 # TELING-004: Telegram Notification Dispatcher
 
 ## Objective
 
-Implement the gateway-owned terminal notification dispatcher that polls pending notification rows, derives reply data from jobs/articles, and sends success or failure Telegram replies to the original message.
+Implement the gateway-owned terminal notification dispatcher that polls pending notification rows, derives reply targets from jobs/articles, sends terminal Telegram replies to the original message, and owns failure reply dispatch.
 
 ## Story / Context
 
@@ -24,12 +22,11 @@ As the authorized Telegram user, I want Archivist to reply to my original URL me
 
 This task includes:
 
-- Gateway background dispatcher for pending terminal notification rows.
+- Gateway background dispatcher infrastructure for pending terminal notification rows.
 - Telegram send-message integration for terminal replies.
 - Reply targeting using `jobs.telegram_chat_id` and `jobs.telegram_message_id`.
-- Dispatcher infrastructure for terminal notifications.
-- Summary-based success notification content is owned by `SUMGEN-005`.
-- Failure reply content loaded from `jobs.error_message`.
+- Failure reply body construction from `jobs.error_message`.
+- Success reply body construction and summary artifact reads are owned by `SUMGEN-005`.
 - ARC-coded article-processing failure replies preserve `jobs.error_message` unchanged except for deterministic Telegram length truncation.
 - Deterministic Telegram message length truncation.
 - Delivery failure handling that marks the notification `failed` without retrying.
@@ -41,8 +38,8 @@ This task includes:
 
 Required inputs, existing files, interfaces, or decisions:
 
-- Completed `TELING-002` webhook ingestion.
-- Completed `TELING-003` worker terminal notification contract.
+- Requires `TELING-002` webhook ingestion.
+- Requires `TELING-003` worker terminal notification contract.
 - Notification schema from `TELING-001`.
 
 ## Outputs
@@ -81,11 +78,11 @@ Do not load unrelated feature folders unless required by discovered dependencies
 ## Acceptance Criteria
 
 ```gherkin
-Scenario: Dispatcher sends success reply
+Scenario: Dispatcher supports delegated success replies
   Given a pending notification exists for a succeeded job
-  When summary-based success content is available
+  When `SUMGEN-005` provides summary-based success content
   Then the reply target is read from the job Telegram metadata
-  And success reply body construction uses the summary-generation contract
+  And the dispatcher sends the provided success reply body to that target
   And the notification is not sent with snapshot or Markdown completion text
 
 Scenario: Dispatcher sends failure reply
@@ -119,13 +116,12 @@ Scenario: Expired sent or failed notifications are cleaned up
 ## Done When
 
 - Dispatcher sends terminal replies from pending notification rows.
-- Dispatcher uses summary-based succeeded-job content from `SUMGEN-005`.
+- Dispatcher exposes the target delivery path used by summary-based succeeded-job content from `SUMGEN-005`.
 - Dispatcher preserves ARC-coded article-processing failure text from `jobs.error_message`, subject only to deterministic Telegram length truncation.
 - Dispatcher never changes terminal article/job state as a side effect of Telegram delivery failure.
 - Telegram delivery failure marks the notification failed without retrying.
 - Sent or failed notifications expire after 7 days and are cleaned up by the gateway.
 - Long failure messages are truncated deterministically to Telegram limits.
-- Task status and `PLAN.md` are updated if the task is completed.
 
 ## Validation
 
@@ -150,15 +146,11 @@ Depends on:
 
 Blocks:
 
-- None.
+- `SUMGEN-005`
 
-## ExecPlan
+## ExecPlan Requirement
 
-ExecPlan:
-
-```text
-null
-```
+Requires ExecPlan: false
 
 ## Open Questions
 

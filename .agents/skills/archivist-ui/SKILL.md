@@ -23,7 +23,7 @@ Load canonical docs by task trigger:
 - `docs/DESIGN.md`: accepted durable UI/design decisions.
 - `docs/ARTIFACTS.md`: artifact display assumptions.
 - `docs/ERRORS.md`: ARC public error display.
-- Relevant feature `SPEC.md`, `PLAN.md`, task files, and linked ExecPlans before implementation.
+- Relevant feature `SPEC.md`, `PLAN.md`, task files, and active-run ExecPlans before implementation.
 
 ## Stack
 

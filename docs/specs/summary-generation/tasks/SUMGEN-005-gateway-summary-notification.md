@@ -2,19 +2,17 @@
 id: SUMGEN-005
 feature: summary-generation
 title: Gateway Summary Notification
-status: done
 depends_on: [SUMGEN-004, TELING-004]
-blocks: []
+blocks: [UIEND-002]
 parallel: false
-exec_plan: null
+requires_exec_plan: false
 canonical: true
 ---
-
 # SUMGEN-005: Gateway Summary Notification
 
 ## Objective
 
-Update Gateway terminal notification dispatch so succeeded summary-complete jobs reply with the persisted summary through read-only artifact access.
+Implement Gateway summary-success notification body construction and summary artifact reads so succeeded summary-complete jobs reply with the persisted summary through the dispatcher infrastructure from `TELING-004`.
 
 ## Story / Context
 
@@ -27,7 +25,8 @@ This task includes:
 - Gateway read-only article artifact abstraction scoped to `DATA_DIR`.
 - Reading `{DATA_DIR}/articles/{article_id}/summary.md` for succeeded jobs.
 - Telegram success reply text starting with `Archived. Summary is:`.
-- Deterministic truncation to Telegram message length limits.
+- Supplying summary-success reply bodies to the dispatcher target-delivery path from `TELING-004`.
+- Deterministic truncation to Telegram message length limits through the `TELING-004` dispatcher contract.
 - Failure behavior when `summary.md` is missing or unreadable.
 - Tests proving Gateway artifact access cannot write, create, rename, or delete files.
 - Tests covering summary-complete success notification and ARC-coded failure notification preservation.
@@ -37,8 +36,8 @@ This task includes:
 
 Required inputs, existing files, interfaces, or decisions:
 
-- Completed `SUMGEN-004`.
-- Completed `TELING-004`.
+- Requires `SUMGEN-004`.
+- Requires `TELING-004`.
 - `.agents/skills/archivist-gateway/SKILL.md`
 - `docs/ARTIFACTS.md`
 
@@ -47,7 +46,7 @@ Required inputs, existing files, interfaces, or decisions:
 Expected outputs, files, behavior, or interfaces:
 
 - Gateway read-only artifact access.
-- Gateway dispatcher success branch for summary-complete jobs.
+- Gateway summary-success body construction for summary-complete jobs.
 - Gateway tests for summary success, missing summary artifact handling, truncation, and ARC-coded failure notification behavior.
 
 ## Expected Affected Areas
@@ -105,7 +104,6 @@ Scenario: Summary artifact is missing
 - Gateway artifact abstraction is read-only.
 - Missing or unreadable `summary.md` fails notification delivery without mutating article/job state.
 - Tests cover summary success, read-only access, missing summary artifact, deterministic truncation, and ARC-coded failure preservation.
-- Task status and `PLAN.md` are updated if the task is completed.
 
 ## Validation
 
@@ -117,11 +115,6 @@ cd src/gateway && dotnet build
 cd src/gateway && dotnet test
 ```
 
-Validation performed on 2026-05-28:
-
-- `cd src/gateway && dotnet format` — passed.
-- `cd src/gateway && dotnet build` — passed.
-- `cd src/gateway && dotnet test` — passed.
 
 Manual validation, if any:
 
@@ -136,15 +129,11 @@ Depends on:
 
 Blocks:
 
-- None.
+- `UIEND-002`
 
-## ExecPlan
+## ExecPlan Requirement
 
-ExecPlan:
-
-```text
-null
-```
+Requires ExecPlan: false
 
 ## Open Questions
 
@@ -153,4 +142,5 @@ null
 ## Notes
 
 - Gateway must not write article artifacts.
-- Status is `done`; Gateway success notifications now read `summary.md` through a read-only artifact abstraction.
+- Gateway success notifications now read `summary.md` through a read-only artifact abstraction.
+- `TELING-004` owns dispatcher infrastructure, reply target delivery, delivery failure handling, truncation mechanics, and notification cleanup. This task owns summary-success body construction and summary artifact reads.

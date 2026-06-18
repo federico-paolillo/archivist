@@ -2,14 +2,12 @@
 id: MDEXT-004
 feature: markdown-extraction
 title: Worker Jina Reader Fallback
-status: done
-depends_on: []
+depends_on: [MDEXT-001]
 blocks: [MDEXT-005]
 parallel: true
-exec_plan: null
+requires_exec_plan: false
 canonical: true
 ---
-
 # MDEXT-004: Worker Jina Reader Fallback
 
 ## Objective
@@ -42,6 +40,7 @@ This task includes:
 Required inputs, existing files, interfaces, or decisions:
 
 - Jina Reader API documentation.
+- Requires `MDEXT-001`.
 - `docs/ERRORS.md`
 - `.agents/skills/archivist-general/SKILL.md`
 - `.agents/skills/archivist-worker/SKILL.md`
@@ -72,6 +71,7 @@ Read before execution:
 - `docs/ERRORS.md`
 - `.agents/skills/archivist-general/SKILL.md`
 - `.agents/skills/archivist-worker/SKILL.md`
+- `./MDEXT-001-worker-markdown-extractor-contract.md`
 
 Do not load unrelated feature folders unless listed here or required by dependencies.
 
@@ -113,7 +113,6 @@ Scenario: Jina reports insufficient balance
 - `JINA_API_KEY` is loaded as required Worker configuration.
 - Jina failures map to ARC-coded public errors.
 - Tests cover success, general failure, and insufficient balance.
-- Task status and `PLAN.md` are updated if the task is completed.
 
 ## Validation
 
@@ -134,17 +133,15 @@ Manual validation, if any:
 
 Depends on:
 
+- `MDEXT-001`
+
 Blocks:
 
 - `MDEXT-005`
 
-## ExecPlan
+## ExecPlan Requirement
 
-ExecPlan:
-
-```text
-null
-```
+Requires ExecPlan: false
 
 ## Open Questions
 

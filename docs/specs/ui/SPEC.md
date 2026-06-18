@@ -2,13 +2,11 @@
 id: UI
 slug: ui
 title: Final Browser UI
-status: done
 owner: null
 depends_on: [authn, ui-endpoints]
 impacts: [ui, gateway, deployment]
 canonical: true
 ---
-
 # Feature: Final Browser UI
 
 ## Intent
@@ -300,4 +298,5 @@ Impacts:
 
 - `./PLAN.md`
 - `./tasks/UI-002-ui-routing-design-system-api-base-auth-shell.md`
-- `./tasks/UI-003-article-master-detail-and-delete-workflow.md`
+- `./tasks/UI-003-article-master-detail-read-only.md`
+- `./tasks/UI-004-article-destructive-actions.md`

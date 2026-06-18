@@ -2,15 +2,13 @@
 id: OTEL-005
 feature: otel-observability
 title: Add Worker OTEL foundation
-status: done
-depends_on:
+depends_on: []
 blocks:
   - OTEL-006
 parallel: true
-exec_plan: null
+requires_exec_plan: false
 canonical: true
 ---
-
 # OTEL-005: Add Worker OTEL foundation
 
 ## Objective

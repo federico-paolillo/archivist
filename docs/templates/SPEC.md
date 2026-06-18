@@ -2,13 +2,11 @@
 id: <FEATURE-ID>
 slug: <feature-slug>
 title: <Feature Title>
-status: draft
 owner: null
 depends_on: []
 impacts: []
 canonical: true
 ---
-
 # Feature: <Feature Title>
 
 ## Intent

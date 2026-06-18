@@ -10,7 +10,7 @@ Implement the Gateway slice of an assigned Archivist task in a scoped branch/wor
 - `docs/REBUILD.md`
 - `.agents/skills/archivist-general/SKILL.md`
 - `.agents/skills/archivist-gateway/SKILL.md`
-- Assigned feature `SPEC.md`, `PLAN.md`, task file, and linked ExecPlan when present
+- Assigned feature `SPEC.md`, `PLAN.md`, task file, and active-run ExecPlan when present
 
 ## Ownership
 

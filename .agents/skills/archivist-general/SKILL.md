@@ -34,7 +34,7 @@ Use this skill for implementation, review, or planning work that spans more than
 
 ## Validation
 
-Run validation from the affected module unless the task or ExecPlan gives a narrower or broader command set.
+Run validation from the affected module unless the task or active-run ExecPlan gives a narrower or broader command set.
 
 Gateway:
 

@@ -2,7 +2,6 @@
 id: SNAP
 slug: snapshotter
 title: Snapshotter
-status: done
 owner: null
 depends_on:
   - summary-generation
@@ -14,7 +13,6 @@ impacts:
   - ci-cd
 canonical: true
 ---
-
 # Feature: Snapshotter
 
 ## Intent

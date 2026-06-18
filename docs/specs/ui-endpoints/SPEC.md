@@ -2,13 +2,11 @@
 id: UIEND
 slug: ui-endpoints
 title: UI Article Endpoints
-status: done
 owner: null
 depends_on: [authn, telegram-ingestion, summary-generation]
 impacts: [gateway, sqlite, filesystem, ui]
 canonical: true
 ---
-
 # Feature: UI Article Endpoints
 
 ## Intent
@@ -66,7 +64,7 @@ In scope:
 - REQ-015: Article detail responses must include metadata plus `summaryMarkdown`, `contentMarkdown`, and `canForceDelete`.
 - REQ-016: Queued and failed articles may return `null` for missing or unreadable artifacts.
 - REQ-017: Ready articles require both `summary.md` and `content.md`; missing or unreadable required artifacts must return `500 Internal Server Error`.
-- REQ-018: `canForceDelete` must be server-computed and true only when the authenticated user owns the article, at least one associated running job exists, and every associated running job is stale.
+- REQ-018: `canForceDelete` must be server-computed through the same Gateway application service or predicate used by force-delete enforcement. It is true only when the authenticated user owns the article, at least one associated running job exists, and every associated running job is stale.
 - REQ-019: A running job is stale when `started_at <= now - 2 hours`.
 - REQ-020: A running job with `started_at IS NULL` is stale for force-delete recovery.
 - REQ-021: `DELETE /articles/{id}` must normalize valid ULID route values before querying or deleting.
@@ -78,13 +76,13 @@ In scope:
 - REQ-027: `DELETE /articles/{id}/force` must normalize valid ULID route values before querying or deleting.
 - REQ-028: `DELETE /articles/{id}/force` must return `400 Bad Request` for malformed article IDs.
 - REQ-029: `DELETE /articles/{id}/force` must return `404 Not Found` when the article does not exist for the authenticated user.
-- REQ-030: `DELETE /articles/{id}/force` must return `409 Conflict` when the article is not force-delete eligible, including when any associated running job is active rather than stale or when no associated running job exists.
+- REQ-030: `DELETE /articles/{id}/force` must use the same Gateway application service or predicate as detail `canForceDelete` and must return `409 Conflict` when the article is not force-delete eligible, including when any associated running job is active rather than stale or when no associated running job exists.
 - REQ-031: Successful force delete must remove the article row, associated jobs, associated notifications, and `{DATA_DIR}/articles/{article_id}`.
 - REQ-032: Missing artifact directories must not fail normal delete or force delete.
 - REQ-033: Artifact cleanup failures must return `500 Internal Server Error` and leave database state intact.
 - REQ-034: Normal delete and force delete must enforce same-origin unsafe-method protection.
 - REQ-035: JSON response bodies must use lower-camel property names.
-- REQ-036: Normal delete, force delete, and worker job claim must serialize through SQLite write transactions. Delete operations must recheck ownership and job status inside the delete transaction, and worker claim must not claim jobs whose article row has been deleted.
+- REQ-036: Normal delete, force delete, and worker job claim must serialize through SQLite write transactions. Delete operations must recheck ownership and job status inside the delete transaction, and worker claim must not claim jobs whose article row has been deleted. This is cross-executable Gateway/Worker storage behavior and depends on the Worker job-claim contract owned by `ARTPROC-005`.
 - REQ-037: Normal delete and force delete share the documented SQLite/filesystem atomicity limitation: if artifact cleanup succeeds and the subsequent SQLite commit fails, rollback cannot restore the deleted artifact directory.
 - REQ-038: Article endpoint logs and spans must attach `user_id` when the authenticated session user id is available.
 
@@ -189,7 +187,7 @@ Article detail adds:
 
 - `summaryMarkdown`: content of `{DATA_DIR}/articles/{article_id}/summary.md`, nullable for non-ready articles.
 - `contentMarkdown`: content of `{DATA_DIR}/articles/{article_id}/content.md`, nullable for non-ready articles.
-- `canForceDelete`: `true` when the authenticated user owns the article, at least one associated running job exists, and all associated running jobs are stale; otherwise `false`.
+- `canForceDelete`: `true` when the authenticated user owns the article, at least one associated running job exists, and all associated running jobs are stale; otherwise `false`. Detail reads and force-delete enforcement must call one shared Gateway application service or predicate so the displayed `canForceDelete` value and delete authorization cannot diverge.
 
 Normal delete and force delete are hard deletes. Deleted articles disappear from list and detail responses and do not leave tombstone state.
 
@@ -267,7 +265,7 @@ Delete routes return `204 No Content` without a response body on success.
 Delete/claim serialization:
 
 - Gateway delete must start a SQLite write transaction, re-read the article and associated job statuses inside that transaction, reject if any job is `running`, delete associated notifications/jobs/article rows, and commit only after artifact cleanup succeeds or is known to be unnecessary.
-- Gateway force delete must start a SQLite write transaction, re-read the article and associated job statuses inside that transaction, reject if any running job is active rather than stale, delete associated notifications/jobs/article rows, and commit only after artifact cleanup succeeds or is known to be unnecessary.
+- Gateway force delete must start a SQLite write transaction, re-read the article and associated job statuses inside that transaction, evaluate force-delete eligibility through the same service or predicate used for detail `canForceDelete`, reject if the article is not eligible, delete associated notifications/jobs/article rows, and commit only after artifact cleanup succeeds or is known to be unnecessary.
 - Worker job claim must use a SQLite write transaction and claim only queued jobs whose article row still exists.
 - If delete commits first, a subsequent worker claim observes no claimable job.
 - If worker claim commits first and sets a job to `running`, normal delete returns `409 Conflict`; force delete returns `409 Conflict` until the running job is stale.
@@ -280,6 +278,7 @@ Depends on:
 
 - `authn` final auth contract for `app-cookie` authentication, authenticated session user id, effective-origin interpretation, and same-origin unsafe-method checks.
 - `telegram-ingestion` for SQLite article/job/notification schema.
+- `article-processing` task `ARTPROC-005` for Worker queued-job claim behavior.
 - `summary-generation` for `summary.md` production and Gateway artifact conventions.
 - `docs/ARTIFACTS.md`
 
@@ -300,6 +299,7 @@ Impacts:
 - The list endpoint does not read `/data`.
 - Detail reads `summary.md` and `content.md`; it does not expose `snapshot.html`.
 - Detail response metadata includes `canForceDelete`; the UI must not compute force-delete eligibility from raw job timestamps.
+- Detail `canForceDelete` and force-delete enforcement must share one Gateway predicate/service and tests must prove the read and delete paths use identical rules.
 - Delete is a hard admin action and must remove the deterministic artifact directory when article state is removed.
 - Force delete is a recovery action for stale running jobs, not a bypass for active work.
 

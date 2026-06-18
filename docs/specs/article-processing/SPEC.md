@@ -2,22 +2,20 @@
 id: ARTPROC
 slug: article-processing
 title: URL-To-Article Processing Pipeline
-status: done
 owner: null
 depends_on: [telegram-ingestion]
 impacts: [worker, gateway, sqlite, filesystem]
 canonical: true
 ---
-
 # Feature: URL-To-Article Processing Pipeline
 
 ## Intent
 
-Process queued article jobs by resolving the submitted URL, fetching the final HTML response, storing a deterministic raw snapshot, and handing the job to the downstream content pipeline.
+Process queued article jobs by resolving the submitted URL, fetching the final HTML response, storing a deterministic raw snapshot, and reaching the downstream content-pipeline continuation boundary.
 
 ## Motivation
 
-Telegram ingestion creates article records and queued jobs but does not process article content. The Worker needs the first reliable processing stage: dequeue a job, resolve redirects, snapshot HTML, persist failure state when snapshotting cannot continue, and otherwise continue through `snapshot.html` -> `content.md` -> `summary.md` -> terminal article/job/notification success.
+Telegram ingestion creates article records and queued jobs but does not process article content. The Worker needs the first reliable processing stage: dequeue a job, resolve redirects, snapshot HTML, persist failure state when snapshotting cannot continue, and otherwise expose the continuation point consumed by downstream Markdown extraction and summary generation.
 
 ## Scope
 
@@ -31,7 +29,7 @@ In scope:
 - HTML-only acceptance for `text/html` and `application/xhtml+xml`.
 - Atomic `snapshot.html` writes under `{DATA_DIR}/articles/{article_id}/`.
 - Article canonical URL update to the final redirected URL after successful resolution.
-- Snapshot handoff to Markdown extraction without article/job success or success notification creation.
+- Snapshot continuation boundary for downstream Markdown extraction without article/job success or success notification creation.
 - Transactional failure state update, ARC-coded article error, job failure context, and notification creation.
 - Markdown extraction and summary generation are owned by their feature specs and complete the current terminal success path.
 - Browser rendering, Playwright, JavaScript-heavy page handling, automatic retries, Gateway-side URL SSRF filtering, new article/job/notification states, and placeholder downstream artifacts are not part of this feature's behavior.
@@ -57,13 +55,13 @@ In scope:
 - REQ-008: Successful URL resolution must update `articles.canonical_url` to the final redirected URL.
 - REQ-009: Successful snapshot processing must write only `snapshot.html`.
 - REQ-010: Snapshot writes must be atomic: write a temporary file, then rename into place.
-- REQ-011: Snapshot success must continue to Markdown extraction and must not set `articles.status = ready`, set `jobs.status = succeeded`, or insert a success notification at the snapshot boundary.
+- REQ-011: Snapshot success must reach the downstream Markdown continuation boundary and must not set `articles.status = ready`, set `jobs.status = succeeded`, or insert a success notification at the snapshot boundary.
 - REQ-012: Processing failure must set `articles.status = failed`, set `articles.error_message` to an ARC-coded public error, set `jobs.status = failed`, persist job error context, set terminal timestamps/TTL, and insert exactly one pending notification in one SQLite transaction.
 - REQ-013: Persisted public article errors must use codes defined in `docs/ERRORS.md`.
 - REQ-014: The Worker must not call Telegram APIs directly.
 - REQ-015: Success notification content is summary-based and owned by `summary-generation`.
-- REQ-016: Extraction and rating pipeline behavior is owned by downstream feature specs, not by this snapshot stage.
-- REQ-017: The current success criterion is summary-complete processing after `snapshot.html`, `content.md`, and `summary.md` are produced.
+- REQ-016: Markdown extraction, extractor result taxonomy, summary generation, and downstream success behavior are owned by downstream feature specs, not by this snapshot stage.
+- REQ-017: This feature does not define the terminal success criterion; downstream Markdown extraction and summary generation own success after `snapshot.html`.
 - REQ-018: The Worker executable must expose an explicit `process` command that runs the processing pipeline, validates the snapshot pipeline is configured, and supports a one-shot mode for executable-surface validation.
 - REQ-019: The Worker SSRF policy must reject userinfo, empty hosts, invalid hostnames, all IP literals, single-label hosts, localhost names, Docker-internal names, cloud metadata hostnames, and private or special resolved IP ranges. DNS parse or resolution failures map to `ARC-001`; SSRF policy blocks map to `ARC-017`.
 - REQ-020: HTTP statuses other than `401`, `403`, and `404` that prevent fetching the article, including non-specialized 4xx statuses such as `410 Gone`, must map to `ARC-004`.
@@ -80,7 +78,7 @@ Scenario: Worker snapshots an HTML article
   When the Worker processes the job
   Then the Worker stores snapshot.html under DATA_DIR/articles/{article_id}/
   And articles.canonical_url is set to the final redirected URL
-  And Markdown extraction is invoked
+  And the downstream Markdown continuation boundary is reached
   And articles.status is not set to "ready" at the snapshot boundary
   And jobs.status is not set to "succeeded" at the snapshot boundary
   And no success notification is inserted at the snapshot boundary
@@ -139,10 +137,10 @@ Scenario: Snapshot write fails
   And jobs.status is "failed"
   And no partial snapshot is promoted as snapshot.html
 
-Scenario: Snapshot boundary continues the current pipeline
-  Given summary generation is part of the current pipeline
+Scenario: Snapshot boundary reaches downstream continuation
+  Given downstream Markdown extraction is part of the current pipeline
   When the Worker stores snapshot.html successfully
-  Then the job continues to Markdown extraction and summary generation
+  Then the job reaches the Markdown continuation boundary
   And Gateway success notification content is not selected from snapshot completion
 
 Scenario: Suspicious URL is rejected by Worker SSRF policy
@@ -163,7 +161,7 @@ Successful snapshot processing in the current pipeline has these effects:
 
 - `articles.canonical_url`: final URL after redirects.
 - filesystem: atomically written `{DATA_DIR}/articles/{article_id}/snapshot.html`.
-- downstream pipeline: the job remains non-terminal and proceeds to Markdown extraction.
+- downstream pipeline: the job remains non-terminal and reaches the Markdown continuation boundary.
 
 Successful snapshot processing must not set `articles.status = ready`, set `jobs.status = succeeded`, set terminal timestamps/TTL, or insert a success notification row.
 
@@ -186,7 +184,7 @@ No artifact paths, HTTP status columns, failure-code columns, extraction telemet
 - Worker HTTP client: `github.com/imroc/req/v3`.
 - Worker SSRF guard: `src/worker/internal/ssrf`, wired into the shared Worker HTTP client.
 - Worker artifact store: `{DATA_DIR}/articles/{article_id}/snapshot.html`.
-- Worker stage contract: update canonical URL, write `snapshot.html`, and hand off to Markdown extraction.
+- Worker stage contract: update canonical URL, write `snapshot.html`, and expose the downstream Markdown continuation boundary.
 - Worker terminal failure contract: article update, job update, and notification insert in one transaction.
 - Gateway notification dispatcher: sends failure replies from job error text; final success replies are summary-based and owned by `summary-generation`.
 
@@ -214,8 +212,8 @@ Impacts:
 ## Rebuild Notes
 
 - Existing code is not authoritative; rebuilds must follow this spec and linked tasks.
-- Snapshot success is an intermediate stage. Terminal success is summary-complete after `snapshot.html`, `content.md`, and `summary.md` are produced.
-- The `markdown-extraction` and `summary-generation` features replace snapshot-stage success with summary-complete processing.
+- Snapshot success is an intermediate stage. Terminal success is owned by downstream features after `snapshot.html`.
+- The `markdown-extraction` and `summary-generation` features replace snapshot-stage success with downstream content and summary processing.
 - Queue processing must be reachable through `archivist-worker process`; tests that only instantiate `SnapshotPipeline` are not sufficient to prove executable behavior.
 - Article URL SSRF filtering is a Worker boundary, not a Gateway boundary. Rebuilds must keep Gateway ingestion permissive and enforce this policy in Worker processing.
 - `snapshot.html` is the only artifact written by this feature.

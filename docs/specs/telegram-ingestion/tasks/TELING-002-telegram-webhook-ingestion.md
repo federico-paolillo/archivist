@@ -2,14 +2,12 @@
 id: TELING-002
 feature: telegram-ingestion
 title: Telegram webhook ingestion
-status: done
 depends_on: [TELING-001]
 blocks: [TELING-004]
 parallel: true
-exec_plan: null
+requires_exec_plan: false
 canonical: true
 ---
-
 # TELING-002: Telegram Webhook Ingestion
 
 ## Objective
@@ -34,6 +32,7 @@ This task includes:
 - Persistence of `telegram_user_id` on the queued job through the `TELING-001` contract.
 - No user creation, update, or mapping reassignment by Telegram ingestion.
 - Atomic use of the persistence contract from `TELING-001`.
+- Operational ownership of webhook enqueue: resolving the mapped user, creating the article, creating the queued job, and committing those writes atomically through the `TELING-001` contract.
 - Idempotent duplicate `update_id` handling.
 - Gateway integration tests for the webhook behavior.
 
@@ -42,7 +41,7 @@ This task includes:
 
 Required inputs, existing files, interfaces, or decisions:
 
-- Completed `TELING-001` persistence contract.
+- Requires `TELING-001` persistence contract.
 - Telegram Bot API send-message behavior.
 - Gateway configuration for Telegram token and webhook secret.
 
@@ -132,7 +131,6 @@ Scenario: Acknowledgement send fails after enqueue
 - Tests prove sender user ID is persisted separately from chat ID.
 - Valid URL enqueue commits before acknowledgement is sent.
 - Acknowledgement failure does not roll back ingestion.
-- Task status and `PLAN.md` are updated if the task is completed.
 
 ## Validation
 
@@ -158,13 +156,9 @@ Blocks:
 
 - `TELING-004`
 
-## ExecPlan
+## ExecPlan Requirement
 
-ExecPlan:
-
-```text
-null
-```
+Requires ExecPlan: false
 
 ## Open Questions
 

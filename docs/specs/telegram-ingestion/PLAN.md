@@ -1,14 +1,12 @@
 ---
 feature: telegram-ingestion
-status: done
 canonical: true
 ---
-
 # Feature Plan: Telegram Ingestion
 
 ## Purpose
 
-This file is the feature-level implementation control board for Telegram ingestion. It defines task order, dependencies, concurrency rules, validation sequence, and execution status.
+This file is the feature-level implementation control board for Telegram ingestion. It defines task order, dependencies, concurrency rules, validation sequence, and validation requirements.
 
 ---
 
@@ -19,6 +17,17 @@ TELING-001 -> TELING-002
 TELING-001 -> TELING-003
 TELING-002 -> TELING-004
 TELING-003 -> TELING-004
+```
+
+Cross-feature dependencies:
+
+```text
+TELING-001 -> AUTHN-002
+TELING-001 -> ARTPROC-005
+TELING-001 -> UIEND-002
+TELING-001 -> UIEND-003
+TELING-003 -> ARTPROC-005
+TELING-004 -> SUMGEN-005
 ```
 
 ---
@@ -36,26 +45,27 @@ TELING-003 -> TELING-004
 
 ### Phase 3: Notification Dispatch
 
-- `TELING-004` implements gateway terminal notification dispatch after ingestion and worker terminal notification contracts exist.
+- `TELING-004` implements gateway terminal notification dispatch infrastructure, failure replies, target delivery, delivery failure handling, deterministic truncation, and notification cleanup after ingestion and worker terminal notification contracts exist.
 
 ---
 
 ## Tasks
 
-| ID | Task | Status | Depends On | Blocks | Parallel | ExecPlan |
-|---|---|---|---|---|---|---|
-| `TELING-001` | Persistence contracts | done | - | `TELING-002`, `TELING-003` | no | null |
-| `TELING-002` | Telegram webhook ingestion | done | `TELING-001` | `TELING-004` | yes | - |
-| `TELING-003` | Worker terminal notification contract | done | `TELING-001` | `TELING-004` | yes | - |
-| `TELING-004` | Telegram notification dispatcher | done | `TELING-002`, `TELING-003` | - | no | null |
+| ID | Task | Depends On | Blocks | Parallel | Requires ExecPlan |
+|---|---|---|---|---|---|
+| `TELING-001` | Persistence contracts | - | `TELING-002`, `TELING-003`, `AUTHN-002`, `ARTPROC-005`, `UIEND-002`, `UIEND-003` | no | no |
+| `TELING-002` | Telegram webhook ingestion | `TELING-001` | `TELING-004` | yes | no |
+| `TELING-003` | Worker terminal notification contract | `TELING-001` | `TELING-004`, `ARTPROC-005` | yes | no |
+| `TELING-004` | Telegram notification dispatcher | `TELING-002`, `TELING-003` | `SUMGEN-005` | no | no |
 
 ---
 
 ## Concurrency Rules
 
 - `TELING-001` must run first because it defines shared schema and repository contracts.
-- `TELING-002` and `TELING-003` may run concurrently after `TELING-001` is done if they do not both modify the same migration/repository files.
+- `TELING-002` and `TELING-003` may run concurrently after `TELING-001` is satisfied if they do not both modify the same migration/repository files.
 - `TELING-004` must run after `TELING-002` and `TELING-003` because it depends on stored job Telegram metadata, article result state, and terminal notification rows.
+- `SUMGEN-005` must run after `TELING-004` because summary success notification bodies plug into the dispatcher infrastructure owned by `TELING-004`.
 - Schema, public repository interfaces, and Telegram message fixtures must not be changed concurrently by multiple tasks.
 
 ---
@@ -105,8 +115,7 @@ cd src/worker && go tool lefthook run test
 
 The feature is complete when:
 
-- all required tasks are `done`;
+- all task acceptance criteria are satisfied;
 - acceptance criteria in `SPEC.md` are satisfied;
 - validation sequence passes;
 - durable implementation decisions have been promoted to canonical documents;
-- `docs/specs/INDEX.md` reflects the final feature status.

@@ -2,14 +2,12 @@
 id: SUMGEN-003
 feature: summary-generation
 title: Summarizer Provider Adapter
-status: done
 depends_on: []
 blocks: [SUMGEN-004]
 parallel: true
-exec_plan: null
+requires_exec_plan: false
 canonical: true
 ---
-
 # SUMGEN-003: Summarizer Provider Adapter
 
 ## Objective
@@ -111,7 +109,6 @@ Scenario: Anthropic request is too large
 - Configuration loads provider, model, and API key correctly.
 - Error mapping covers `ARC-013`, `ARC-014`, and `ARC-015`.
 - Tests cover success, configuration, and failure classification.
-- Task status and `PLAN.md` are updated if the task is completed.
 
 ## Validation
 
@@ -136,13 +133,9 @@ Blocks:
 
 - `SUMGEN-004`
 
-## ExecPlan
+## ExecPlan Requirement
 
-ExecPlan:
-
-```text
-null
-```
+Requires ExecPlan: false
 
 ## Open Questions
 

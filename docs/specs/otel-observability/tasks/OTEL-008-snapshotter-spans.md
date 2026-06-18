@@ -2,15 +2,15 @@
 id: OTEL-008
 feature: otel-observability
 title: Add Snapshotter backup and upload spans
-status: done
 depends_on:
   - OTEL-007
 blocks:
+  - OTEL-009
+  - OTEL-011
 parallel: false
-exec_plan: null
+requires_exec_plan: false
 canonical: true
 ---
-
 # OTEL-008: Add Snapshotter backup and upload spans
 
 ## Objective

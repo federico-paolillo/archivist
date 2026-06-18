@@ -10,7 +10,7 @@ Review a Gateway worker branch for correctness, API/auth contract adherence, per
 - `.agents/skills/archivist-general/SKILL.md`
 - `.agents/skills/archivist-reviewer/SKILL.md`
 - `.agents/skills/archivist-gateway/SKILL.md`
-- Assigned task, diff, worker report, and linked ExecPlan when present
+- Assigned task, diff, worker report, and active-run ExecPlan when present
 
 ## Ownership
 

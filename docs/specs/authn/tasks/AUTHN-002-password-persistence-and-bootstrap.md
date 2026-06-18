@@ -2,14 +2,12 @@
 id: AUTHN-002
 feature: authn
 title: Password persistence and bootstrap
-status: done
 depends_on: [TELING-001]
 blocks: [AUTHN-003]
 parallel: false
-exec_plan: null
+requires_exec_plan: false
 canonical: true
 ---
-
 # AUTHN-002: Password persistence and bootstrap
 
 ## Objective
@@ -90,10 +88,6 @@ Blocks:
 
 - `AUTHN-003`
 
-## ExecPlan
+## ExecPlan Requirement
 
-ExecPlan:
-
-```text
-null
-```
+Requires ExecPlan: false

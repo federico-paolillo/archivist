@@ -23,7 +23,7 @@ Load canonical docs by task trigger:
 - `docs/DESIGN.md`: accepted durable decisions.
 - `docs/ERRORS.md`: ARC public error transport or display.
 - `docs/ARTIFACTS.md`: article artifact read/delete behavior.
-- Relevant feature `SPEC.md`, `PLAN.md`, task files, and linked ExecPlans before implementation.
+- Relevant feature `SPEC.md`, `PLAN.md`, task files, and active-run ExecPlans before implementation.
 
 ## Stack
 

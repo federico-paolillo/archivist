@@ -2,15 +2,13 @@
 id: OTEL-007
 feature: otel-observability
 title: Add Snapshotter OTEL foundation
-status: done
-depends_on:
+depends_on: []
 blocks:
   - OTEL-008
 parallel: true
-exec_plan: null
+requires_exec_plan: false
 canonical: true
 ---
-
 # OTEL-007: Add Snapshotter OTEL foundation
 
 ## Objective

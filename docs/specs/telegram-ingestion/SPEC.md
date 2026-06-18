@@ -2,13 +2,11 @@
 id: TELING
 slug: telegram-ingestion
 title: Telegram Ingestion
-status: done
 owner: null
 depends_on: []
 impacts: [gateway, worker, sqlite]
 canonical: true
 ---
-
 # Feature: Telegram Ingestion
 
 ## Intent
@@ -35,7 +33,8 @@ In scope:
 - Preservation of the existing bootstrapped user row and password hash.
 - Immediate acknowledgement reply after a valid URL is queued.
 - Invalid-message reply for authorized non-URL messages.
-- Terminal success/failure Telegram replies using the original message as the reply target.
+- Terminal Telegram reply dispatcher infrastructure using the original message as the reply target.
+- Failure Telegram replies using persisted job error text.
 - Transactional notification creation when worker jobs complete.
 - TTL cleanup for terminal jobs and notifications.
 - Article fetching, extraction, Markdown generation, and summarization implementation details are owned by downstream processing features.
@@ -73,7 +72,7 @@ In scope:
 - REQ-020: Automatic worker retries are not implemented.
 - REQ-021: The worker must not call Telegram APIs directly.
 - REQ-022: The gateway must dispatch pending notifications by joining `notifications -> jobs -> articles`.
-- REQ-023: Successful completion replies must read `summary.md` from the deterministic article artifact path under `DATA_DIR`.
+- REQ-023: The gateway dispatcher must expose the target-delivery path used by summary-generation success replies; summary-success body construction and `summary.md` reads are owned by `summary-generation`.
 - REQ-024: Failed completion replies must use `jobs.error_message`.
 - REQ-024A: Failed article-processing completion replies must preserve ARC-coded public error text from `jobs.error_message`, including the leading `[ARC-NNN]` prefix defined by `docs/ERRORS.md`.
 - REQ-025: Terminal Telegram replies must fit within Telegram message length limits by deterministic truncation when necessary.
@@ -149,11 +148,11 @@ Scenario: Job fails
   And the job expires_at is 14 days after completion
   And one pending notification exists for the job
 
-Scenario: Gateway sends success notification
+Scenario: Gateway sends success notification through delegated body construction
   Given a pending notification exists for a succeeded job
-  And the article has `summary.md`
+  And summary-generation provides success reply content
   When the gateway dispatches the notification
-  Then the gateway replies to the original Telegram message with summary text
+  Then the gateway replies to the original Telegram message with that content
   And the notification is marked "sent"
 
 Scenario: Gateway sends failure notification
@@ -252,7 +251,7 @@ Notifications are gateway delivery records. They do not copy article IDs, Telegr
 - SQLite user contract: accepted Telegram messages resolve an existing `users` row by `telegram_user_id`.
 - SQLite queue contract: gateway inserts article and queued job records; worker claims queued jobs atomically with `UPDATE ... RETURNING`.
 - SQLite notification contract: worker inserts one pending notification when a job reaches `succeeded` or `failed`; gateway dispatches pending notifications.
-- Filesystem artifact contract: worker writes deterministic article artifacts under `DATA_DIR`; summary-generation owns Gateway summary artifact reads for success replies, and UI endpoints own UI artifact reads.
+- Filesystem artifact contract: worker writes deterministic article artifacts under `DATA_DIR`; summary-generation owns Gateway summary artifact reads and summary-success body construction for success replies, and UI endpoints own UI artifact reads.
 - Error convention contract: `docs/ERRORS.md` defines ARC-coded public article-processing failures that Telegram notification dispatch must preserve when transported through `jobs.error_message`.
 - Configuration:
   - `DATA_DIR`

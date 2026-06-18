@@ -1,20 +1,18 @@
 ---
 id: UI-002
 feature: ui
-title: UI routing, design system, API base config, and auth shell
-status: done
+title: UI routing, shared layout, API base config, and auth shell
 depends_on: [AUTHN-004]
 blocks: [UI-003]
 parallel: false
-exec_plan: null
+requires_exec_plan: false
 canonical: true
 ---
-
-# UI-002: UI routing, design system, API base config, and auth shell
+# UI-002: UI routing, shared layout, API base config, and auth shell
 
 ## Objective
 
-Implement the Preact routing shell, brutalist design primitives, configured API base client, login flow, login failure page, session checks, and logout behavior.
+Implement Preact routing, shared application layout, configured API base client, login flow, login failure page, session checks, route guards, and logout API/navigation behavior.
 
 ## Story / Context
 
@@ -25,20 +23,20 @@ As the personal Archivist user, I want to authenticate with the password-only br
 This task includes:
 
 - Preact router for `/login`, `/login/failed`, `/articles`, and `/articles/<article_id>`.
-- Design-system CSS primitives based on `docs/design/DESIGN.md`.
+- Shared style primitives required by the routing and auth shell, based on `docs/design/DESIGN.md`.
 - Shared application layout containing header, main content, and footer regions for `/login`, `/articles`, and `/articles/<article_id>`.
-- Header with `Archivist` brand link and pluggable right-side header content for authenticated route controls.
+- Header with `Archivist` brand link and a pluggable right-side slot for authenticated route controls owned by later article UI tasks.
 - Footer rendering `VERSION: {import.meta.env.VITE_VERSION_LABEL}` with fixed 40px chrome-row height and CSS-only truncation for long values.
 - API client dependency construction through `deps.ts` and `makeDeps()`.
 - `VITE_API_BASE_PATH` defaulting and normalization.
 - `GET /auth/session` startup/protected-route checks.
+- Route guards for authenticated article routes.
 - Login form with large visible password textarea/control and `IDENTIFY` submit.
 - Login success navigation to `/articles`.
 - Invalid login navigation to `/login/failed`.
 - Blank black `/login/failed` page.
 - Login route rendered inside the shared visible layout.
-- Top article shell title bar and user icon menu containing only `Logout`.
-- Logout call and navigation behavior.
+- Logout API call and navigation behavior exposed as shared auth-shell behavior for authenticated article controls.
 - Mobile layout where header and footer scroll naturally with the page.
 - Mobile login content in normal page flow rather than vertically centered.
 - Frontend tests for auth shell behavior.
@@ -53,7 +51,6 @@ Required inputs, existing files, interfaces, or decisions:
 - `VITE_API_BASE_PATH`, default `/api`.
 - `docs/design/DESIGN.md`
 - `docs/design/login.png`
-- `docs/design/view.png`
 
 ## Outputs
 
@@ -63,6 +60,7 @@ Expected outputs, files, behavior, or interfaces:
 - `/login`, `/articles`, and `/articles/<article_id>` render through shared app layout.
 - `/login/failed` remains blank black with no text or chrome.
 - API client uses the configured API base and credentials.
+- Authenticated article routes are route-guarded and can invoke shared logout behavior from article-owned controls.
 - Password is not persisted outside transient component state.
 - Invalid login produces a blank black page at `/login/failed`.
 
@@ -119,7 +117,7 @@ Scenario: Login uses shared app chrome
 
 Scenario: Logout returns to login
   Given the user is authenticated on /articles
-  When the user opens the user menu and clicks Logout
+  When the authenticated article shell invokes logout
   Then the UI posts to the configured logout endpoint
   And navigates to /login
 
@@ -134,10 +132,11 @@ Scenario: Mobile layout scrolls naturally
 
 - Routes and auth shell are implemented.
 - Shared layout is implemented and used by login and article routes.
+- Article routes are guarded by `GET /auth/session` and redirect to `/login` on `401`.
 - `/login/failed` and session-check placeholders remain blank.
-- Design primitives match the canonical visual constraints.
+- Shared style primitives match the canonical visual constraints needed by auth shell routes.
 - Tests cover API base usage, login success, invalid-login black page, session `401`, logout, shared layout behavior, configured footer label, and mobile layout behavior.
-- Validation passes or failures are recorded.
+- Required validation passes.
 
 ## Validation
 
@@ -163,13 +162,9 @@ Blocks:
 
 - `UI-003`
 
-## ExecPlan
+## ExecPlan Requirement
 
-ExecPlan:
-
-```text
-null
-```
+Requires ExecPlan: false
 
 ## Open Questions
 

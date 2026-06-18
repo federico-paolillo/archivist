@@ -2,21 +2,21 @@
 id: OTEL-006
 feature: otel-observability
 title: Add Worker async continuation and pipeline spans
-status: done
 depends_on:
-  - OTEL-004
   - OTEL-005
+  - OTEL-010
 blocks:
+  - OTEL-009
+  - OTEL-011
 parallel: false
-exec_plan: null
+requires_exec_plan: false
 canonical: true
 ---
-
 # OTEL-006: Add Worker async continuation and pipeline spans
 
 ## Objective
 
-Continue Gateway-originated traces from persisted job carriers and add fine-grained Worker pipeline spans.
+Continue traces from persisted job carriers defined by `OTEL-010` and add fine-grained Worker pipeline spans.
 
 ## Done When
 

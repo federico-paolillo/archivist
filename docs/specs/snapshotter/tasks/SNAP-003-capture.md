@@ -2,16 +2,14 @@
 id: SNAP-003
 feature: snapshotter
 title: Implement snapshot archive capture
-status: done
 depends_on:
   - SNAP-002
 blocks:
   - SNAP-005
 parallel: false
-exec_plan: null
+requires_exec_plan: false
 canonical: true
 ---
-
 # SNAP-003: Implement Snapshot Archive Capture
 
 ## Objective

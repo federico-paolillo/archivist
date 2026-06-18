@@ -2,14 +2,12 @@
 id: ARTPROC-003
 feature: article-processing
 title: Worker Filesystem Artifact Access Layer
-status: done
 depends_on: []
-blocks: [ARTPROC-004]
+blocks: [ARTPROC-004, MDEXT-002]
 parallel: true
-exec_plan: null
+requires_exec_plan: false
 canonical: true
 ---
-
 # ARTPROC-003: Worker Filesystem Artifact Access Layer
 
 ## Objective
@@ -93,7 +91,6 @@ Scenario: Artifact access rejects traversal
 - Artifact paths are deterministic and derived from `DATA_DIR` and `article_id`.
 - Tests cover deterministic path, atomic write, and traversal rejection.
 - No placeholder artifacts are created.
-- Task status and `PLAN.md` are updated if the task is completed.
 
 ## Validation
 
@@ -117,14 +114,11 @@ Depends on:
 Blocks:
 
 - `ARTPROC-004`
+- `MDEXT-002`
 
-## ExecPlan
+## ExecPlan Requirement
 
-ExecPlan:
-
-```text
-null
-```
+Requires ExecPlan: false
 
 ## Open Questions
 

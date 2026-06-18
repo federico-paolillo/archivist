@@ -1,6 +1,6 @@
 # Task Handoff
 
-This file is non-canonical coordination state. The assigned task remains authoritative. Accepted or in-progress linked ExecPlans may guide implementation without adding requirements beyond current specs and tasks.
+This file is non-canonical coordination state. The assigned task remains authoritative. Active-run ExecPlans may guide implementation without adding requirements beyond current specs and tasks.
 
 ## Assignment
 

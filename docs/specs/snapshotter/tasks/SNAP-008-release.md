@@ -2,16 +2,14 @@
 id: SNAP-008
 feature: snapshotter
 title: Extend CD release automation
-status: done
 depends_on:
   - SNAP-006
   - SNAP-007
-blocks:
+blocks: []
 parallel: false
-exec_plan: null
+requires_exec_plan: false
 canonical: true
 ---
-
 # SNAP-008: Extend CD Release Automation
 
 ## Objective

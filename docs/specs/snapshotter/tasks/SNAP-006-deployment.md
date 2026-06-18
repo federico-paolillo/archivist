@@ -2,16 +2,15 @@
 id: SNAP-006
 feature: snapshotter
 title: Add Docker and Compose integration
-status: done
 depends_on:
   - SNAP-005
 blocks:
+  - SNAP-007
   - SNAP-008
 parallel: false
-exec_plan: null
+requires_exec_plan: false
 canonical: true
 ---
-
 # SNAP-006: Add Docker And Compose Integration
 
 ## Objective
@@ -39,6 +38,7 @@ Scenario: Snapshotter is deployable in Compose
 ```bash
 docker buildx build --file snapshotter.Dockerfile --platform linux/amd64 --load --tag archivist-snapshotter:test .
 docker compose --env-file .env.local.example -f docker-compose.yaml -f docker-compose.local.yaml config --quiet
+ARCHIVIST_GATEWAY_IMAGE=gateway ARCHIVIST_WORKER_IMAGE=worker ARCHIVIST_UI_IMAGE=ui ARCHIVIST_SNAPSHOTTER_IMAGE=snapshotter docker compose --env-file .env.example -f docker-compose.yaml -f docker-compose.prod.yaml config --quiet
 ```
 
 ## Required Context

@@ -2,7 +2,6 @@
 id: OTEL
 slug: otel-observability
 title: OpenTelemetry Observability
-status: done
 owner: null
 depends_on:
   - snapshotter
@@ -13,7 +12,6 @@ impacts:
   - deployment
 canonical: true
 ---
-
 # Feature: OpenTelemetry Observability
 
 ## Intent

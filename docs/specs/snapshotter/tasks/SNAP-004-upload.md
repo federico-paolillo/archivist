@@ -2,16 +2,14 @@
 id: SNAP-004
 feature: snapshotter
 title: Implement S3-compatible upload
-status: done
 depends_on:
   - SNAP-002
 blocks:
   - SNAP-005
 parallel: true
-exec_plan: null
+requires_exec_plan: false
 canonical: true
 ---
-
 # SNAP-004: Implement S3-Compatible Upload
 
 ## Objective

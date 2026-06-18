@@ -47,8 +47,6 @@ Implementation may discover missing decisions. When that happens, the decision m
         PLAN.md
         tasks/
           <task-id>-<task-slug>.md
-        plans/
-          <task-id>-<task-slug>.execplan.md
   .agents/
     skills/
       archivist-general/
@@ -71,7 +69,7 @@ The exact names of architecture and design documents may vary, but their authori
 
 ### `docs/BOOKKEEPING.md`
 
-Explains the ALM system itself: structure, rules, workflow, canonical status, and how agents should interpret the files.
+Explains the ALM system itself: structure, rules, workflow, canonical rebuild contracts, and how agents should interpret the files.
 
 This file is normative for process, not for product behavior.
 
@@ -115,7 +113,7 @@ A decision discovered during implementation should be promoted here if it affect
 
 ### `docs/specs/INDEX.md`
 
-Global feature index and navigation map. It should list all features, status, dependencies, and links to their specs and plans.
+Global feature index and navigation map. It should list all features, dependencies, and links to their specs and plans.
 
 This file prevents scattered feature folders from becoming unmanageable.
 
@@ -127,7 +125,7 @@ This is the main canonical file for a feature.
 
 ### `docs/specs/<feature-slug>/PLAN.md`
 
-Feature execution plan. It contains the task DAG, task board, dependency rules, concurrency rules, execution order, and readiness state.
+Feature execution plan. It contains the task DAG, task board, dependency rules, concurrency rules, execution order, validation sequence, and ExecPlan requirements.
 
 This is the main control board for implementation.
 
@@ -137,24 +135,13 @@ A task is an executable unit of work. It is usually lighter than a full user sto
 
 Each task must have a stable ID and frontmatter metadata.
 
-### `docs/specs/<feature-slug>/plans/<task>.execplan.md`
+### ExecPlans
 
-An ExecPlan is a detailed implementation plan for a complex task. Not every task needs one.
+An ExecPlan is a detailed active-run implementation plan for a complex task. Not every task needs one.
 
-ExecPlans are linked bidirectionally: the task points to its ExecPlan, and the ExecPlan points back to the task.
+ExecPlans are not canonical rebuild artifacts and are not retained as rebuild history by default. A canonical task records only whether it requires an ExecPlan through `requires_exec_plan: true` or `false`.
 
-ExecPlan status values are:
-
-```text
-proposed     non-authoritative draft, not execution guidance
-accepted     approved and ready to guide implementation
-in_progress  currently being executed
-completed    task completed using this plan
-```
-
-Proposed ExecPlans are planning drafts. A task marked `ready` that links an ExecPlan must link an `accepted` ExecPlan; during execution the ExecPlan may move to `in_progress`, and after completion it may move to `completed`.
-
-Only `accepted`, `in_progress`, and `completed` ExecPlans may guide implementation. No ExecPlan may add requirements beyond the current feature `SPEC.md`, feature `PLAN.md`, and linked task file. If planning exposes missing behavior, update the spec, plan, or task before accepting the ExecPlan.
+An ExecPlan may guide implementation only for the active run. It must not add requirements beyond the current feature `SPEC.md`, feature `PLAN.md`, and linked task file. If planning exposes missing behavior, update the spec, plan, or task before using the ExecPlan.
 
 ### `.agents/skills/<skill-name>/SKILL.md`
 
@@ -191,7 +178,6 @@ docs/specs/INDEX.md
 docs/specs/*/SPEC.md
 docs/specs/*/PLAN.md
 docs/specs/*/tasks/*.md
-docs/specs/*/plans/*.execplan.md
 ```
 
 ---
@@ -207,7 +193,6 @@ docs/specs/<feature-slug>/
   SPEC.md
   PLAN.md
   tasks/
-  plans/
 ```
 
 The feature starts with a coarse-grained `SPEC.md`.
@@ -249,11 +234,10 @@ Avoid decomposing into trivial mechanical steps unless the step has an independe
 It should specify:
 
 - task IDs
-- status
 - dependencies
 - whether tasks may run concurrently
 - blocking relationships
-- required ExecPlans
+- whether tasks require ExecPlans
 - validation sequence
 
 ### 5. ExecPlan Creation
@@ -264,7 +248,7 @@ Simple tasks can be executed directly from the task file.
 
 ### 6. Implementation
 
-Agents execute tasks marked `ready`. They must load the required context bundle, perform the task, update status, and run validation.
+Agents execute tasks selected by explicit user assignment or by non-canonical run state initialized from the canonical DAG. They must load the required context bundle, perform the task, update non-canonical run state when one is in use, and run validation.
 
 ### 7. Promotion of Decisions
 
@@ -286,19 +270,21 @@ A rebuild starts from canonical documents, not from prior code. The rebuild orde
 
 ---
 
-## Task Status Vocabulary
+## Run State
 
-Use a small fixed vocabulary.
+Canonical rebuild artifacts do not store execution state.
+
+External run tracking may use this vocabulary:
 
 ```text
-draft        task is incomplete or not yet actionable
-ready        task is actionable and dependencies are satisfied
-blocked      task is valid but waiting on dependencies or decisions
-in_progress  task is currently being executed
-done         task is complete and validated
+pending      task exists but dependencies are not satisfied in this run
+ready        task dependencies are satisfied in this run
+in_progress  task is currently being executed in this run
+blocked      task cannot continue in this run without a decision or external state
+done         task acceptance criteria and validation requirements are satisfied in this run
 ```
 
-Avoid custom statuses unless `docs/BOOKKEEPING.md` is updated.
+This vocabulary belongs to non-canonical run state only. Do not write it into canonical feature, plan, task, or index metadata.
 
 ---
 
@@ -311,11 +297,10 @@ Each task should use frontmatter:
 id: TASK-001
 feature: authn
 title: Implement login
-status: ready
 depends_on: []
 blocks: [TASK-003]
 parallel: true
-exec_plan: ../plans/TASK-001-implement-login.execplan.md
+requires_exec_plan: false
 canonical: true
 ---
 ```
@@ -327,43 +312,37 @@ canonical: true
 | `id` | yes | `FEATURE-NNN` string | Stable. Do not renumber. |
 | `feature` | yes | kebab-case slug | Must match the feature folder name. |
 | `title` | yes | free text | Short task title. |
-| `status` | yes | see Task Status Vocabulary | One of: `draft`, `ready`, `blocked`, `in_progress`, `done`. |
-| `depends_on` | yes | list of task IDs or `[]` | Tasks that must be `done` before this task is `ready`. |
-| `blocks` | yes | list of task IDs or `[]` | Tasks that cannot start until this task is `done`. |
+| `depends_on` | yes | list of task IDs or `[]` | Tasks whose contracts must be satisfied before this task can execute. |
+| `blocks` | yes | list of task IDs or `[]` | Tasks that require this task's contract first. |
 | `parallel` | yes | `true` \| `false` | Whether this task may run concurrently with other parallel-safe tasks. |
-| `exec_plan` | yes | relative path or `null` | Link to the ExecPlan file, or `null` if none. |
+| `requires_exec_plan` | yes | `true` \| `false` | Whether an active-run ExecPlan is required before execution. |
 | `canonical` | yes | `true` | Marks the file as a canonical rebuild artifact. Always `true` for task files. |
 
-The same `canonical: true` field appears in SPEC, PLAN, and ExecPlan frontmatter. For SPEC and PLAN files it marks an authoritative rebuild artifact. For ExecPlans it marks a managed ALM artifact whose execution authority depends on status: proposed plans are drafts, while accepted/in-progress/completed linked plans may guide implementation without adding requirements beyond current specs and tasks.
+The same `canonical: true` field appears in SPEC and PLAN frontmatter. ExecPlans are active-run artifacts and should use `canonical: false` if frontmatter is present.
 
 `id` must be stable. Filenames may change, but IDs should not.
 
 ---
 
-## Linking ExecPlans to Tasks
+## ExecPlan Requirements
 
-A task links to its ExecPlan through frontmatter:
+A task declares whether it requires an ExecPlan through frontmatter:
 
 ```yaml
-exec_plan: ../plans/TASK-001-implement-login.execplan.md
+requires_exec_plan: true
 ```
 
-The ExecPlan links back:
+The active-run ExecPlan should link back to the task:
 
 ```yaml
 task: ../tasks/TASK-001-implement-login.md
+canonical: false
 ```
-
-This bidirectional link is required for complex tasks.
-
-If a task is `ready` and has an ExecPlan, the linked ExecPlan must be `accepted`. Do not execute a ready task from a `proposed` ExecPlan.
-
-If an ExecPlan proposes behavior not already present in the feature spec, feature plan, or task, update those artifacts first or leave the ExecPlan in `proposed`.
 
 If a task does not need an ExecPlan, set:
 
 ```yaml
-exec_plan: null
+requires_exec_plan: false
 ```
 
 ---
@@ -384,7 +363,7 @@ Schema, API contract, shared package, and configuration changes are usually bloc
 
 ## Task-Scoped Context Loading
 
-Task files define the required execution context. Accepted or in-progress linked ExecPlans may add implementation context, but they do not add requirements beyond current specs and tasks.
+Task files define the required execution context. An active-run ExecPlan may add implementation context, but it does not add requirements beyond current specs and tasks.
 
 The default implementation context is:
 
@@ -398,15 +377,11 @@ docs/specs/<feature>/tasks/<task>.md
 
 Read only the skills relevant to the task unless the task spans modules.
 
-If the task has an accepted or in-progress ExecPlan, also read:
-
-```text
-docs/specs/<feature>/plans/<task>.execplan.md
-```
+If `requires_exec_plan: true`, create or read the active-run ExecPlan before implementation.
 
 Load global docs by trigger, not by default:
 
-- `docs/BOOKKEEPING.md`: ALM artifact creation or update, task status changes, dependency or concurrency questions, ExecPlan rules.
+- `docs/BOOKKEEPING.md`: ALM artifact creation or update, dependency or concurrency questions, ExecPlan rules.
 - `docs/ARCHITECTURE.md`: executables, service boundaries, storage, runtime topology, integrations, authentication boundaries, deployment assumptions.
 - `docs/DESIGN.md`: durable cross-task decisions, decision changes, rebuild-relevant rationale.
 - `docs/ERRORS.md`: persisted public ARC error-code changes.
@@ -421,7 +396,7 @@ Agents must not silently invent durable behavior.
 
 When required information is missing:
 
-1. If the missing information blocks implementation, mark the task `blocked` and add an open question.
+1. If the missing information blocks implementation, record the blocker in non-canonical run state and add an open question to the relevant task or spec when it affects durable behavior.
 2. If a reasonable local decision is possible and reversible, record it in the task.
 3. If the decision affects architecture, interfaces, storage, security, data, or rebuild reproducibility, promote it to a canonical document.
 
@@ -447,16 +422,11 @@ Acceptance criteria should be testable. Avoid vague criteria such as “works we
 
 ## Work Tracking
 
-The authoritative feature-level work board is `PLAN.md`.
+`PLAN.md` is the authoritative feature-level rebuild board. It defines the DAG, task metadata, concurrency rules, and validation sequence. It is not a run-state board.
 
-Each task also has its own status in frontmatter. The task file is the local status record; `PLAN.md` is the feature summary.
+Run tracking must live outside the canonical rebuild artifact set. A future MCP task board or similar non-canonical mechanism may track `pending`, `ready`, `in_progress`, `blocked`, and `done` for a specific execution. Do not list run-state files in `docs/REBUILD.md`.
 
-When changing a task status, update both:
-
-1. the task frontmatter
-2. the task table in `PLAN.md`
-
-If automation generates planning summaries, `PLAN.md` may be generated from task frontmatter.
+Run state is initialized by reading `docs/specs/INDEX.md`, each feature `PLAN.md`, and task frontmatter, constructing the dependency graph from `depends_on` and `blocks`, and computing current readiness from the run's satisfied tasks and dependency satisfaction.
 
 ---
 
@@ -464,12 +434,10 @@ If automation generates planning summaries, `PLAN.md` may be generated from task
 
 Before a feature is considered complete:
 
-1. All required tasks are `done`.
+1. All task acceptance criteria are satisfied.
 2. Acceptance criteria in `SPEC.md` and task files are satisfied.
 3. Validation steps have run successfully.
-4. `PLAN.md` reflects final task status.
-5. `docs/specs/INDEX.md` reflects feature status.
-6. Rebuild implications are captured in `docs/REBUILD.md` or feature rebuild notes.
+4. Rebuild implications are captured in `docs/REBUILD.md` or feature rebuild notes.
 
 Tasks that modify executable or service boundaries must validate the public executable or service entrypoint. Internal service tests are required but not sufficient for behavior that must be reachable from a deployed binary, hosted service, CLI command, or HTTP route.
 
